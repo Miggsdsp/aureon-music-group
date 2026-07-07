@@ -1,1 +1,0 @@
-import {Nav,Footer} from '../components';export default function Page(){return <main><Nav/><section className="page"><h1>NEWS</h1><div className="panel"><h2>Aureon Music Group Launches</h2><p>The foundation is live. Artist announcements, release dates and label updates will appear here.</p></div></section><Footer/></main>}

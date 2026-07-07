@@ -1,1 +1,0 @@
-import {Nav,Footer,artists} from '../components';export default function Page(){return <main><Nav/><section className="page"><h1>ARTISTS</h1><div className="cards">{artists.map(a=><div className="card" key={a[0]}><h3>{a[0]}</h3><p>{a[1]}</p><p>{a[2]}</p><a className="mini-link" href="/music">View Releases →</a></div>)}</div></section><Footer/></main>}
