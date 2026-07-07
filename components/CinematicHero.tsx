@@ -5,38 +5,14 @@ export function CinematicHero() {
   return (
     <section className="hero" aria-label="Aureon Music Group cinematic homepage">
       <div className="studio-bg" aria-hidden="true">
-        <div className="ambient ambient-left" />
-        <div className="ambient ambient-right" />
-
         <div className="studio-screen">
-          <div className="screen-topline">AUREON // SPECTRUM ANALYZER</div>
+          <div className="screen-topline">AUREON · SPECTRUM ANALYZER</div>
           <div className="screen-grid" />
           <div className="graph graph-one" />
           <div className="graph graph-two" />
           <div className="meter-stack">
             {Array.from({ length: 12 }).map((_, i) => <span key={i} />)}
           </div>
-        </div>
-
-        <div className="rear-speaker speaker-a" />
-        <div className="rear-speaker speaker-b" />
-
-        <div className="desk">
-          {Array.from({ length: 70 }).map((_, i) => <span key={i} className="desk-dot" />)}
-          {Array.from({ length: 18 }).map((_, i) => <i key={i} className="desk-slider" />)}
-        </div>
-
-        <div className="keyboard">
-          {Array.from({ length: 22 }).map((_, i) => <span key={i} />)}
-        </div>
-
-        <div className="producer-silhouette">
-          <div className="head" />
-          <div className="body" />
-          <div className="arm arm-one" />
-          <div className="arm arm-two" />
-          <div className="hand hand-one" />
-          <div className="hand hand-two" />
         </div>
       </div>
 
@@ -64,7 +40,7 @@ export function CinematicHero() {
           <Music2 />
           <div>
             <span>Latest Release</span>
-            <p><strong>Solara</strong><br />Alive</p>
+            <p><strong>SOLARA</strong><br />ALIVE</p>
             <Link href="/music">Listen now →</Link>
           </div>
         </article>
