@@ -1,0 +1,1 @@
+import {Nav,Footer} from '../components';export default function Page(){return <main><Nav/><section className="page"><h1>LICENSING</h1><div className="panel"><h2>Sync & Commercial Use</h2><p>License Aureon music for film, TV, advertising, games, YouTube, podcasts and brand campaigns.</p><p>Contact info@aureonmusicgroup.com for enquiries.</p></div></section><Footer/></main>}
