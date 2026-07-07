@@ -1,51 +1,58 @@
 import Link from 'next/link';
-import { Play, ArrowDown, Music2, Mail, Instagram, Youtube } from 'lucide-react';
+import { ArrowDown, Mail, Music2, Play, Radio, Sparkles } from 'lucide-react';
 
 export function CinematicHero() {
   return (
-    <section className="hero" aria-label="Aureon Music Group cinematic hero">
-      <video className="hero-video" autoPlay muted loop playsInline poster="/images/aureon-studio-bg.jpg">
-        <source src="/videos/aureon-hero.mp4" type="video/mp4" />
-      </video>
-      <div className="hero-poster" />
-      <div className="studio-motion" aria-hidden="true">
-        <div className="screen screen-one">
-          <span className="screen-title">SPECTRUM ANALYZER</span>
-          <i /><i /><i /><i /><i /><i />
-          <b className="wave wave-a" /><b className="wave wave-b" />
+    <section className="hero" aria-label="Aureon Music Group cinematic homepage">
+      <div className="studio-bg" aria-hidden="true">
+        <div className="studio-screen">
+          <span>SPECTRUM ANALYZER</span>
+          <div className="graph graph-one" />
+          <div className="graph graph-two" />
+          <div className="graph-grid" />
         </div>
-        <div className="meter-stack">
-          {Array.from({ length: 9 }).map((_, i) => <span key={i} />)}
+        <div className="producer-silhouette">
+          <div className="head" />
+          <div className="body" />
+          <div className="arm arm-one" />
+          <div className="arm arm-two" />
+          <div className="hand hand-one" />
+          <div className="hand hand-two" />
         </div>
-        <div className="knob-field">
-          {Array.from({ length: 12 }).map((_, i) => <span key={i} />)}
+        <div className="mixing-desk">
+          {Array.from({ length: 42 }).map((_, i) => <span key={`dial-${i}`} className="dial" />)}
+          {Array.from({ length: 26 }).map((_, i) => <i key={`fader-${i}`} className="fader" />)}
         </div>
-        <div className="piano-glow">
-          {Array.from({ length: 10 }).map((_, i) => <span key={i} />)}
+        <div className="keyboard">
+          {Array.from({ length: 18 }).map((_, i) => <span key={`key-${i}`} />)}
         </div>
+        <div className="speaker speaker-left" />
+        <div className="speaker speaker-right" />
       </div>
+
       <div className="hero-overlay" />
+
       <div className="hero-content">
-        <div className="a-mark">A</div>
-        <p className="eyebrow">Independent Music Label</p>
-        <h1>Creating Tomorrow&apos;s Classics</h1>
-        <p className="hero-copy">
-          Elevating music, empowering artists and creating legacies that inspire generations.
-        </p>
+        <div className="hero-mark" aria-hidden="true">A</div>
+        <h1>AUREON</h1>
+        <p className="hero-subtitle">Music Group</p>
+        <p className="hero-tagline">Creating Tomorrow&apos;s Classics</p>
         <div className="hero-actions">
-          <Link className="primary-button" href="/artists">Discover Our Artists <ArrowDown size={16} /></Link>
-          <Link className="ghost-button" href="/music"><Play size={16} /> Listen Now</Link>
+          <Link className="primary-button" href="/artists">Discover Our Artists <ArrowDown size={15} /></Link>
+          <Link className="ghost-button" href="/music"><Play size={15} /> Listen Now</Link>
         </div>
+        <div className="scroll-cue" aria-hidden="true"><span />Scroll</div>
       </div>
+
       <div className="hero-bottom-panel">
         <article>
-          <Music2 />
+          <Sparkles />
           <span>Our Mission</span>
-          <p>Craft premium original music across genres with identity, emotion and commercial purpose.</p>
-          <Link href="/licensing">Learn more →</Link>
+          <p>Elevating music, empowering artists and creating legacies that inspire generations.</p>
+          <Link href="/about">Learn more →</Link>
         </article>
         <article>
-          <img src="/images/solara-alive.jpg" alt="Solara Alive release artwork" />
+          <Music2 />
           <span>Latest Release</span>
           <p><strong>Solara</strong><br />Alive</p>
           <Link href="/music">Listen now →</Link>
@@ -53,13 +60,13 @@ export function CinematicHero() {
         <article>
           <Mail />
           <span>Join the Journey</span>
-          <p>Be first to hear about new artists, songs and exclusive Aureon updates.</p>
+          <p>Be the first to hear about new music, artists and exclusive content.</p>
           <Link href="/contact">Sign up →</Link>
         </article>
         <article className="social-strip">
-          <Instagram /><Youtube /><Music2 />
+          <Radio />
           <span>Follow Us</span>
-          <p>Instagram • YouTube • TikTok • Spotify</p>
+          <p>Spotify • YouTube • Instagram • TikTok • Apple</p>
         </article>
       </div>
     </section>
