@@ -2,16 +2,17 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Aureon Music Group',
-  description: 'Independent music label creating tomorrow\'s classics across deep house, country pop, reggae, blues and Afro house.',
-  metadataBase: new URL('https://www.aureonmusicgroup.com'),
+  title: 'Aureon Music Group | Creating Tomorrow\'s Classics',
+  description: 'Aureon Music Group is an independent music label creating original music across deep house, western pop, reggae, blues and Afro house.',
+  icons: {
+    icon: '/images/favicon.svg',
+  },
   openGraph: {
     title: 'Aureon Music Group',
-    description: 'Creating tomorrow\'s classics.',
-    url: 'https://www.aureonmusicgroup.com',
+    description: 'Creating Tomorrow\'s Classics',
     siteName: 'Aureon Music Group',
-    type: 'website'
-  }
+    type: 'website',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
