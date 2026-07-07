@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { Logo } from './Logo';
 
 const links = [
+  ['About', '/about'],
   ['Artists', '/artists'],
   ['Music', '/music'],
   ['Videos', '/videos'],
-  ['Licensing', '/licensing'],
+  ['News', '/news'],
   ['Merchandise', '/merchandise'],
   ['Contact', '/contact']
 ];
