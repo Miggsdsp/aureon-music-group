@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './finish.css';
 
 export const metadata: Metadata = {
   title: "Aureon Music Group | Creating Tomorrow's Classics",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
     description: 'Official website of Aureon Music Group.',
     url: 'https://aureonmusicgroup.com',
     siteName: 'Aureon Music Group',
-    images: [{ url: '/images/aureon-studio-bg.jpg', width: 1600, height: 900 }],
+    images: [{ url: '/images/aureon-hero-cinematic.svg', width: 1600, height: 900 }],
     locale: 'en_IE',
     type: 'website'
   }
