@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowDown, Mail, Music2, Play, Radio, Sparkles } from 'lucide-react';
+import { ArrowDown, Mail, Music2, Radio, Sparkles } from 'lucide-react';
 
 export function CinematicHero() {
   return (
@@ -16,18 +16,10 @@ export function CinematicHero() {
           <div className="body" />
           <div className="arm arm-one" />
           <div className="arm arm-two" />
-          <div className="hand hand-one" />
-          <div className="hand hand-two" />
         </div>
-        <div className="mixing-desk">
-          {Array.from({ length: 42 }).map((_, i) => <span key={`dial-${i}`} className="dial" />)}
-          {Array.from({ length: 26 }).map((_, i) => <i key={`fader-${i}`} className="fader" />)}
+        <div className="desk-lights">
+          {Array.from({ length: 48 }).map((_, i) => <span key={i} />)}
         </div>
-        <div className="keyboard">
-          {Array.from({ length: 18 }).map((_, i) => <span key={`key-${i}`} />)}
-        </div>
-        <div className="speaker speaker-left" />
-        <div className="speaker speaker-right" />
       </div>
 
       <div className="hero-overlay" />
@@ -37,10 +29,7 @@ export function CinematicHero() {
         <h1>AUREON</h1>
         <p className="hero-subtitle">Music Group</p>
         <p className="hero-tagline">Creating Tomorrow&apos;s Classics</p>
-        <div className="hero-actions">
-          <Link className="primary-button" href="/artists">Discover Our Artists <ArrowDown size={15} /></Link>
-          <Link className="ghost-button" href="/music"><Play size={15} /> Listen Now</Link>
-        </div>
+        <Link className="primary-button" href="/artists">Discover Our Artists <ArrowDown size={16} /></Link>
         <div className="scroll-cue" aria-hidden="true"><span />Scroll</div>
       </div>
 
@@ -48,7 +37,7 @@ export function CinematicHero() {
         <article>
           <Sparkles />
           <span>Our Mission</span>
-          <p>Elevating music, empowering artists and creating legacies that inspire generations.</p>
+          <p>Elevating music. Empowering artists. Creating legacies that inspire generations.</p>
           <Link href="/about">Learn more →</Link>
         </article>
         <article>
@@ -63,7 +52,7 @@ export function CinematicHero() {
           <p>Be the first to hear about new music, artists and exclusive content.</p>
           <Link href="/contact">Sign up →</Link>
         </article>
-        <article className="social-strip">
+        <article>
           <Radio />
           <span>Follow Us</span>
           <p>Spotify • YouTube • Instagram • TikTok • Apple</p>
