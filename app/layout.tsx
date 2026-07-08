@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './finish.css';
+import './sprint2.css';
 
 export const metadata: Metadata = {
   title: "Aureon Music Group | Creating Tomorrow's Classics",
