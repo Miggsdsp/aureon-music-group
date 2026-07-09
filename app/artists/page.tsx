@@ -26,7 +26,7 @@ export default function ArtistsPage() {
 
       <div className="artist-grid page-grid artist-identity-grid">
         {artists.map((artist) => (
-          <article className="artist-card identity-card logo-card" key={artist.id}>
+          <article className={`artist-card identity-card logo-card artist-${artist.slug}`} key={artist.id}>
             <div className="artist-logo-frame">
               <Image
                 src={`/images/artists/${artist.slug}/${artist.logo}`}
@@ -35,7 +35,6 @@ export default function ArtistsPage() {
                 height={900}
                 unoptimized
                 className="artist-uploaded-logo"
-                style={{ width: '260px', height: '260px', maxWidth: '96%', objectFit: 'contain' }}
               />
             </div>
             <p>{artist.id}</p>
