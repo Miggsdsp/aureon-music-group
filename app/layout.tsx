@@ -3,6 +3,7 @@ import './globals.css';
 import './finish.css';
 import './sprint2.css';
 import './artists-header-fix.css';
+import './homepage-fit-fix.css';
 
 export const metadata: Metadata = {
   title: "Aureon Music Group | Creating Tomorrow's Classics",
