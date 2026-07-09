@@ -5,7 +5,7 @@ export function Logo() {
   return (
     <Link href="/" className="logo aureon-image-logo" aria-label="Aureon Music Group home">
       <Image
-        src="/logos/Aureon_Header_Logo.png"
+        src="/images/branding/aureon-logo.png"
         alt="Aureon Music Group"
         width={520}
         height={180}
