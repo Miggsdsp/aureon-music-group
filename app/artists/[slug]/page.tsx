@@ -7,12 +7,17 @@ import { Footer } from '@/components/Footer';
 import { LatestPlayButton } from '@/components/LatestPlayButton';
 import { artists, getArtistAudioPath, getArtistBySlug } from '@/data/artists';
 
+export const dynamicParams = false;
+
+type ArtistPageParams = Promise<{ slug: string }>;
+
 export function generateStaticParams() {
   return artists.map((artist) => ({ slug: artist.slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }) {
-  const artist = getArtistBySlug(params.slug);
+export async function generateMetadata({ params }: { params: ArtistPageParams }) {
+  const { slug } = await params;
+  const artist = getArtistBySlug(slug);
 
   if (!artist) {
     return { title: 'Artist | Aureon Music Group' };
@@ -24,8 +29,9 @@ export function generateMetadata({ params }: { params: { slug: string } }) {
   };
 }
 
-export default function ArtistProfilePage({ params }: { params: { slug: string } }) {
-  const artist = getArtistBySlug(params.slug);
+export default async function ArtistProfilePage({ params }: { params: ArtistPageParams }) {
+  const { slug } = await params;
+  const artist = getArtistBySlug(slug);
 
   if (!artist) notFound();
 
