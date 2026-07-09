@@ -28,7 +28,15 @@ export default function ArtistsPage() {
         {artists.map((artist) => (
           <article className="artist-card identity-card logo-card" key={artist.id}>
             <div className="artist-logo-frame">
-              <Image src={`/images/artists/${artist.slug}/${artist.logo}`} alt={`${artist.name} logo`} width={520} height={520} className="artist-uploaded-logo" />
+              <Image
+                src={`/images/artists/${artist.slug}/${artist.logo}`}
+                alt={`${artist.name} logo`}
+                width={900}
+                height={900}
+                unoptimized
+                className="artist-uploaded-logo"
+                style={{ width: '260px', height: '260px', maxWidth: '96%', objectFit: 'contain' }}
+              />
             </div>
             <p>{artist.id}</p>
             <h3>{artist.name}</h3>
