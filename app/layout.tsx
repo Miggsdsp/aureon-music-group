@@ -9,6 +9,7 @@ import './music-catalogue.css';
 import './video-catalogue.css';
 import './news.css';
 import './merch-store.css';
+import './about.css';
 
 export const metadata: Metadata = {
   title: "Aureon Music Group | Creating Tomorrow's Classics",
