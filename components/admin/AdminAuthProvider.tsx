@@ -40,7 +40,11 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     if (!nextUser) return;
 
     try {
-      const snapshot = await getDoc(doc(firestore, 'admins', nextUser.uid));
+      let snapshot = await getDoc(doc(firestore, 'admins', nextUser.uid));
+      if (!snapshot.exists()) {
+        snapshot = await getDoc(doc(firestore, 'admin', nextUser.uid));
+      }
+
       if (!snapshot.exists()) {
         setAccessError('This Firebase account is not registered as an Aureon administrator.');
         return;
