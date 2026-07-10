@@ -1,0 +1,23 @@
+.admin-mobile-menu,.admin-sidebar-backdrop{display:none}
+
+@media(max-width:760px){
+  .admin-app{display:block;min-height:100vh}
+  .admin-mobile-menu{position:fixed;top:16px;left:16px;z-index:1202;display:grid;place-items:center;width:46px;height:46px;border:1px solid rgba(217,180,95,.42);background:#080808;color:#d9b45f;cursor:pointer}
+  .admin-sidebar{position:fixed;inset:0 auto 0 0;z-index:1201;width:min(320px,86vw);height:100vh;transform:translateX(-105%);transition:transform .25s ease;padding-top:78px;box-shadow:24px 0 80px rgba(0,0,0,.75)}
+  .admin-sidebar.open{transform:translateX(0)}
+  .admin-sidebar-backdrop{position:fixed;inset:0;z-index:1200;display:block;border:0;background:rgba(0,0,0,.72)}
+  .admin-brand{justify-content:flex-start}
+  .admin-sidebar nav{display:grid;overflow:auto}
+  .admin-sidebar nav a{min-width:0;font-size:inherit!important;justify-content:flex-start}
+  .admin-sidebar>button{font-size:inherit;justify-content:flex-start}
+  .admin-topbar{height:78px;padding:0 18px 0 78px}
+  .admin-topbar>span{max-width:130px;overflow:hidden;text-overflow:ellipsis}
+  .admin-content{padding:28px 18px}
+}
+
+@media(max-width:430px){
+  .admin-login-page{padding:14px}
+  .admin-login-card{padding:28px 20px}
+  .admin-topbar strong{display:block;max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .admin-topbar>span{font-size:8px;padding:6px 7px}
+}
