@@ -1,0 +1,2 @@
+import { AdminSection } from '@/components/admin/AdminSection';
+export default function Page(){return <AdminSection title="Pages" description="Control page visibility, navigation visibility and maintenance status."/>;}
