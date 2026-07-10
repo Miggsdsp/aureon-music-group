@@ -1,9 +1,9 @@
 import { PageShell } from '@/components/PageShell';
+import { MerchStore } from '@/components/MerchStore';
 
-export default function MerchandisePage() {
-  return (
-    <PageShell title="Merchandise" kicker="Aureon store">
-      <div className="video-grid"><article><h3>Premium Hoodies</h3><p>Coming soon.</p></article><article><h3>Artist Drops</h3><p>Solara, Ryder Blackwood, Ganja Boy, Ash Cadwell and Zenara.</p></article></div>
-    </PageShell>
-  );
+export default function MerchandisePage(){
+ return <PageShell title="Merchandise" kicker="Aureon Store">
+  <section className="store-intro"><div><p className="eyebrow">Official Store</p><h2>Wear the sound.</h2></div><p>Shop official Aureon and artist merchandise including hoodies, T-shirts, caps, posters and limited releases.</p></section>
+  <MerchStore/>
+ </PageShell>
 }
