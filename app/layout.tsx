@@ -14,6 +14,7 @@ import './about-cleanup.css';
 import './contact.css';
 import './digital-music-store.css';
 import './footer.css';
+import './phase1-polish.css';
 
 export const metadata: Metadata = {
   title: "Aureon Music Group | Creating Tomorrow's Classics",
