@@ -1,0 +1,2 @@
+import { AdminSection } from '@/components/admin/AdminSection';
+export default function Page(){return <AdminSection title="Settings" description="Manage Aureon platform settings and operational preferences."/>;}
