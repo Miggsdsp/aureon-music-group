@@ -39,13 +39,7 @@ export default async function AlbumPage({ params }: { params: AlbumPageParams })
 
       <section className="album-hero-detail">
         <div className="album-detail-cover">
-          <Image
-            src={album.cover}
-            alt={`${album.title} album artwork`}
-            width={1000}
-            height={1000}
-            unoptimized
-          />
+          <Image src={album.cover} alt={`${album.title} album artwork`} width={1000} height={1000} unoptimized />
         </div>
 
         <div className="album-detail-copy">
@@ -73,9 +67,20 @@ export default async function AlbumPage({ params }: { params: AlbumPageParams })
               <span>{String(index + 1).padStart(2, '0')}</span>
               <div>
                 <h3>{song.title}</h3>
-                <p>{album.artist} · {song.duration}</p>
+                <p>{album.artist} · {song.duration} · Digital download €0.99</p>
               </div>
-              <LatestPlayButton title={song.title} src={getSongAudioPath(album, song)} />
+              <LatestPlayButton
+                title={song.title}
+                src={getSongAudioPath(album, song)}
+                purchase={{
+                  id: `${album.slug}-${song.file.replace('.mp3', '')}`,
+                  title: song.title,
+                  artist: album.artist,
+                  image: album.cover,
+                  price: 0.99,
+                  promotional: false
+                }}
+              />
             </article>
           ))}
         </div>
