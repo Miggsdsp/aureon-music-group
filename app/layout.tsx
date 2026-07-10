@@ -10,7 +10,7 @@ import './video-catalogue.css';
 import './news.css';
 import './merch-store.css';
 import './about.css';
-import './about-logo-fix.css';
+import './about-cleanup.css';
 import './contact.css';
 import './digital-music-store.css';
 
