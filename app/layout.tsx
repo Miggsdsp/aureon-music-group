@@ -11,6 +11,7 @@ import './news.css';
 import './merch-store.css';
 import './about.css';
 import './contact.css';
+import './digital-music-store.css';
 
 export const metadata: Metadata = {
   title: "Aureon Music Group | Creating Tomorrow's Classics",
