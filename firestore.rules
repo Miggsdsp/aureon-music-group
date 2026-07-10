@@ -2,10 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function adminDoc() { return get(/databases/$(database)/documents/admins/$(request.auth.uid)); }
-    function activeAdmin() { return signedIn() && adminDoc().data.active == true; }
+    function pluralAdminExists() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function singularAdminExists() { return signedIn() && exists(/databases/$(database)/documents/admin/$(request.auth.uid)); }
+    function pluralAdminActive() { return pluralAdminExists() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true; }
+    function singularAdminActive() { return singularAdminExists() && get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.active == true; }
+    function activeAdmin() { return pluralAdminActive() || singularAdminActive(); }
 
     match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /admin/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow write: if false;
     }
