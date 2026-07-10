@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { Disc3, Globe2, Headphones, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -44,7 +43,7 @@ export default function AboutPage() {
     <main className="page-shell about-page">
       <Header />
 
-      <section className="about-hero">
+      <section className="about-hero about-hero-clean">
         <div className="about-hero-copy">
           <p className="eyebrow">Independent Music. Global Ambition.</p>
           <h1>Creating tomorrow&apos;s classics.</h1>
@@ -56,18 +55,6 @@ export default function AboutPage() {
             <Link href="/artists" className="primary-button">Meet our artists →</Link>
             <Link href="/music" className="ghost-button">Explore the music →</Link>
           </div>
-        </div>
-
-        <div className="about-hero-mark">
-          <Image
-            src="/images/branding/Aureon_Header_Logo.png"
-            alt="Aureon Music Group logo"
-            width={1200}
-            height={700}
-            unoptimized
-            priority
-            className="about-hero-logo"
-          />
         </div>
       </section>
 
