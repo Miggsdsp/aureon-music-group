@@ -25,7 +25,6 @@ type CartProduct = {
   description: string;
   badge?: string;
   digital?: boolean;
-  downloadFile?: string;
 };
 
 export function LatestPlayButton({ title, src, purchase }: { title: string; src: string; purchase?: SongPurchase }) {
@@ -84,8 +83,7 @@ export function LatestPlayButton({ title, src, purchase }: { title: string; src:
       image: purchase.image,
       description: `Full digital download of ${purchase.title} by ${purchase.artist}.`,
       badge: 'Digital Download',
-      digital: true,
-      downloadFile: src
+      digital: true
     };
 
     const saved = localStorage.getItem('aureon-cart');
@@ -102,11 +100,13 @@ export function LatestPlayButton({ title, src, purchase }: { title: string; src:
     setAdded(true);
   }
 
+  if (hasError) return null;
+
   return (
     <div className="song-commerce-control">
-      <button className="latest-release latest-release-button" type="button" onClick={togglePlay} disabled={hasError}>
+      <button className="latest-release latest-release-button" type="button" onClick={togglePlay}>
         {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-        {hasError ? 'Upload song file' : promotional ? `Play: ${title}` : `40s Preview: ${title}`}
+        {promotional ? `Play: ${title}` : `40s Preview: ${title}`}
       </button>
 
       {!promotional && purchase && (
