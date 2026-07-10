@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Disc3, Globe2, Headphones, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -57,9 +58,16 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div className="about-hero-mark" aria-hidden="true">
-          <span>A</span>
-          <small>Aureon Music Group</small>
+        <div className="about-hero-mark">
+          <Image
+            src="/images/branding/Aureon_Header_Logo.png"
+            alt="Aureon Music Group logo"
+            width={1200}
+            height={700}
+            unoptimized
+            priority
+            className="about-hero-logo"
+          />
         </div>
       </section>
 
