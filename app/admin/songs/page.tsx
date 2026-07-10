@@ -1,0 +1,2 @@
+import { AdminSection } from '@/components/admin/AdminSection';
+export default function Page(){return <AdminSection title="Songs" description="Manage previews, private masters, pricing, release dates and publication status."/>;}
