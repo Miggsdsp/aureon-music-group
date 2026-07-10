@@ -1,0 +1,2 @@
+import { AdminSection } from '@/components/admin/AdminSection';
+export default function Page(){return <AdminSection title="Analytics" description="Review sales, downloads, customers and catalogue performance."/>;}
