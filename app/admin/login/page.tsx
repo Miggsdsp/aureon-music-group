@@ -4,9 +4,11 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
+import { doc, getDoc } from 'firebase/firestore';
 import { LockKeyhole, Mail } from 'lucide-react';
-import { firebaseAuth } from '@/lib/firebase-client';
+import { firebaseAuth, firestore } from '@/lib/firebase-client';
 import { useAdminAuth } from '@/components/admin/AdminAuthProvider';
+import { isAdminRole } from '@/lib/admin-permissions';
 
 function friendlyAuthError(error: unknown) {
   if (!(error instanceof FirebaseError)) return 'Login failed. Please try again.';
@@ -27,6 +29,8 @@ function friendlyAuthError(error: unknown) {
       return 'Too many failed attempts. Wait a few minutes or reset the password.';
     case 'auth/network-request-failed':
       return 'The browser could not reach Firebase. Check your internet connection.';
+    case 'permission-denied':
+      return 'Firestore blocked the administrator check. Redeploy the Firestore rules.';
     default:
       return `Firebase login error: ${error.code}`;
   }
@@ -34,7 +38,7 @@ function friendlyAuthError(error: unknown) {
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { authorised, loading, accessError } = useAdminAuth();
+  const { authorised, loading, accessError, refreshAdmin } = useAdminAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -49,8 +53,37 @@ export default function AdminLoginPage() {
     event.preventDefault();
     setBusy(true);
     setMessage('');
+
     try {
-      await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
+      const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
+      const uid = credential.user.uid;
+
+      let adminSnapshot = await getDoc(doc(firestore, 'admin', uid));
+      if (!adminSnapshot.exists()) {
+        adminSnapshot = await getDoc(doc(firestore, 'admins', uid));
+      }
+
+      if (!adminSnapshot.exists()) {
+        await signOut(firebaseAuth);
+        setMessage('Login succeeded, but this user is not registered in Firestore as an Aureon administrator.');
+        return;
+      }
+
+      const adminData = adminSnapshot.data();
+      if (adminData.active !== true) {
+        await signOut(firebaseAuth);
+        setMessage('Login succeeded, but this administrator account is disabled.');
+        return;
+      }
+
+      if (!isAdminRole(adminData.role)) {
+        await signOut(firebaseAuth);
+        setMessage(`Login succeeded, but the administrator role is invalid: ${String(adminData.role || 'missing')}.`);
+        return;
+      }
+
+      await refreshAdmin();
+      router.replace('/admin');
     } catch (error) {
       setMessage(friendlyAuthError(error));
     } finally {
