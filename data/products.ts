@@ -1,0 +1,16 @@
+export type Product={id:string;name:string;slug:string;category:string;artist:string;artistSlug:string;price:number;image:string;description:string;sizes?:string[];colours?:string[];badge?:string};
+
+export const products:Product[]=[
+{id:'MERCH001',name:'Aureon Signature Hoodie',slug:'aureon-signature-hoodie',category:'Hoodies',artist:'Aureon Music Group',artistSlug:'aureon',price:64.99,image:'/images/branding/Aureon_Header_Logo.png',description:'Premium heavyweight black hoodie with the official Aureon gold identity.',sizes:['S','M','L','XL','XXL'],colours:['Black'],badge:'Best Seller'},
+{id:'MERCH002',name:'Aureon Classic T-Shirt',slug:'aureon-classic-t-shirt',category:'T-Shirts',artist:'Aureon Music Group',artistSlug:'aureon',price:29.99,image:'/images/branding/Aureon_Header_Logo.png',description:'Premium cotton T-shirt with gold Aureon branding.',sizes:['S','M','L','XL','XXL'],colours:['Black','White']},
+{id:'MERCH003',name:'KAIVO Galactic Hoodie',slug:'kaivo-galactic-hoodie',category:'Hoodies',artist:'KAIVO',artistSlug:'kaivo',price:69.99,image:'/images/artists/kaivo/KAIVO_Logo.png',description:'Limited Galactic collection hoodie inspired by KAIVO.',sizes:['S','M','L','XL','XXL'],colours:['Black','Midnight Navy'],badge:'New Drop'},
+{id:'MERCH004',name:'Ryder Blackwood Western Tee',slug:'ryder-blackwood-western-tee',category:'T-Shirts',artist:'RYDER BLACKWOOD',artistSlug:'ryder-blackwood',price:34.99,image:'/images/artists/ryder-blackwood/RYDER_BLACKWOOD_Logo.png',description:'Vintage western-style tee for Ryder Blackwood fans.',sizes:['S','M','L','XL','XXL'],colours:['Black','Washed Charcoal']},
+{id:'MERCH005',name:'MAREA Eterno Capitao Poster',slug:'marea-eterno-capitao-poster',category:'Posters',artist:'MAREA',artistSlug:'marea',price:19.99,image:'/images/artists/marea/MAREA_Logo.png',description:'Premium art print celebrating MAREA.',sizes:['A3','A2']},
+{id:'MERCH006',name:'Ash Caldwell Midnight Bottle Tee',slug:'ash-caldwell-midnight-bottle-tee',category:'T-Shirts',artist:'ASH CALDWELL',artistSlug:'ash-caldwell',price:34.99,image:'/images/artists/ash-caldwell/ASH_CALDWELL_Logo.png',description:'Dark blues-rock tee inspired by Midnight Bottle.',sizes:['S','M','L','XL','XXL'],colours:['Black']},
+{id:'MERCH007',name:'NURU Rise To Power Poster',slug:'nuru-rise-to-power-poster',category:'Posters',artist:'NURU',artistSlug:'nuru',price:21.99,image:'/images/artists/nuru/NURU_Logo.png',description:'Bold Afro House wall art inspired by NURU.',sizes:['A3','A2']},
+{id:'MERCH008',name:'Starlight Neon Cap',slug:'starlight-neon-cap',category:'Caps',artist:'STARLIGHT',artistSlug:'starlight',price:27.99,image:'/images/artists/starlight/STARLIGHT_Logo.png',description:'Retro-inspired cap featuring the Starlight identity.',colours:['Black','Navy']},
+{id:'MERCH009',name:'Everstone Soft Rock Hoodie',slug:'everstone-soft-rock-hoodie',category:'Hoodies',artist:'EVERSTONE',artistSlug:'everstone',price:69.99,image:'/images/artists/everstone/EVERSTONE_Logo.png',description:'Premium soft rock hoodie with classic tour-merch character.',sizes:['S','M','L','XL','XXL'],colours:['Black','Heather Grey']}
+];
+
+export const productCategories=['All','Hoodies','T-Shirts','Caps','Posters','Accessories'];
+export function getProductBySlug(slug:string){return products.find(p=>p.slug===slug)}
