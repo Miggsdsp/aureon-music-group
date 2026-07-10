@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Disc3, Music2 } from 'lucide-react';
+import { Disc3 } from 'lucide-react';
 import { PageShell } from '@/components/PageShell';
 import { albums } from '@/data/albums';
 
@@ -12,7 +12,7 @@ export default function MusicPage() {
           <p className="eyebrow">Aureon Catalogue</p>
           <h2>Albums and releases</h2>
         </div>
-        <p>Browse Aureon albums, open a release, then play the available songs inside that album.</p>
+        <p>Browse Aureon albums, open a release, preview the available songs and purchase complete digital downloads.</p>
       </section>
 
       <section className="album-grid">
@@ -37,14 +37,6 @@ export default function MusicPage() {
             </div>
           </Link>
         ))}
-      </section>
-
-      <section className="music-note-strip">
-        <Music2 />
-        <div>
-          <h3>Upload song files as releases are completed</h3>
-          <p>Album pages are ready. Add MP3 files to the matching public music folder and the play buttons will work.</p>
-        </div>
       </section>
     </PageShell>
   );
