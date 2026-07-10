@@ -30,7 +30,18 @@ export default function ArtistsPage() {
             <h3>{artist.name}</h3>
             <strong>{artist.genre}</strong>
             <span>{artist.desc}</span>
-            <LatestPlayButton title={artist.latest} src={getArtistAudioPath(artist)} />
+            <LatestPlayButton
+              title={artist.latest}
+              src={getArtistAudioPath(artist)}
+              purchase={{
+                id: `${artist.slug}-${artist.latestFile.replace('.mp3', '')}`,
+                title: artist.latest,
+                artist: artist.name,
+                image: `/images/artists/${artist.slug}/${artist.logo}`,
+                price: 0.99,
+                promotional: false
+              }}
+            />
             <Link href={`/artists/${artist.slug}`}>View artist →</Link>
           </article>
         ))}
@@ -40,7 +51,7 @@ export default function ArtistsPage() {
         <Headphones />
         <div>
           <h3>Discover their music</h3>
-          <p>Stream the latest releases from the Aureon roster.</p>
+          <p>Preview releases or buy the full digital download.</p>
         </div>
         <Link className="ghost-button" href="/music">Browse all music →</Link>
       </div>
