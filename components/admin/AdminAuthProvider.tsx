@@ -1,15 +1,16 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
+import { browserLocalPersistence, onAuthStateChanged, setPersistence, signOut, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { firebaseAuth, firestore } from '@/lib/firebase-client';
+import { isAdminRole, type AdminRole } from '@/lib/admin-permissions';
 
 type AdminProfile = {
   uid: string;
   email: string;
   name?: string;
-  role: string;
+  role: AdminRole;
   active: boolean;
 };
 
@@ -18,6 +19,8 @@ type AdminAuthContextValue = {
   admin: AdminProfile | null;
   loading: boolean;
   authorised: boolean;
+  accessError: string;
+  refreshAdmin: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -27,42 +30,79 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [admin, setAdmin] = useState<AdminProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessError, setAccessError] = useState('');
 
-  useEffect(() => {
-    return onAuthStateChanged(firebaseAuth, async (nextUser) => {
-      setUser(nextUser);
-      setAdmin(null);
+  async function loadAdmin(nextUser: User | null) {
+    setUser(nextUser);
+    setAdmin(null);
+    setAccessError('');
 
-      if (!nextUser) {
-        setLoading(false);
+    if (!nextUser) return;
+
+    try {
+      const snapshot = await getDoc(doc(firestore, 'admins', nextUser.uid));
+      if (!snapshot.exists()) {
+        setAccessError('This Firebase account is not registered as an Aureon administrator.');
         return;
       }
 
-      try {
-        const snapshot = await getDoc(doc(firestore, 'admins', nextUser.uid));
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          setAdmin({
-            uid: nextUser.uid,
-            email: nextUser.email || '',
-            name: data.name || '',
-            role: data.role || 'viewer',
-            active: data.active === true
-          });
-        }
-      } finally {
-        setLoading(false);
+      const data = snapshot.data();
+      if (data.active !== true) {
+        setAccessError('This administrator account has been disabled.');
+        return;
       }
-    });
+
+      if (!isAdminRole(data.role)) {
+        setAccessError('This administrator account has an invalid access role.');
+        return;
+      }
+
+      setAdmin({
+        uid: nextUser.uid,
+        email: nextUser.email || String(data.email || ''),
+        name: String(data.name || ''),
+        role: data.role,
+        active: true
+      });
+    } catch {
+      setAccessError('Aureon could not verify administrator access. Check Firestore rules and try again.');
+    }
+  }
+
+  useEffect(() => {
+    let unsubscribe = () => undefined;
+
+    setPersistence(firebaseAuth, browserLocalPersistence)
+      .catch(() => undefined)
+      .finally(() => {
+        unsubscribe = onAuthStateChanged(firebaseAuth, async (nextUser) => {
+          setLoading(true);
+          await loadAdmin(nextUser);
+          setLoading(false);
+        });
+      });
+
+    return () => unsubscribe();
   }, []);
 
   const value = useMemo<AdminAuthContextValue>(() => ({
     user,
     admin,
     loading,
+    accessError,
     authorised: Boolean(user && admin?.active),
-    logout: () => signOut(firebaseAuth)
-  }), [user, admin, loading]);
+    refreshAdmin: async () => {
+      setLoading(true);
+      await loadAdmin(firebaseAuth.currentUser);
+      setLoading(false);
+    },
+    logout: async () => {
+      await signOut(firebaseAuth);
+      setUser(null);
+      setAdmin(null);
+      setAccessError('');
+    }
+  }), [user, admin, loading, accessError]);
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;
 }
