@@ -2,51 +2,66 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { BarChart3, Boxes, FileText, ImagePlay, LayoutDashboard, LogOut, Music, Newspaper, Package, Settings, ShoppingBag, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BarChart3, Boxes, FileText, ImagePlay, LayoutDashboard, LogOut, Menu, Music, Newspaper, Package, Settings, ShoppingBag, Users, X } from 'lucide-react';
+import { canAccessSection, type AdminSection } from '@/lib/admin-permissions';
 import { useAdminAuth } from './AdminAuthProvider';
 
-const nav = [
-  ['Dashboard', '/admin', LayoutDashboard],
-  ['Artists', '/admin/artists', Users],
-  ['Albums', '/admin/albums', Boxes],
-  ['Songs', '/admin/songs', Music],
-  ['Videos', '/admin/videos', ImagePlay],
-  ['News', '/admin/news', Newspaper],
-  ['Merchandise', '/admin/products', ShoppingBag],
-  ['Orders', '/admin/orders', Package],
-  ['Pages', '/admin/pages', FileText],
-  ['Analytics', '/admin/analytics', BarChart3],
-  ['Settings', '/admin/settings', Settings]
-] as const;
+const nav: Array<[string, string, React.ComponentType<{ size?: number }>, AdminSection]> = [
+  ['Dashboard', '/admin', LayoutDashboard, 'dashboard'],
+  ['Artists', '/admin/artists', Users, 'artists'],
+  ['Albums', '/admin/albums', Boxes, 'albums'],
+  ['Songs', '/admin/songs', Music, 'songs'],
+  ['Videos', '/admin/videos', ImagePlay, 'videos'],
+  ['News', '/admin/news', Newspaper, 'news'],
+  ['Merchandise', '/admin/products', ShoppingBag, 'products'],
+  ['Orders', '/admin/orders', Package, 'orders'],
+  ['Pages', '/admin/pages', FileText, 'pages'],
+  ['Analytics', '/admin/analytics', BarChart3, 'analytics'],
+  ['Settings', '/admin/settings', Settings, 'settings']
+];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { authorised, loading, admin, logout } = useAdminAuth();
+  const { authorised, loading, admin, accessError, logout } = useAdminAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !authorised) router.replace('/admin/login');
   }, [authorised, loading, router]);
 
+  useEffect(() => setMenuOpen(false), [pathname]);
+
+  const allowedNav = useMemo(
+    () => admin ? nav.filter(([, , , section]) => canAccessSection(admin.role, section)) : [],
+    [admin]
+  );
+
   if (loading) return <main className="admin-loading">Checking secure access…</main>;
-  if (!authorised) return null;
+  if (!authorised) return <main className="admin-loading">{accessError || 'Redirecting to secure login…'}</main>;
 
   return (
     <div className="admin-app">
-      <aside className="admin-sidebar">
+      <button className="admin-mobile-menu" type="button" onClick={() => setMenuOpen((value) => !value)} aria-label="Toggle admin navigation">
+        {menuOpen ? <X size={22} /> : <Menu size={22} />}
+      </button>
+
+      <aside className={`admin-sidebar${menuOpen ? ' open' : ''}`}>
         <div className="admin-brand">
           <span>A</span>
           <div><strong>Aureon</strong><small>Control Center</small></div>
         </div>
         <nav>
-          {nav.map(([label, href, Icon]) => {
+          {allowedNav.map(([label, href, Icon]) => {
             const active = href === '/admin' ? pathname === href : pathname.startsWith(href);
             return <Link key={href} href={href} className={active ? 'active' : ''}><Icon size={18} />{label}</Link>;
           })}
         </nav>
         <button onClick={async () => { await logout(); router.replace('/admin/login'); }}><LogOut size={18} /> Sign out</button>
       </aside>
+
+      {menuOpen && <button className="admin-sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
 
       <section className="admin-main">
         <header className="admin-topbar">
