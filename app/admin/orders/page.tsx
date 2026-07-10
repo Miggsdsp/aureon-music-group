@@ -1,0 +1,2 @@
+import { AdminSection } from '@/components/admin/AdminSection';
+export default function Page(){return <AdminSection title="Orders" description="Track paid orders, digital delivery and merchandise fulfilment."/>;}
