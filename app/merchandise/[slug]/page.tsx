@@ -1,22 +1,28 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, Truck } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { products,getProductBySlug } from '@/data/products';
+import { getProductBySlug } from '@/data/products';
+import { usePublishedDocument } from '@/lib/usePublishedDocument';
 
-export const dynamicParams=false;
-type Params=Promise<{slug:string}>;
-export function generateStaticParams(){return products.map(product=>({slug:product.slug}))}
-export default async function ProductPage({params}:{params:Params}){
- const {slug}=await params;const product=getProductBySlug(slug);if(!product)notFound();
+export default function ProductPage(){
+ const {slug}=useParams<{slug:string}>();
+ const fallback=getProductBySlug(slug) as any;
+ const {data:product,loading}=usePublishedDocument<any>('products',slug,fallback||null);
+ if(!product&&!loading)return <main className="page-shell"><Header/><section className="content-panel"><h1>Product not found</h1></section><Footer/></main>;
+ if(!product)return null;
+ const image=product.imageUrl||product.image||'/images/branding/Aureon_Header_Logo.png';
+ const sizes=Array.isArray(product.sizes)?product.sizes:String(product.sizes||'').split(',').filter(Boolean);
+ const colours=Array.isArray(product.colours)?product.colours:String(product.colours||'').split(',').filter(Boolean);
  return <main className="page-shell product-detail-page"><Header/><section className="product-detail-hero">
-  <div className="product-detail-image"><Image src={product.image} alt={product.name} width={1000} height={1000} unoptimized/></div>
-  <div className="product-detail-copy"><Link href="/merchandise" className="back-link"><ArrowLeft size={16}/>Back to store</Link><p className="eyebrow">{product.category} · {product.artist}</p><h1>{product.name}</h1><div className="detail-price">€{product.price.toFixed(2)}</div><p>{product.description}</p>
-  {product.sizes&&<label>Size<select>{product.sizes.map(size=><option key={size}>{size}</option>)}</select></label>}
-  {product.colours&&<label>Colour<select>{product.colours.map(colour=><option key={colour}>{colour}</option>)}</select></label>}
-  <Link href="/merchandise" className="primary-button">Add from store cart</Link>
-  <div className="product-benefits"><span><Truck/>Worldwide delivery</span><span><ShieldCheck/>Secure checkout</span></div></div>
- </section><Footer/></main>
+  <div className="product-detail-image"><Image src={image} alt={product.name} width={1000} height={1000} unoptimized/></div>
+  <div className="product-detail-copy"><Link href="/merchandise" className="back-link"><ArrowLeft size={16}/> Back to store</Link><p className="eyebrow">{product.category} · {product.artist||'Aureon Music Group'}</p><h1>{product.name}</h1><div className="detail-price">€{Number(product.price||0).toFixed(2)}</div><p>{product.description}</p>
+  {sizes.length?<label>Size<select>{sizes.map((size:string)=><option key={size}>{size.trim()}</option>)}</select></label>:null}
+  {colours.length?<label>Colour<select>{colours.map((colour:string)=><option key={colour}>{colour.trim()}</option>)}</select></label>:null}
+  <Link href="/merchandise" className="primary-button">Add from store cart</Link><div className="product-benefits"><span><Truck/>Worldwide delivery</span><span><ShieldCheck/>Secure checkout</span></div></div>
+ </section><Footer/></main>;
 }
