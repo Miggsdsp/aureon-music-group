@@ -1,7 +1,14 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { browserLocalPersistence, onAuthStateChanged, setPersistence, signOut, type User } from 'firebase/auth';
+import {
+  browserLocalPersistence,
+  onAuthStateChanged,
+  setPersistence,
+  signOut,
+  type Unsubscribe,
+  type User
+} from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { firebaseAuth, firestore } from '@/lib/firebase-client';
 import { isAdminRole, type AdminRole } from '@/lib/admin-permissions';
@@ -74,11 +81,14 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    let unsubscribe = () => undefined;
+    let unsubscribe: Unsubscribe = () => {};
+    let cancelled = false;
 
-    setPersistence(firebaseAuth, browserLocalPersistence)
+    void setPersistence(firebaseAuth, browserLocalPersistence)
       .catch(() => undefined)
       .finally(() => {
+        if (cancelled) return;
+
         unsubscribe = onAuthStateChanged(firebaseAuth, async (nextUser) => {
           setLoading(true);
           await loadAdmin(nextUser);
@@ -86,7 +96,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         });
       });
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   const value = useMemo<AdminAuthContextValue>(() => ({
