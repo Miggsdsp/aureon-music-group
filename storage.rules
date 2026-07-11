@@ -1,10 +1,32 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function signedIn() { return request.auth != null; }
-    function activeAdmin() {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function pluralAdminExists() {
       return signedIn()
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid));
+    }
+
+    function singularAdminExists() {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/admin/$(request.auth.uid));
+    }
+
+    function pluralAdminActive() {
+      return pluralAdminExists()
         && firestore.get(/databases/(default)/documents/admins/$(request.auth.uid)).data.active == true;
+    }
+
+    function singularAdminActive() {
+      return singularAdminExists()
+        && firestore.get(/databases/(default)/documents/admin/$(request.auth.uid)).data.active == true;
+    }
+
+    function activeAdmin() {
+      return pluralAdminActive() || singularAdminActive();
     }
 
     match /public/{allPaths=**} {
