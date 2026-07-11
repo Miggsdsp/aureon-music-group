@@ -1,2 +1,2 @@
-import { AdminSection } from '@/components/admin/AdminSection';
-export default function Page(){return <AdminSection title="Pages" description="Control page visibility, navigation visibility and maintenance status."/>;}
+import { SitePageManager } from '@/components/admin/SitePageManager';
+export default function Page(){return <SitePageManager/>;}
