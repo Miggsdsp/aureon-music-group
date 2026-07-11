@@ -10,11 +10,17 @@ export function usePublishedDocument<T extends Record<string, unknown>>(collecti
 
   useEffect(() => {
     let active = true;
+    setData(fallback);
     if (!slug) { setLoading(false); return; }
+    setLoading(true);
     const run = async () => {
       try {
         const snap = await getDocs(query(collection(firestore, collectionName), where('slug', '==', slug), where('status', '==', 'published'), limit(1)));
-        if (active && !snap.empty) setData({ id: snap.docs[0].id, ...snap.docs[0].data() } as T);
+        if (active && !snap.empty) {
+          const raw = snap.docs[0].data() as Record<string, unknown>;
+          const details = raw.details && typeof raw.details === 'object' ? raw.details as Record<string, unknown> : {};
+          setData({ ...(fallback || {}), id: snap.docs[0].id, ...raw, ...details } as T);
+        }
       } catch (error) {
         console.error(`Unable to load ${collectionName}/${slug}`, error);
       } finally {
