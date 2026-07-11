@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -48,10 +49,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </button>
 
       <aside className={`admin-sidebar${menuOpen ? ' open' : ''}`}>
-        <div className="admin-brand">
-          <span>A</span>
-          <div><strong>Aureon</strong><small>Control Center</small></div>
-        </div>
+        <Link href="/admin" className="admin-brand" aria-label="Aureon Control Center dashboard">
+          <Image
+            src="/images/branding/Aureon_Header_Logo.png"
+            alt="Aureon Music Group"
+            width={520}
+            height={180}
+            priority
+            className="admin-brand-logo"
+          />
+          <small>Control Center</small>
+        </Link>
         <nav>
           {allowedNav.map(([label, href, Icon]) => {
             const active = href === '/admin' ? pathname === href : pathname.startsWith(href);
