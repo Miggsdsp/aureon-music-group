@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
+import { useSiteFeatures } from '@/lib/useSiteFeatures';
 
 export function CinematicHero() {
+  const { features } = useSiteFeatures();
   const { data } = usePublishedDocument<any>('sitePages', 'home', {
     title: 'Aureon Music Group homepage',
     artistsHref: '/artists', musicHref: '/music', videosHref: '/videos', newsHref: '/news', merchandiseHref: '/merchandise', aboutHref: '/about', contactHref: '/contact',
@@ -21,7 +23,7 @@ export function CinematicHero() {
       <Link className="hotspot nav-music" href={data?.musicHref || '/music'} aria-label="Music" />
       <Link className="hotspot nav-videos" href={data?.videosHref || '/videos'} aria-label="Videos" />
       <Link className="hotspot nav-news" href={data?.newsHref || '/news'} aria-label="News" />
-      <Link className="hotspot nav-merch" href={data?.merchandiseHref || '/merchandise'} aria-label="Merchandise" />
+      {features.merchandiseEnabled && <Link className="hotspot nav-merch" href={data?.merchandiseHref || '/merchandise'} aria-label="Merchandise" />}
       <Link className="hotspot nav-contact" href={data?.contactHref || '/contact'} aria-label="Contact" />
       <Link className="hotspot join-hotspot" href={data?.contactHref || '/contact'} aria-label="Join the journey" />
       <Link className="hotspot discover-hotspot" href={data?.artistsHref || '/artists'} aria-label="Discover our artists" />
