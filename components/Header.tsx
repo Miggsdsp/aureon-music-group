@@ -6,7 +6,9 @@ import { Briefcase, Search, Volume2 } from 'lucide-react';
 import { Logo } from './Logo';
 import { useSiteFeatures } from '@/lib/useSiteFeatures';
 
-const baseLinks = [
+type NavigationLink = [label: string, href: string];
+
+const baseLinks: NavigationLink[] = [
   ['Home', '/'],
   ['Artists', '/artists'],
   ['Music', '/music'],
@@ -24,7 +26,7 @@ function isActive(pathname: string, href: string) {
 export function Header() {
   const pathname = usePathname();
   const { features } = useSiteFeatures();
-  const links = features.merchandiseEnabled
+  const links: NavigationLink[] = features.merchandiseEnabled
     ? [...baseLinks.slice(0, 5), ['Merch', '/merchandise'], ...baseLinks.slice(5)]
     : baseLinks;
 
