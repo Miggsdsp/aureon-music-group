@@ -41,7 +41,9 @@ export default function SettingsPage() {
         { merge: true }
       );
       setMerchandiseEnabled(nextValue);
-      setMessage(nextValue ? 'Merchandise is now visible on the public website.' : 'Merchandise is now hidden from all public visitors.');
+      setMessage(nextValue
+        ? 'Merchandise is now visible. Music sales, song previews, cart and checkout remain active.'
+        : 'Merchandise is now hidden. Music sales, song previews, cart and checkout remain fully active.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to update the merchandise setting.');
     } finally {
@@ -62,10 +64,10 @@ export default function SettingsPage() {
       <section className="admin-cms-form" style={{ maxWidth: 920 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ maxWidth: 620 }}>
-            <p className="admin-kicker">Store visibility</p>
+            <p className="admin-kicker">Merchandise visibility only</p>
             <h2 style={{ marginBottom: 10 }}>Merchandise page</h2>
             <p style={{ color: '#a7a7a7', lineHeight: 1.7 }}>
-              Keep this switched off until Aureon has merchandise ready. When off, the Merch link and store icon disappear, the homepage store link is disabled, and direct merchandise URLs return visitors to Music.
+              Keep this switched off until Aureon has merchandise ready. When off, only the Merch link, store icon, homepage merchandise link and merchandise product pages are hidden. Music, albums, song previews, Buy Song buttons, the cart and checkout remain fully available.
             </p>
           </div>
 
@@ -83,8 +85,11 @@ export default function SettingsPage() {
 
         <div style={{ marginTop: 24, padding: 18, border: '1px solid rgba(211,171,83,.35)', background: 'rgba(211,171,83,.05)' }}>
           <strong style={{ color: merchandiseEnabled ? '#e5c56f' : '#fff' }}>
-            Current public status: {merchandiseEnabled ? 'Visible' : 'Hidden'}
+            Merchandise status: {merchandiseEnabled ? 'Visible' : 'Hidden'}
           </strong>
+          <p style={{ margin: '10px 0 0', color: '#a7a7a7', lineHeight: 1.6 }}>
+            Digital music sales are independent from this switch and remain active at all times.
+          </p>
         </div>
       </section>
     </AdminShell>
