@@ -27,7 +27,7 @@ type CartProduct = {
   digital?: boolean;
 };
 
-export function LatestPlayButton({ title, src, purchase }: { title: string; src: string; purchase?: SongPurchase }) {
+export function LatestPlayButton({ title, src, purchase }: { title: string; src?: string; purchase?: SongPurchase }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -36,10 +36,11 @@ export function LatestPlayButton({ title, src, purchase }: { title: string; src:
   const previewSeconds = 40;
   const promotional = purchase?.promotional === true;
   const price = purchase?.price ?? 0.99;
+  const hasPreview = Boolean(src) && !hasError;
 
   async function togglePlay() {
     const audio = audioRef.current;
-    if (!audio || hasError) return;
+    if (!audio || !hasPreview) return;
 
     if (isPlaying) {
       audio.pause();
@@ -100,14 +101,16 @@ export function LatestPlayButton({ title, src, purchase }: { title: string; src:
     setAdded(true);
   }
 
-  if (hasError) return null;
-
   return (
     <div className="song-commerce-control">
-      <button className="latest-release latest-release-button" type="button" onClick={togglePlay}>
-        {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-        {promotional ? `Play: ${title}` : `40s Preview: ${title}`}
-      </button>
+      {hasPreview ? (
+        <button className="latest-release latest-release-button" type="button" onClick={togglePlay}>
+          {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+          {promotional ? `Play: ${title}` : `40s Preview: ${title}`}
+        </button>
+      ) : (
+        <span className="preview-ended-message">Preview coming soon.</span>
+      )}
 
       {!promotional && purchase && (
         <div className="song-buy-row">
@@ -120,14 +123,16 @@ export function LatestPlayButton({ title, src, purchase }: { title: string; src:
 
       {previewFinished && !promotional && <p className="preview-ended-message">Preview finished. Purchase the full song to download it.</p>}
 
-      <audio
-        ref={audioRef}
-        src={src}
-        preload="metadata"
-        onTimeUpdate={enforcePreviewLimit}
-        onEnded={() => setIsPlaying(false)}
-        onError={() => setHasError(true)}
-      />
+      {src ? (
+        <audio
+          ref={audioRef}
+          src={src}
+          preload="metadata"
+          onTimeUpdate={enforcePreviewLimit}
+          onEnded={() => setIsPlaying(false)}
+          onError={() => setHasError(true)}
+        />
+      ) : null}
     </div>
   );
 }
