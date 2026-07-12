@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Briefcase, Search, Volume2 } from 'lucide-react';
 import { Logo } from './Logo';
+import { useSiteFeatures } from '@/lib/useSiteFeatures';
 
-const links = [
+const baseLinks = [
   ['Home', '/'],
   ['Artists', '/artists'],
   ['Music', '/music'],
   ['Videos', '/videos'],
   ['News', '/news'],
-  ['Merch', '/merchandise'],
   ['About', '/about'],
   ['Contact', '/contact']
 ];
@@ -23,6 +23,10 @@ function isActive(pathname: string, href: string) {
 
 export function Header() {
   const pathname = usePathname();
+  const { features } = useSiteFeatures();
+  const links = features.merchandiseEnabled
+    ? [...baseLinks.slice(0, 5), ['Merch', '/merchandise'], ...baseLinks.slice(5)]
+    : baseLinks;
 
   return (
     <header className="site-header premium-label-header">
@@ -34,7 +38,7 @@ export function Header() {
       </nav>
       <div className="header-actions">
         <Link href="/music" className="header-icon" aria-label="Search music"><Search size={20} /></Link>
-        <Link href="/merchandise" className="header-icon" aria-label="Store"><Briefcase size={20} /></Link>
+        {features.merchandiseEnabled && <Link href="/merchandise" className="header-icon" aria-label="Store"><Briefcase size={20} /></Link>}
         <Link href="/music" className="join-button listen-button">Listen Now <Volume2 size={16} /></Link>
       </div>
     </header>
