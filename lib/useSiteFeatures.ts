@@ -20,14 +20,8 @@ export function useSiteFeatures() {
     const unsubscribe = onSnapshot(
       doc(firestore, 'siteSettings', 'platform'),
       (snapshot) => {
-        if (!snapshot.exists()) {
-          setFeatures(defaults);
-        } else {
-          const data = snapshot.data();
-          setFeatures({
-            merchandiseEnabled: data.merchandiseEnabled === true
-          });
-        }
+        const data = snapshot.exists() ? snapshot.data() : null;
+        setFeatures({ merchandiseEnabled: data?.merchandiseEnabled === true });
         setLoading(false);
       },
       () => {
@@ -36,7 +30,9 @@ export function useSiteFeatures() {
       }
     );
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return { features, loading };
