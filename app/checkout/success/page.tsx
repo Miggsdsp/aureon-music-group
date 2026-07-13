@@ -19,7 +19,8 @@ export default function CheckoutSuccessPage() {
         <CheckCircle2 size={52} />
         <p className="eyebrow">Payment received</p>
         <h1>Thank you for supporting Aureon music.</h1>
-        <p>Stripe has accepted your payment. Your order and download access are being prepared. Keep this page open and check the email address used at checkout.</p>
+        <p>Stripe has accepted your payment. Aureon is creating your order and will email the secure download link to the address used at checkout.</p>
+        <p><strong>Each purchased song includes one download only.</strong> Please save the file securely when the download begins. Opening the email does not use the entitlement.</p>
         <Link className="primary-button" href="/music">Return to music</Link>
       </section>
       <Footer />
