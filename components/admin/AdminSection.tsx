@@ -8,7 +8,7 @@ import { AdminShell } from './AdminShell';
 
 type RecordData={id:string;title?:string;name?:string;slug?:string;description?:string;status?:string;price?:number;featured?:boolean;details?:Record<string,unknown>};
 type SectionConfig={collectionName:string;primaryLabel:string;supportsPrice:boolean;supportsPublishing:boolean};
-type UploadField={key:string;label:string;accept:string;folder:string;privatePath?:boolean;multiple?:boolean};
+type UploadField={key:string;label:string;accept:string;folder:string;privatePath?:boolean;multiple?:boolean;autoPreview?:boolean};
 
 const configs:Record<string,SectionConfig>={
  Artists:{collectionName:'artists',primaryLabel:'Artist name',supportsPrice:false,supportsPublishing:true},
@@ -31,8 +31,7 @@ const uploadFields:Record<string,UploadField[]>={
  Albums:[{key:'coverImageUrl',label:'Album cover artwork',accept:'image/*',folder:'public/albums/covers'}],
  Songs:[
   {key:'coverImageUrl',label:'Song cover artwork',accept:'image/*',folder:'public/songs/covers'},
-  {key:'previewUrl',label:'Public preview MP3 (about 40 seconds)',accept:'audio/mpeg,audio/mp3,audio/wav',folder:'public/previews'},
-  {key:'privateFilePath',label:'Private full song MP3/WAV',accept:'audio/mpeg,audio/mp3,audio/wav,audio/x-wav',folder:'private/full-tracks',privatePath:true}
+  {key:'privateFilePath',label:'Full song MP3/WAV — Aureon automatically creates the 40-second preview',accept:'audio/mpeg,audio/mp3,audio/wav,audio/x-wav',folder:'private/full-tracks',privatePath:true,autoPreview:true}
  ],
  Videos:[
   {key:'thumbnailUrl',label:'Video thumbnail',accept:'image/*',folder:'public/videos/thumbnails'},
@@ -48,6 +47,37 @@ const uploadFields:Record<string,UploadField[]>={
 const emptyForm={primary:'',slug:'',description:'',status:'draft',price:'0.99',featured:false,details:'{}'};
 function makeSlug(value:string){return value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
 function safeFileName(name:string){return name.toLowerCase().replace(/[^a-z0-9.]+/g,'-').replace(/^-|-$/g,'')}
+
+function writeAscii(view:DataView,offset:number,value:string){for(let i=0;i<value.length;i++)view.setUint8(offset+i,value.charCodeAt(i))}
+function createWavBlob(buffer:AudioBuffer,seconds=40){
+ const frames=Math.min(buffer.length,Math.floor(buffer.sampleRate*seconds));
+ const channels=Math.min(buffer.numberOfChannels,2);
+ const bytesPerSample=2;
+ const dataSize=frames*channels*bytesPerSample;
+ const arrayBuffer=new ArrayBuffer(44+dataSize);
+ const view=new DataView(arrayBuffer);
+ writeAscii(view,0,'RIFF');view.setUint32(4,36+dataSize,true);writeAscii(view,8,'WAVE');writeAscii(view,12,'fmt ');
+ view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,channels,true);view.setUint32(24,buffer.sampleRate,true);
+ view.setUint32(28,buffer.sampleRate*channels*bytesPerSample,true);view.setUint16(32,channels*bytesPerSample,true);view.setUint16(34,16,true);
+ writeAscii(view,36,'data');view.setUint32(40,dataSize,true);
+ const channelData=Array.from({length:channels},(_,index)=>buffer.getChannelData(index));
+ let offset=44;
+ for(let frame=0;frame<frames;frame++)for(let channel=0;channel<channels;channel++){
+  const sample=Math.max(-1,Math.min(1,channelData[channel][frame]||0));
+  view.setInt16(offset,sample<0?sample*0x8000:sample*0x7fff,true);offset+=2;
+ }
+ return new Blob([arrayBuffer],{type:'audio/wav'});
+}
+async function buildPreviewFile(file:File,slug:string){
+ const AudioContextClass=window.AudioContext||(window as typeof window & {webkitAudioContext:typeof AudioContext}).webkitAudioContext;
+ if(!AudioContextClass)throw new Error('This browser cannot create audio previews. Please use Safari or Chrome on your Mac.');
+ const context=new AudioContextClass();
+ try{
+  const decoded=await context.decodeAudioData(await file.arrayBuffer());
+  const blob=createWavBlob(decoded,40);
+  return new File([blob],`${slug}-preview.wav`,{type:'audio/wav'});
+ }finally{await context.close()}
+}
 
 export function AdminSection({title,description}:{title:string;description:string}){
  const config=configs[title];
@@ -66,53 +96,56 @@ export function AdminSection({title,description}:{title:string;description:strin
 
  function startEdit(item:RecordData){
   const details=item.details||{};
-  setEditingId(item.id);
-  setUploadedDetails(details);
+  setEditingId(item.id);setUploadedDetails(details);
   setForm({primary:String(item.name||item.title||''),slug:String(item.slug||''),description:String(item.description||''),status:String(item.status||'draft'),price:String(item.price??'0.99'),featured:Boolean(item.featured),details:JSON.stringify(details,null,2)});
   setMessage('Editing selected record.');
  }
  function resetForm(){setEditingId(null);setForm(emptyForm);setUploadedDetails({});setUploading({});setMessage('')}
 
- async function uploadFile(field:UploadField,file:File,index?:number){
-  const slug=form.slug.trim()||makeSlug(form.primary||'upload');
-  const objectName=`${slug}-${Date.now()}-${safeFileName(file.name)}`;
-  const storagePath=`${field.folder}/${objectName}`;
-  setUploading(current=>({...current,[field.key]:0}));
-  setMessage(`Uploading ${field.label.toLowerCase()}…`);
-  return new Promise<void>((resolve,reject)=>{
+ function uploadToStorage(storagePath:string,file:File,progressKey:string,returnPath=false){
+  setUploading(current=>({...current,[progressKey]:0}));
+  return new Promise<string>((resolve,reject)=>{
    const task=uploadBytesResumable(ref(firebaseStorage,storagePath),file,{contentType:file.type||undefined});
    task.on('state_changed',snapshot=>{
     const progress=Math.round((snapshot.bytesTransferred/snapshot.totalBytes)*100);
-    setUploading(current=>({...current,[field.key]:progress}));
-   },error=>{setMessage(error.message);reject(error)},async()=>{
-    const value=field.privatePath?storagePath:await getDownloadURL(task.snapshot.ref);
-    setUploadedDetails(current=>{
-     if(field.multiple){
-      const existing=Array.isArray(current[field.key])?current[field.key] as unknown[]:[];
-      return {...current,[field.key]:[...existing,value]};
-     }
-     return {...current,[field.key]:value};
-    });
-    setUploading(current=>{const next={...current};delete next[field.key];return next});
-    setMessage(`${field.label} uploaded successfully.`);
-    resolve();
+    setUploading(current=>({...current,[progressKey]:progress}));
+   },error=>{setUploading(current=>{const next={...current};delete next[progressKey];return next});reject(error)},async()=>{
+    const value=returnPath?storagePath:await getDownloadURL(task.snapshot.ref);
+    setUploading(current=>{const next={...current};delete next[progressKey];return next});resolve(value);
    });
   });
  }
 
- async function handleFiles(field:UploadField,fileList:FileList|null){
-  if(!fileList?.length)return;
-  try{for(let i=0;i<fileList.length;i++)await uploadFile(field,fileList[i],i)}catch{/* message set by uploader */}
+ async function uploadFile(field:UploadField,file:File){
+  const slug=form.slug.trim()||makeSlug(form.primary||'upload');
+  const objectName=`${slug}-${Date.now()}-${safeFileName(file.name)}`;
+  const storagePath=`${field.folder}/${objectName}`;
+  try{
+   setMessage(field.autoPreview?'Uploading full song…':'Uploading file…');
+   const value=await uploadToStorage(storagePath,file,field.key,Boolean(field.privatePath));
+   if(field.multiple){setUploadedDetails(current=>{const existing=Array.isArray(current[field.key])?current[field.key] as unknown[]:[];return {...current,[field.key]:[...existing,value]}})}
+   else setUploadedDetails(current=>({...current,[field.key]:value}));
+
+   if(field.autoPreview){
+    setMessage('Full song uploaded. Creating the 40-second preview automatically…');
+    const previewFile=await buildPreviewFile(file,slug);
+    const previewPath=`public/previews/${slug}-${Date.now()}-preview.wav`;
+    const previewUrl=await uploadToStorage(previewPath,previewFile,'previewUrl',false);
+    setUploadedDetails(current=>({...current,previewUrl,previewDuration:40}));
+    setMessage('Full song and automatic 40-second preview uploaded successfully.');
+   }else setMessage(`${field.label} uploaded successfully.`);
+  }catch(error){setMessage(error instanceof Error?error.message:'Unable to upload this file.')}
  }
 
+ async function handleFiles(field:UploadField,fileList:FileList|null){if(!fileList?.length)return;for(let i=0;i<fileList.length;i++)await uploadFile(field,fileList[i])}
+
  async function saveItem(event:React.FormEvent){
-  event.preventDefault();
-  if(!form.primary.trim()){setMessage(`${config.primaryLabel} is required.`);return}
+  event.preventDefault();if(!form.primary.trim()){setMessage(`${config.primaryLabel} is required.`);return}
   if(Object.keys(uploading).length){setMessage('Please wait for all uploads to finish.');return}
+  if(title==='Songs'&&!uploadedDetails.privateFilePath){setMessage('Please upload the full song before saving. Aureon will create its preview automatically.');return}
   setSaving(true);setMessage('');
   try{
-   const manualDetails=JSON.parse(form.details||'{}');
-   const details={...manualDetails,...uploadedDetails};
+   const manualDetails=JSON.parse(form.details||'{}');const details={...manualDetails,...uploadedDetails};
    const payload:any={[primaryKey]:form.primary.trim(),slug:form.slug.trim()||makeSlug(form.primary),description:form.description.trim(),status:config.supportsPublishing?form.status:'active',featured:form.featured,details,updatedAt:serverTimestamp(),...(config.supportsPrice?{price:Number(form.price||0)}:{})};
    if(editingId){await updateDoc(doc(firestore,config.collectionName,editingId),payload);setMessage('Changes saved successfully.')}else{await addDoc(collection(firestore,config.collectionName),{...payload,createdAt:serverTimestamp()});setMessage('New record created successfully.')}
    setEditingId(null);setForm(emptyForm);setUploadedDetails({});
@@ -132,21 +165,17 @@ export function AdminSection({title,description}:{title:string;description:strin
     <label>URL slug<input value={form.slug} placeholder="created-automatically" onChange={e=>setForm({...form,slug:e.target.value})}/></label>
     <label>Description<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
     {config.supportsPrice&&<label>Price (€)<input type="number" min="0" step="0.01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})}/></label>}
-
     {fields.length>0&&<fieldset style={{border:'1px solid rgba(201,166,74,.35)',padding:'18px',margin:'8px 0 20px'}}>
      <legend style={{padding:'0 8px'}}>Files and media</legend>
-     <p style={{opacity:.75,marginTop:0}}>Choose files from your Mac. Aureon uploads them to Firebase automatically and saves the correct path.</p>
-     {fields.map(field=>{
-      const value=uploadedDetails[field.key];
-      const progress=uploading[field.key];
-      return <div key={field.key} style={{marginBottom:18}}>
-       <label>{field.label}<input type="file" accept={field.accept} multiple={field.multiple} onChange={e=>handleFiles(field,e.target.files)}/></label>
-       {typeof progress==='number'&&<div><progress value={progress} max="100" style={{width:'100%'}}/> <small>{progress}% uploaded</small></div>}
-       {value&&<small style={{display:'block',wordBreak:'break-all',marginTop:6}}>✓ Uploaded: {Array.isArray(value)?`${value.length} files`:String(value)}</small>}
-      </div>
-     })}
+     <p style={{opacity:.75,marginTop:0}}>{title==='Songs'?'Upload the full song once. Aureon automatically creates and uploads a safe 40-second public preview.':'Choose files from your Mac. Aureon uploads them to Firebase automatically and saves the correct path.'}</p>
+     {fields.map(field=>{const value=uploadedDetails[field.key];const progress=uploading[field.key];return <div key={field.key} style={{marginBottom:18}}>
+      <label>{field.label}<input type="file" accept={field.accept} multiple={field.multiple} onChange={e=>handleFiles(field,e.target.files)}/></label>
+      {typeof progress==='number'&&<div><progress value={progress} max="100" style={{width:'100%'}}/> <small>{progress}% uploaded</small></div>}
+      {field.autoPreview&&typeof uploading.previewUrl==='number'&&<div><progress value={uploading.previewUrl} max="100" style={{width:'100%'}}/> <small>{uploading.previewUrl}% preview uploaded</small></div>}
+      {value&&<small style={{display:'block',wordBreak:'break-all',marginTop:6}}>✓ Uploaded: {Array.isArray(value)?`${value.length} files`:String(value)}</small>}
+      {field.autoPreview&&uploadedDetails.previewUrl&&<small style={{display:'block',marginTop:6}}>✓ 40-second preview created automatically</small>}
+     </div>})}
     </fieldset>}
-
     <details style={{marginBottom:18}}><summary>Advanced content fields (optional)</summary><label>Advanced JSON<textarea rows={10} value={form.details} onChange={e=>setForm({...form,details:e.target.value})} placeholder='{"genre":"Reggae"}'/></label></details>
     {config.supportsPublishing&&<label>Visibility<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="draft">Draft / hidden</option><option value="published">Published / visible</option></select></label>}
     <label><span>Featured content</span><input type="checkbox" checked={form.featured} onChange={e=>setForm({...form,featured:e.target.checked})}/></label>
