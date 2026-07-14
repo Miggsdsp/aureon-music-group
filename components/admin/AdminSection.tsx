@@ -68,16 +68,28 @@ export function AdminSection({title,description}:{title:string;description:strin
 
  useEffect(()=>{
   if(!config)return;
-  const source=query(collection(firestore,config.collectionName),orderBy('updatedAt','desc'));
-  let fallbackUnsubscribe:(()=>void)|undefined;
-  const unsubscribe=onSnapshot(source,
-   snapshot=>setItems(snapshot.docs.map(d=>({id:d.id,...d.data()} as RecordData))),
-   ()=>{fallbackUnsubscribe=onSnapshot(collection(firestore,config.collectionName),snapshot=>setItems(snapshot.docs.map(d=>({id:d.id,...d.data()} as RecordData))))}
-  );
-  return ()=>{unsubscribe();fallbackUnsubscribe?.()};
+  const unsubscribe=onSnapshot(collection(firestore,config.collectionName),snapshot=>{
+   setItems(snapshot.docs.map(d=>({id:d.id,...d.data()} as RecordData)));
+  });
+  return unsubscribe;
  },[config]);
- useEffect(()=>{if(title!=='Songs'&&title!=='Albums')return;return onSnapshot(collection(firestore,'artists'),s=>setArtists(s.docs.map(d=>({id:d.id,...d.data()} as RecordData)))},[title]);
- useEffect(()=>{if(title!=='Songs')return;return onSnapshot(collection(firestore,'albums'),s=>setAlbums(s.docs.map(d=>({id:d.id,...d.data()} as RecordData)))},[title]);
+
+ useEffect(()=>{
+  if(title!=='Songs'&&title!=='Albums')return;
+  const unsubscribe=onSnapshot(collection(firestore,'artists'),snapshot=>{
+   setArtists(snapshot.docs.map(d=>({id:d.id,...d.data()} as RecordData)));
+  });
+  return unsubscribe;
+ },[title]);
+
+ useEffect(()=>{
+  if(title!=='Songs')return;
+  const unsubscribe=onSnapshot(collection(firestore,'albums'),snapshot=>{
+   setAlbums(snapshot.docs.map(d=>({id:d.id,...d.data()} as RecordData)));
+  });
+  return unsubscribe;
+ },[title]);
+
  const primaryKey=useMemo(()=>title==='Artists'||title==='Merchandise'?'name':'title',[title]);
  const fields=uploadFields[title]||[];
  const selectedArtist=artists.find(a=>a.id===relations.artistId);
