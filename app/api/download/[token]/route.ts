@@ -9,7 +9,9 @@ type RouteContext = {
   params: Promise<{ token: string }>;
 };
 
-function getPrivateFilePath(data: Record<string, any>) {
+type SongData = Record<string, any>;
+
+function getPrivateFilePath(data: SongData) {
   const details = data.details && typeof data.details === 'object' ? data.details : {};
   return String(
     data.privateFilePath ||
@@ -20,29 +22,78 @@ function getPrivateFilePath(data: Record<string, any>) {
   ).trim();
 }
 
-async function resolveExistingPrivateFile(entitlement: Record<string, any>) {
+function normalise(value: unknown) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+async function fileExists(path: string) {
+  if (!path.startsWith('private/full-tracks/')) return null;
+  const file = adminStorage.bucket().file(path);
+  try {
+    await file.getMetadata();
+    return file;
+  } catch {
+    return null;
+  }
+}
+
+async function discoverUploadedTrack(songId: string, songData: SongData) {
   const bucket = adminStorage.bucket();
+  const details = songData.details && typeof songData.details === 'object' ? songData.details : {};
+  const songSlug = String(songData.slug || details.slug || songData.title || songData.name || songId);
+  const artistSlug = String(songData.artistSlug || details.artistSlug || '');
+  const target = normalise(songSlug);
+
+  const prefixes = [
+    artistSlug ? `private/full-tracks/${artistSlug}/` : '',
+    'private/full-tracks/'
+  ].filter(Boolean);
+
+  for (const prefix of prefixes) {
+    try {
+      const [files] = await bucket.getFiles({ prefix, maxResults: 1000 });
+      const exact = files.find(file => normalise(file.name.split('/').pop()) === target);
+      if (exact) return { file: exact, path: exact.name };
+
+      const matching = files
+        .filter(file => {
+          const base = normalise(file.name.split('/').pop());
+          return target && (base.includes(target) || target.includes(base));
+        })
+        .sort((a, b) => b.name.localeCompare(a.name));
+
+      if (matching[0]) return { file: matching[0], path: matching[0].name };
+    } catch (error) {
+      console.error('Unable to scan private track storage:', { prefix, error });
+    }
+  }
+
+  return null;
+}
+
+async function resolveExistingPrivateFile(entitlement: Record<string, any>) {
   const candidates: string[] = [];
   const entitlementPath = String(entitlement.privateFilePath || '').trim();
   if (entitlementPath) candidates.push(entitlementPath);
 
-  if (entitlement.songId) {
-    const songSnapshot = await adminFirestore.collection('songs').doc(String(entitlement.songId)).get();
+  let songData: SongData = {};
+  const songId = String(entitlement.songId || '');
+  if (songId) {
+    const songSnapshot = await adminFirestore.collection('songs').doc(songId).get();
     if (songSnapshot.exists) {
-      const currentPath = getPrivateFilePath(songSnapshot.data() || {});
+      songData = songSnapshot.data() || {};
+      const currentPath = getPrivateFilePath(songData);
       if (currentPath && !candidates.includes(currentPath)) candidates.push(currentPath);
     }
   }
 
   for (const path of candidates) {
-    if (!path.startsWith('private/full-tracks/')) continue;
-    const file = bucket.file(path);
-    try {
-      await file.getMetadata();
-      return { file, path };
-    } catch {
-      // Try the next known path. This repairs older entitlements after a song was re-uploaded.
-    }
+    const file = await fileExists(path);
+    if (file) return { file, path };
+  }
+
+  if (songId && Object.keys(songData).length) {
+    return discoverUploadedTrack(songId, songData);
   }
 
   return null;
@@ -73,6 +124,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const resolved = await resolveExistingPrivateFile(entitlement);
   if (!resolved) {
     console.error('Purchased track is missing from private storage:', {
+      bucket: adminStorage.bucket().name,
       songId: entitlement.songId,
       privateFilePath: entitlement.privateFilePath
     });
