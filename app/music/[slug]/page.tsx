@@ -25,23 +25,19 @@ type SongRecord = PublicRecord & {
   promotional?: boolean;
   previewUrl?: string;
   audioUrl?: string;
-  details?: {
-    previewUrl?: string;
-    audioUrl?: string;
-    artistId?: string;
-    artistName?: string;
-    artistSlug?: string;
-    albumId?: string;
-    albumTitle?: string;
-    albumSlug?: string;
-    duration?: string;
-    price?: number;
-    promotional?: boolean;
-  };
+  details?: Record<string, any>;
 };
 
 function normalise(value: unknown) {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ganja/g, 'gunja')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function songPreview(song?: SongRecord | null) {
+  return song?.previewUrl || song?.details?.previewUrl || song?.audioUrl || song?.details?.audioUrl || '';
 }
 
 export default function AlbumPage() {
@@ -58,37 +54,42 @@ export default function AlbumPage() {
   const albumArtistSlug = album.artistSlug || album.details?.artistSlug || '';
   const staticSongs = Array.isArray(album.songs) ? album.songs : [];
 
-  const songsForAlbum = uploadedSongs.filter((song) => {
-    const details = song.details || {};
-    const songAlbumId = song.albumId || details.albumId;
-    const songAlbumSlug = song.albumSlug || details.albumSlug;
-    const songAlbumTitle = song.albumTitle || details.albumTitle;
-    const songArtistSlug = song.artistSlug || details.artistSlug;
-    const songArtistName = song.artistName || details.artistName;
+  const belongsToArtist = (song: SongRecord) => {
+    const songArtistSlug = song.artistSlug || song.details?.artistSlug || '';
+    const songArtistName = song.artistName || song.details?.artistName || '';
+    return Boolean(
+      (albumArtistSlug && normalise(songArtistSlug) === normalise(albumArtistSlug)) ||
+      (albumArtist && normalise(songArtistName) === normalise(albumArtist))
+    );
+  };
 
+  const belongsToAlbum = (song: SongRecord) => {
+    const songAlbumId = song.albumId || song.details?.albumId || '';
+    const songAlbumSlug = song.albumSlug || song.details?.albumSlug || '';
+    const songAlbumTitle = song.albumTitle || song.details?.albumTitle || '';
     return Boolean(
       (album.id && songAlbumId === album.id) ||
       (songAlbumSlug && normalise(songAlbumSlug) === normalise(album.slug || slug)) ||
-      (songAlbumTitle && normalise(songAlbumTitle) === normalise(album.title)) ||
-      (!songAlbumId && !songAlbumSlug && !songAlbumTitle && (
-        (albumArtistSlug && normalise(songArtistSlug) === normalise(albumArtistSlug)) ||
-        (albumArtist && normalise(songArtistName) === normalise(albumArtist))
-      ) && staticSongs.some((track:any) => normalise(track.title) === normalise(song.title)))
+      (songAlbumTitle && normalise(songAlbumTitle) === normalise(album.title))
     );
-  });
+  };
 
   const mergedSongs = staticSongs.map((track:any) => {
-    const uploaded = songsForAlbum.find((song) =>
-      normalise(song.title) === normalise(track.title) ||
-      (track.slug && normalise(song.slug) === normalise(track.slug))
-    );
+    // A matching title + artist is enough. This supports singles that are also
+    // presented inside an artist's curated album page without requiring a
+    // Firestore album assignment.
+    const uploaded = uploadedSongs.find((song) => {
+      const sameTrack = normalise(song.title) === normalise(track.title) ||
+        Boolean(track.slug && normalise(song.slug) === normalise(track.slug));
+      return sameTrack && (belongsToArtist(song) || belongsToAlbum(song));
+    });
+
     if (!uploaded) return track;
     return {
       ...track,
       ...uploaded,
       details: { ...(track.details || {}), ...(uploaded.details || {}) },
-      previewUrl: uploaded.previewUrl || uploaded.details?.previewUrl || track.previewUrl,
-      audioUrl: uploaded.audioUrl || uploaded.details?.audioUrl || track.audioUrl,
+      previewUrl: songPreview(uploaded) || track.previewUrl,
       price: uploaded.price ?? uploaded.details?.price ?? track.price,
       promotional: uploaded.promotional ?? uploaded.details?.promotional ?? track.promotional,
       duration: uploaded.duration || uploaded.details?.duration || track.duration
@@ -96,7 +97,9 @@ export default function AlbumPage() {
   });
 
   const existingTitles = new Set(mergedSongs.map((song:any) => normalise(song.title)));
-  const extraUploadedSongs = songsForAlbum.filter((song) => !existingTitles.has(normalise(song.title)));
+  const extraUploadedSongs = uploadedSongs.filter((song) =>
+    !existingTitles.has(normalise(song.title)) && belongsToAlbum(song)
+  );
   const songs = [...mergedSongs, ...extraUploadedSongs];
 
   return <main className="page-shell album-detail-page"><Header/>
