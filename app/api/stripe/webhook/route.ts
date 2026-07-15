@@ -16,6 +16,17 @@ type PurchasedSong = {
   token: string;
 };
 
+function getPrivateFilePath(data: Record<string, any>) {
+  const details = data.details && typeof data.details === 'object' ? data.details : {};
+  return String(
+    data.privateFilePath ||
+    details.privateFilePath ||
+    data.fullTrackPath ||
+    details.fullTrackPath ||
+    ''
+  ).trim();
+}
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
@@ -72,12 +83,17 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
 
   const songs: PurchasedSong[] = await Promise.all(songIds.map(async songId => {
     const snapshot = await adminFirestore.collection('songs').doc(songId).get();
+    if (!snapshot.exists) throw new Error(`Purchased song record not found: ${songId}`);
     const data = snapshot.data() || {};
+    const privateFilePath = getPrivateFilePath(data);
+    if (!privateFilePath.startsWith('private/full-tracks/')) {
+      throw new Error(`Purchased song has no valid private file path: ${songId}`);
+    }
     return {
       id: songId,
       title: String(data.title || data.name || songId),
-      artist: String(data.artist || data.artistName || 'Aureon Music Group'),
-      privateFilePath: String(data.privateFilePath || data.fullTrackPath || `private/full-tracks/${songId}.mp3`),
+      artist: String(data.artist || data.artistName || data.details?.artistName || 'Aureon Music Group'),
+      privateFilePath,
       token: randomBytes(32).toString('hex')
     };
   }));
@@ -105,7 +121,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       currency: session.currency || 'eur',
       amountTotal: session.amount_total || 0,
       songIds,
-      songs: songs.map(song => ({ id: song.id, title: song.title, artist: song.artist })),
+      songs: songs.map(song => ({ id: song.id, title: song.title, artist: song.artist, privateFilePath: song.privateFilePath })),
       status: 'paid',
       paymentStatus: session.payment_status,
       downloadStatus: 'available',
