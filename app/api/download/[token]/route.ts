@@ -26,6 +26,25 @@ function normalise(value: unknown) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
+async function resolveSongRecord(reference: string, title: string) {
+  const songs = adminFirestore.collection('songs');
+
+  if (reference) {
+    const direct = await songs.doc(reference).get();
+    if (direct.exists) return direct;
+
+    const bySlug = await songs.where('slug', '==', reference).limit(1).get();
+    if (!bySlug.empty) return bySlug.docs[0];
+  }
+
+  if (title) {
+    const byTitle = await songs.where('title', '==', title).limit(1).get();
+    if (!byTitle.empty) return byTitle.docs[0];
+  }
+
+  return null;
+}
+
 async function fileExists(path: string) {
   if (!path.startsWith('private/full-tracks/')) return null;
   const file = adminStorage.bucket().file(path);
@@ -37,12 +56,12 @@ async function fileExists(path: string) {
   }
 }
 
-async function discoverUploadedTrack(songId: string, songData: SongData) {
+async function discoverUploadedTrack(songData: SongData, fallbackTitle: string) {
   const bucket = adminStorage.bucket();
   const details = songData.details && typeof songData.details === 'object' ? songData.details : {};
-  const songSlug = String(songData.slug || details.slug || songData.title || songData.name || songId);
+  const songSlug = String(songData.slug || details.slug || songData.title || songData.name || fallbackTitle);
   const artistSlug = String(songData.artistSlug || details.artistSlug || '');
-  const target = normalise(songSlug);
+  const target = normalise(songSlug || fallbackTitle);
 
   const prefixes = [
     artistSlug ? `private/full-tracks/${artistSlug}/` : '',
@@ -52,17 +71,22 @@ async function discoverUploadedTrack(songId: string, songData: SongData) {
   for (const prefix of prefixes) {
     try {
       const [files] = await bucket.getFiles({ prefix, maxResults: 1000 });
-      const exact = files.find(file => normalise(file.name.split('/').pop()) === target);
-      if (exact) return { file: exact, path: exact.name };
+      const audioFiles = files.filter(file => /\.(mp3|wav|m4a|aac|flac)$/i.test(file.name));
 
-      const matching = files
-        .filter(file => {
+      const matching = audioFiles
+        .map(file => {
           const base = normalise(file.name.split('/').pop());
-          return target && (base.includes(target) || target.includes(base));
+          let score = 0;
+          if (base === target) score += 100;
+          if (target && base.includes(target)) score += 70;
+          if (target && target.includes(base)) score += 40;
+          if (artistSlug && file.name.includes(`/${artistSlug}/`)) score += 20;
+          return { file, score };
         })
-        .sort((a, b) => b.name.localeCompare(a.name));
+        .filter(result => result.score > 0)
+        .sort((a, b) => b.score - a.score || b.file.name.localeCompare(a.file.name));
 
-      if (matching[0]) return { file: matching[0], path: matching[0].name };
+      if (matching[0]) return { file: matching[0].file, path: matching[0].file.name };
     } catch (error) {
       console.error('Unable to scan private track storage:', { prefix, error });
     }
@@ -76,25 +100,23 @@ async function resolveExistingPrivateFile(entitlement: Record<string, any>) {
   const entitlementPath = String(entitlement.privateFilePath || '').trim();
   if (entitlementPath) candidates.push(entitlementPath);
 
-  let songData: SongData = {};
-  const songId = String(entitlement.songId || '');
-  if (songId) {
-    const songSnapshot = await adminFirestore.collection('songs').doc(songId).get();
-    if (songSnapshot.exists) {
-      songData = songSnapshot.data() || {};
-      const currentPath = getPrivateFilePath(songData);
-      if (currentPath && !candidates.includes(currentPath)) candidates.push(currentPath);
-    }
+  const songReference = String(entitlement.songId || '');
+  const songTitle = String(entitlement.songTitle || '');
+  const songSnapshot = await resolveSongRecord(songReference, songTitle);
+  const songData = songSnapshot?.data() || {};
+
+  if (songSnapshot) {
+    const currentPath = getPrivateFilePath(songData);
+    if (currentPath && !candidates.includes(currentPath)) candidates.push(currentPath);
   }
 
   for (const path of candidates) {
     const file = await fileExists(path);
-    if (file) return { file, path };
+    if (file) return { file, path, songId: songSnapshot?.id || songReference };
   }
 
-  if (songId && Object.keys(songData).length) {
-    return discoverUploadedTrack(songId, songData);
-  }
+  const discovered = await discoverUploadedTrack(songData, songTitle || songReference);
+  if (discovered) return { ...discovered, songId: songSnapshot?.id || songReference };
 
   return null;
 }
@@ -126,14 +148,19 @@ export async function GET(_request: Request, context: RouteContext) {
     console.error('Purchased track is missing from private storage:', {
       bucket: adminStorage.bucket().name,
       songId: entitlement.songId,
+      songTitle: entitlement.songTitle,
       privateFilePath: entitlement.privateFilePath
     });
     return downloadError('The purchased audio file is not connected to this order yet. Please contact Aureon support with your order reference.', 503);
   }
 
-  const { file, path: privateFilePath } = resolved;
-  if (privateFilePath !== entitlement.privateFilePath) {
-    await downloadRef.set({ privateFilePath, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  const { file, path: privateFilePath, songId } = resolved;
+  if (privateFilePath !== entitlement.privateFilePath || songId !== entitlement.songId) {
+    await downloadRef.set({
+      privateFilePath,
+      songId,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
   }
 
   try {
@@ -160,11 +187,11 @@ export async function GET(_request: Request, context: RouteContext) {
   try {
     const [metadata] = await file.getMetadata();
     const contentType = String(metadata.contentType || 'audio/mpeg');
-    const extension = contentType.includes('wav') ? 'wav' : 'mp3';
+    const extension = contentType.includes('wav') ? 'wav' : privateFilePath.toLowerCase().endsWith('.wav') ? 'wav' : 'mp3';
     const [signedUrl] = await file.getSignedUrl({
       action: 'read',
-      expires: Date.now() + 2 * 60 * 1000,
-      responseDisposition: `attachment; filename="${safeFilename(String(entitlement.songTitle || entitlement.songId || 'aureon-song'))}.${extension}"`,
+      expires: Date.now() + 5 * 60 * 1000,
+      responseDisposition: `attachment; filename="${safeFilename(String(entitlement.songTitle || songId || 'aureon-song'))}.${extension}"`,
       responseType: contentType
     });
 
