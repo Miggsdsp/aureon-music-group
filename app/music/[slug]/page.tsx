@@ -25,19 +25,37 @@ type SongRecord = PublicRecord & {
   promotional?: boolean;
   previewUrl?: string;
   audioUrl?: string;
-  details?: Record<string, any>;
+  trackNumber?: number;
+  releaseDate?: string;
+  details?: {
+    previewUrl?: string;
+    audioUrl?: string;
+    artistId?: string;
+    artistName?: string;
+    artistSlug?: string;
+    albumId?: string;
+    albumTitle?: string;
+    albumSlug?: string;
+    duration?: string;
+    price?: number;
+    promotional?: boolean;
+    trackNumber?: number;
+    releaseDate?: string;
+  };
 };
 
 function normalise(value: unknown) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/ganja/g, 'gunja')
-    .replace(/[^a-z0-9]+/g, '');
+  return String(value || '').trim().toLowerCase();
 }
 
-function songPreview(song?: SongRecord | null) {
-  return song?.previewUrl || song?.details?.previewUrl || song?.audioUrl || song?.details?.audioUrl || '';
+function sameArtist(song: SongRecord, albumArtist: string, albumArtistSlug: string) {
+  const details = song.details || {};
+  const songArtistSlug = song.artistSlug || details.artistSlug;
+  const songArtistName = song.artistName || details.artistName;
+  return Boolean(
+    (albumArtistSlug && normalise(songArtistSlug) === normalise(albumArtistSlug)) ||
+    (albumArtist && normalise(songArtistName) === normalise(albumArtist))
+  );
 }
 
 export default function AlbumPage() {
@@ -54,53 +72,52 @@ export default function AlbumPage() {
   const albumArtistSlug = album.artistSlug || album.details?.artistSlug || '';
   const staticSongs = Array.isArray(album.songs) ? album.songs : [];
 
-  const belongsToArtist = (song: SongRecord) => {
-    const songArtistSlug = song.artistSlug || song.details?.artistSlug || '';
-    const songArtistName = song.artistName || song.details?.artistName || '';
-    return Boolean(
-      (albumArtistSlug && normalise(songArtistSlug) === normalise(albumArtistSlug)) ||
-      (albumArtist && normalise(songArtistName) === normalise(albumArtist))
-    );
-  };
+  const artistSongs = uploadedSongs.filter((song) => sameArtist(song, albumArtist, albumArtistSlug));
 
-  const belongsToAlbum = (song: SongRecord) => {
-    const songAlbumId = song.albumId || song.details?.albumId || '';
-    const songAlbumSlug = song.albumSlug || song.details?.albumSlug || '';
-    const songAlbumTitle = song.albumTitle || song.details?.albumTitle || '';
+  const songsForAlbum = artistSongs.filter((song) => {
+    const details = song.details || {};
+    const songAlbumId = song.albumId || details.albumId;
+    const songAlbumSlug = song.albumSlug || details.albumSlug;
+    const songAlbumTitle = song.albumTitle || details.albumTitle;
+
+    if (!songAlbumId && !songAlbumSlug && !songAlbumTitle) return true;
+
     return Boolean(
       (album.id && songAlbumId === album.id) ||
       (songAlbumSlug && normalise(songAlbumSlug) === normalise(album.slug || slug)) ||
       (songAlbumTitle && normalise(songAlbumTitle) === normalise(album.title))
     );
-  };
+  });
 
   const mergedSongs = staticSongs.map((track:any) => {
-    // A matching title + artist is enough. This supports singles that are also
-    // presented inside an artist's curated album page without requiring a
-    // Firestore album assignment.
-    const uploaded = uploadedSongs.find((song) => {
-      const sameTrack = normalise(song.title) === normalise(track.title) ||
-        Boolean(track.slug && normalise(song.slug) === normalise(track.slug));
-      return sameTrack && (belongsToArtist(song) || belongsToAlbum(song));
-    });
-
+    const uploaded = songsForAlbum.find((song) =>
+      normalise(song.title) === normalise(track.title) ||
+      (track.slug && normalise(song.slug) === normalise(track.slug))
+    );
     if (!uploaded) return track;
     return {
       ...track,
       ...uploaded,
       details: { ...(track.details || {}), ...(uploaded.details || {}) },
-      previewUrl: songPreview(uploaded) || track.previewUrl,
+      previewUrl: uploaded.previewUrl || uploaded.details?.previewUrl || track.previewUrl,
+      audioUrl: uploaded.audioUrl || uploaded.details?.audioUrl || track.audioUrl,
       price: uploaded.price ?? uploaded.details?.price ?? track.price,
       promotional: uploaded.promotional ?? uploaded.details?.promotional ?? track.promotional,
-      duration: uploaded.duration || uploaded.details?.duration || track.duration
+      duration: uploaded.duration || uploaded.details?.duration || track.duration,
+      trackNumber: uploaded.trackNumber ?? uploaded.details?.trackNumber ?? track.trackNumber
     };
   });
 
   const existingTitles = new Set(mergedSongs.map((song:any) => normalise(song.title)));
-  const extraUploadedSongs = uploadedSongs.filter((song) =>
-    !existingTitles.has(normalise(song.title)) && belongsToAlbum(song)
-  );
-  const songs = [...mergedSongs, ...extraUploadedSongs];
+  const extraUploadedSongs = songsForAlbum.filter((song) => !existingTitles.has(normalise(song.title)));
+  const songs = [...mergedSongs, ...extraUploadedSongs].sort((a:any, b:any) => {
+    const aTrack = Number(a.trackNumber ?? a.details?.trackNumber ?? 0);
+    const bTrack = Number(b.trackNumber ?? b.details?.trackNumber ?? 0);
+    if (aTrack && bTrack && aTrack !== bTrack) return aTrack - bTrack;
+    if (aTrack && !bTrack) return -1;
+    if (!aTrack && bTrack) return 1;
+    return 0;
+  });
 
   return <main className="page-shell album-detail-page"><Header/>
     <section className="album-hero-detail"><div className="album-detail-cover"><Image src={cover} alt={`${album.title} album artwork`} width={1000} height={1000} unoptimized/></div>
@@ -110,6 +127,6 @@ export default function AlbumPage() {
       <div className="track-list">{songs.map((song:any,index:number)=>{
         const src = song.previewUrl || song.details?.previewUrl || song.audioUrl || song.details?.audioUrl || (fallback ? getSongAudioPath(fallback, song) : '');
         const artistName = song.artistName || song.details?.artistName || albumArtist;
-        return <article className="track-row" key={song.id || song.slug || song.title}><span>{String(index+1).padStart(2,'0')}</span><div><h3>{song.title}</h3><p>{artistName} · {song.duration || song.details?.duration || ''} · Digital download €{Number(song.price ?? song.details?.price ?? 0.99).toFixed(2)}</p></div><LatestPlayButton title={song.title} src={src} purchase={{id:song.id || song.slug || `${album.slug || slug}-${index}`,title:song.title,artist:artistName,image:cover,price:Number(song.price ?? song.details?.price ?? 0.99),promotional:Boolean(song.promotional ?? song.details?.promotional)}}/></article>})}</div>
+        return <article className="track-row" key={song.id || song.slug || song.title}><span>{String(song.trackNumber || song.details?.trackNumber || index+1).padStart(2,'0')}</span><div><h3>{song.title}</h3><p>{artistName} · {song.duration || song.details?.duration || ''} · Digital download €{Number(song.price ?? song.details?.price ?? 0.99).toFixed(2)}</p></div><LatestPlayButton title={song.title} src={src} purchase={{id:song.id || song.slug || `${album.slug || slug}-${index}`,title:song.title,artist:artistName,image:cover,price:Number(song.price ?? song.details?.price ?? 0.99),promotional:Boolean(song.promotional ?? song.details?.promotional)}}/></article>})}</div>
     </section><Footer/></main>;
 }
