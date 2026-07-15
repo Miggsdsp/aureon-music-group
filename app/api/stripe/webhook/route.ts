@@ -27,6 +27,21 @@ function getPrivateFilePath(data: Record<string, any>) {
   ).trim();
 }
 
+async function resolveSongRecord(reference: string) {
+  const songs = adminFirestore.collection('songs');
+
+  const direct = await songs.doc(reference).get();
+  if (direct.exists) return direct;
+
+  const bySlug = await songs.where('slug', '==', reference).limit(1).get();
+  if (!bySlug.empty) return bySlug.docs[0];
+
+  const byTitle = await songs.where('title', '==', reference).limit(1).get();
+  if (!byTitle.empty) return byTitle.docs[0];
+
+  return null;
+}
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
@@ -73,7 +88,7 @@ export async function POST(request: Request) {
 async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
   if (session.payment_status !== 'paid') return;
 
-  const songIds = String(session.metadata?.songIds || '').split(',').filter(Boolean);
+  const songReferences = String(session.metadata?.songIds || '').split(',').filter(Boolean);
   const customerEmail = session.customer_details?.email || session.customer_email || '';
   const customerName = session.customer_details?.name || `${session.metadata?.firstName || ''} ${session.metadata?.surname || ''}`.trim();
   const orderRef = adminFirestore.collection('orders').doc(session.id);
@@ -81,17 +96,19 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
   const orderNumber = `AUR-${session.created}-${session.id.slice(-6).toUpperCase()}`;
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/, '');
 
-  const songs: PurchasedSong[] = await Promise.all(songIds.map(async songId => {
-    const snapshot = await adminFirestore.collection('songs').doc(songId).get();
-    if (!snapshot.exists) throw new Error(`Purchased song record not found: ${songId}`);
+  const songs: PurchasedSong[] = await Promise.all(songReferences.map(async reference => {
+    const snapshot = await resolveSongRecord(reference);
+    if (!snapshot) throw new Error(`Purchased song record not found: ${reference}`);
+
     const data = snapshot.data() || {};
     const privateFilePath = getPrivateFilePath(data);
     if (!privateFilePath.startsWith('private/full-tracks/')) {
-      throw new Error(`Purchased song has no valid private file path: ${songId}`);
+      throw new Error(`Purchased song has no valid private file path: ${snapshot.id}`);
     }
+
     return {
-      id: songId,
-      title: String(data.title || data.name || songId),
+      id: snapshot.id,
+      title: String(data.title || data.name || reference),
       artist: String(data.artist || data.artistName || data.details?.artistName || 'Aureon Music Group'),
       privateFilePath,
       token: randomBytes(32).toString('hex')
@@ -120,7 +137,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       customerName,
       currency: session.currency || 'eur',
       amountTotal: session.amount_total || 0,
-      songIds,
+      songIds: songs.map(song => song.id),
       songs: songs.map(song => ({ id: song.id, title: song.title, artist: song.artist, privateFilePath: song.privateFilePath })),
       status: 'paid',
       paymentStatus: session.payment_status,
