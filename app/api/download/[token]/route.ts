@@ -9,6 +9,45 @@ type RouteContext = {
   params: Promise<{ token: string }>;
 };
 
+function getPrivateFilePath(data: Record<string, any>) {
+  const details = data.details && typeof data.details === 'object' ? data.details : {};
+  return String(
+    data.privateFilePath ||
+    details.privateFilePath ||
+    data.fullTrackPath ||
+    details.fullTrackPath ||
+    ''
+  ).trim();
+}
+
+async function resolveExistingPrivateFile(entitlement: Record<string, any>) {
+  const bucket = adminStorage.bucket();
+  const candidates: string[] = [];
+  const entitlementPath = String(entitlement.privateFilePath || '').trim();
+  if (entitlementPath) candidates.push(entitlementPath);
+
+  if (entitlement.songId) {
+    const songSnapshot = await adminFirestore.collection('songs').doc(String(entitlement.songId)).get();
+    if (songSnapshot.exists) {
+      const currentPath = getPrivateFilePath(songSnapshot.data() || {});
+      if (currentPath && !candidates.includes(currentPath)) candidates.push(currentPath);
+    }
+  }
+
+  for (const path of candidates) {
+    if (!path.startsWith('private/full-tracks/')) continue;
+    const file = bucket.file(path);
+    try {
+      await file.getMetadata();
+      return { file, path };
+    } catch {
+      // Try the next known path. This repairs older entitlements after a song was re-uploaded.
+    }
+  }
+
+  return null;
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   const { token } = await context.params;
   if (!token || token.length < 32) return downloadError('This download link is invalid.', 400);
@@ -31,17 +70,18 @@ export async function GET(_request: Request, context: RouteContext) {
     return downloadError('This download link has expired. Please contact Aureon support and quote your order reference.', 410);
   }
 
-  const privateFilePath = String(entitlement.privateFilePath || '');
-  if (!privateFilePath.startsWith('private/full-tracks/')) {
-    return downloadError('The purchased audio file is not configured correctly. Please contact Aureon support.', 500);
+  const resolved = await resolveExistingPrivateFile(entitlement);
+  if (!resolved) {
+    console.error('Purchased track is missing from private storage:', {
+      songId: entitlement.songId,
+      privateFilePath: entitlement.privateFilePath
+    });
+    return downloadError('The purchased audio file is not connected to this order yet. Please contact Aureon support with your order reference.', 503);
   }
 
-  const file = adminStorage.bucket().file(privateFilePath);
-  try {
-    await file.getMetadata();
-  } catch (error) {
-    console.error('Purchased track is missing from private storage:', privateFilePath, error);
-    return downloadError('The purchased audio file is being prepared. Please contact Aureon support with your order reference.', 503);
+  const { file, path: privateFilePath } = resolved;
+  if (privateFilePath !== entitlement.privateFilePath) {
+    await downloadRef.set({ privateFilePath, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   }
 
   try {
@@ -66,10 +106,14 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
+    const [metadata] = await file.getMetadata();
+    const contentType = String(metadata.contentType || 'audio/mpeg');
+    const extension = contentType.includes('wav') ? 'wav' : 'mp3';
     const [signedUrl] = await file.getSignedUrl({
       action: 'read',
       expires: Date.now() + 2 * 60 * 1000,
-      responseDisposition: `attachment; filename="${safeFilename(String(entitlement.songTitle || entitlement.songId || 'aureon-song'))}.mp3"`
+      responseDisposition: `attachment; filename="${safeFilename(String(entitlement.songTitle || entitlement.songId || 'aureon-song'))}.${extension}"`,
+      responseType: contentType
     });
 
     await downloadRef.set({
@@ -80,10 +124,12 @@ export async function GET(_request: Request, context: RouteContext) {
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
-    await adminFirestore.collection('orders').doc(String(entitlement.orderId)).set({
-      downloadStatus: 'downloaded',
-      lastDownloadedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    if (entitlement.orderId) {
+      await adminFirestore.collection('orders').doc(String(entitlement.orderId)).set({
+        downloadStatus: 'downloaded',
+        lastDownloadedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
 
     return NextResponse.redirect(signedUrl, 302);
   } catch (error) {
