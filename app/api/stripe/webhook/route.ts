@@ -27,17 +27,29 @@ function getPrivateFilePath(data: Record<string, any>) {
   ).trim();
 }
 
+function normalisePurchaseReference(reference: string) {
+  const trimmed = String(reference || '').trim();
+  return trimmed.replace(/^SONG-/i, '');
+}
+
 async function resolveSongRecord(reference: string) {
   const songs = adminFirestore.collection('songs');
+  const candidates = Array.from(new Set([String(reference || '').trim(), normalisePurchaseReference(reference)].filter(Boolean)));
 
-  const direct = await songs.doc(reference).get();
-  if (direct.exists) return direct;
+  for (const candidate of candidates) {
+    const direct = await songs.doc(candidate).get();
+    if (direct.exists) return direct;
+  }
 
-  const bySlug = await songs.where('slug', '==', reference).limit(1).get();
-  if (!bySlug.empty) return bySlug.docs[0];
+  for (const candidate of candidates) {
+    const bySlug = await songs.where('slug', '==', candidate).limit(1).get();
+    if (!bySlug.empty) return bySlug.docs[0];
+  }
 
-  const byTitle = await songs.where('title', '==', reference).limit(1).get();
-  if (!byTitle.empty) return byTitle.docs[0];
+  for (const candidate of candidates) {
+    const byTitle = await songs.where('title', '==', candidate).limit(1).get();
+    if (!byTitle.empty) return byTitle.docs[0];
+  }
 
   return null;
 }
@@ -108,7 +120,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
 
     return {
       id: snapshot.id,
-      title: String(data.title || data.name || reference),
+      title: String(data.title || data.name || normalisePurchaseReference(reference)),
       artist: String(data.artist || data.artistName || data.details?.artistName || 'Aureon Music Group'),
       privateFilePath,
       token: randomBytes(32).toString('hex')
