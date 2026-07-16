@@ -1,2 +1,2 @@
-import { AdminSection } from '@/components/admin/AdminSection';
-export default function Page(){return <AdminSection title="News" description="Create, schedule, publish and hide Aureon news articles."/>;}
+import { NewsManager } from '@/components/admin/NewsManager';
+export default function Page(){return <NewsManager/>;}
