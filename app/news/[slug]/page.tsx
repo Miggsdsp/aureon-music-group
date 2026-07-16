@@ -6,14 +6,12 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { getNewsArticle } from '@/data/news';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 
 export default function NewsArticlePage(){
  const {slug}=useParams<{slug:string}>();
- const fallback=getNewsArticle(slug) as any;
- const {data:article,loading}=usePublishedDocument<any>('newsArticles',slug,fallback||null);
- if(!article&&!loading)return <main className="page-shell"><Header/><section className="content-panel"><h1>Article not found</h1></section><Footer/></main>;
+ const {data:article,loading}=usePublishedDocument<any>('newsArticles',slug,null);
+ if(!article&&!loading)return <main className="page-shell"><Header/><section className="content-panel"><h1>Article not found</h1><p>This story is not published or has been removed.</p></section><Footer/></main>;
  if(!article)return null;
  const image=article.imageUrl||article.image||'/images/branding/Aureon_Header_Logo.png';
  const body=Array.isArray(article.body)?article.body:String(article.body||article.content||'').split('\n').filter(Boolean);
