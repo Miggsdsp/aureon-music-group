@@ -32,7 +32,9 @@ export function usePublishedCollection<T extends PublicRecord>(collectionName: s
       }
     );
     return unsubscribe;
-  }, [collectionName, fallback]);
+    // Fallback values are intentionally not dependencies; callers commonly pass array literals.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionName]);
 
   return { items, loading };
 }
