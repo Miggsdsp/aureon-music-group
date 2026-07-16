@@ -1,2 +1,30 @@
-import { AdminSection } from '@/components/admin/AdminSection';
-export default function Page(){return <AdminSection title="Analytics" description="Review sales, downloads, customers and catalogue performance."/>;}
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { Download } from 'lucide-react';
+import { firestore } from '@/lib/firebase-client';
+import { AdminShell } from '@/components/admin/AdminShell';
+import { useAdminAuth } from '@/components/admin/AdminAuthProvider';
+
+type Period='day'|'week'|'month'|'year';
+type Row=Record<string,any>;
+const asDate=(value:any)=>value?.toDate?.()||new Date(value||0);
+const money=(cents:number)=>`€${(cents/100).toFixed(2)}`;
+const periodStart=(period:Period)=>{const now=new Date();const start=new Date(now);if(period==='day')start.setHours(0,0,0,0);if(period==='week'){start.setDate(now.getDate()-6);start.setHours(0,0,0,0);}if(period==='month'){start.setDate(1);start.setHours(0,0,0,0);}if(period==='year'){start.setMonth(0,1);start.setHours(0,0,0,0);}return start;};
+
+export default function AnalyticsPage(){
+ const {authorised,loading}=useAdminAuth();
+ const [period,setPeriod]=useState<Period>('month');
+ const [orders,setOrders]=useState<Row[]>([]);
+ const [downloads,setDownloads]=useState<Row[]>([]);
+ const [customers,setCustomers]=useState<Row[]>([]);
+ const [error,setError]=useState('');
+ useEffect(()=>{if(loading||!authorised)return;const fail=(e:unknown)=>{console.error(e);setError('Unable to read analytics collections. Confirm administrator permissions.');};const unsubs=[onSnapshot(collection(firestore,'orders'),s=>setOrders(s.docs.map(d=>({id:d.id,...d.data()}))),fail),onSnapshot(collection(firestore,'downloads'),s=>setDownloads(s.docs.map(d=>({id:d.id,...d.data()}))),fail),onSnapshot(collection(firestore,'customers'),s=>setCustomers(s.docs.map(d=>({id:d.id,...d.data()}))),fail)];return()=>unsubs.forEach(u=>u());},[authorised,loading]);
+ const start=useMemo(()=>periodStart(period),[period]);
+ const filtered=useMemo(()=>orders.filter(o=>asDate(o.paidAt||o.createdAt).getTime()>=start.getTime()&&String(o.status||'')==='paid'),[orders,start]);
+ const metrics=useMemo(()=>{let revenue=0,songSales=0,productSales=0;const performance=new Map<string,{name:string;artist:string;type:string;sales:number;revenue:number}>();for(const order of filtered){const total=Number(order.amountTotal||order.total||0);revenue+=total;const songs=Array.isArray(order.songs)?order.songs:[];if(songs.length){songSales+=songs.length;const per=songs.length?Math.round(total/songs.length):0;for(const song of songs){const key=`song:${song.id||song.title}`;const current=performance.get(key)||{name:song.title||song.id||'Song',artist:song.artist||'',type:'Song',sales:0,revenue:0};current.sales+=1;current.revenue+=per;performance.set(key,current);}}const items=Array.isArray(order.items)?order.items:[];for(const item of items.filter((x:any)=>!x.digital)){productSales+=Number(item.quantity||1);const key=`product:${item.id||item.name}`;const current=performance.get(key)||{name:item.name||item.id||'Product',artist:item.artist||'',type:'Product',sales:0,revenue:0};current.sales+=Number(item.quantity||1);current.revenue+=Number(item.total||item.price||0)*Number(item.quantity||1);performance.set(key,current);}}return{revenue,orders:filtered.length,songSales,productSales,average:filtered.length?Math.round(revenue/filtered.length):0,performance:[...performance.values()].sort((a,b)=>b.sales-a.sales)};},[filtered]);
+ const downloadCount=downloads.filter(d=>asDate(d.usedAt||d.createdAt).getTime()>=start.getTime()&&Number(d.downloadCount||0)>0).length;
+ function exportExcel(){const rows=[['Period',period],['From',start.toISOString()],[],['Revenue',metrics.revenue/100],['Orders',metrics.orders],['Song sales',metrics.songSales],['Product sales',metrics.productSales],['Downloads',downloadCount],['Customers',customers.length],[],['Type','Item','Artist','Sales','Revenue EUR'],...metrics.performance.map(p=>[p.type,p.name,p.artist,p.sales,p.revenue/100])];const xml=`<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Aureon Analytics"><Table>${rows.map(r=>`<Row>${r.map(v=>`<Cell><Data ss:Type="${typeof v==='number'?'Number':'String'}">${String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</Data></Cell>`).join('')}</Row>`).join('')}</Table></Worksheet></Workbook>`;const url=URL.createObjectURL(new Blob([xml],{type:'application/vnd.ms-excel'}));const a=document.createElement('a');a.href=url;a.download=`aureon-analytics-${period}-${new Date().toISOString().slice(0,10)}.xls`;a.click();URL.revokeObjectURL(url);}
+ return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Business intelligence</p><h1>Analytics</h1><p>Track revenue, orders, downloads and catalogue performance.</p></div>{error&&<div className="admin-cms-message">{error}</div>}<div className="admin-toolbar"><label>Reporting period <select value={period} onChange={e=>setPeriod(e.target.value as Period)}><option value="day">Today</option><option value="week">Last 7 days</option><option value="month">This month</option><option value="year">This year</option></select></label><button type="button" className="primary-button" onClick={exportExcel}><Download size={16}/> Export to Excel</button></div><section className="admin-stat-grid">{[['Revenue',money(metrics.revenue)],['Orders',metrics.orders],['Song sales',metrics.songSales],['Product sales',metrics.productSales],['Downloads',downloadCount],['Average order',money(metrics.average)]].map(([l,v])=><article key={String(l)}><span>{l}</span><strong>{v}</strong></article>)}</section><section className="admin-dashboard-grid"><article style={{gridColumn:'1 / -1'}}><h2>Song and product performance</h2><div className="admin-table-wrap"><table><thead><tr><th>Type</th><th>Item</th><th>Artist</th><th>Sales</th><th>Revenue</th></tr></thead><tbody>{metrics.performance.length?metrics.performance.map((p,i)=><tr key={`${p.type}-${p.name}-${i}`}><td>{p.type}</td><td>{p.name}</td><td>{p.artist}</td><td>{p.sales}</td><td>{money(p.revenue)}</td></tr>):<tr><td colSpan={5}>No paid sales in this period.</td></tr>}</tbody></table></div></article></section></AdminShell>;
+}
