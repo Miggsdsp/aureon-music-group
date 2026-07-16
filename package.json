@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "exceljs": "^4.4.0",
     "firebase": "^11.10.0",
     "firebase-admin": "^13.4.0",
     "lucide-react": "^0.468.0",
