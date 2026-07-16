@@ -1,2 +1,2 @@
-import { AdminSection } from '@/components/admin/AdminSection';
-export default function Page(){return <AdminSection title="Videos" description="Manage music videos, studio sessions, Behind the Song content and thumbnails."/>;}
+import { VideoManager } from '@/components/admin/VideoManager';
+export default function Page(){return <VideoManager/>;}
