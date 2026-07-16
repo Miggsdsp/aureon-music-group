@@ -8,36 +8,27 @@ service cloud.firestore {
     function singularAdminActive() { return singularAdminExists() && get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.active == true; }
     function activeAdmin() { return pluralAdminActive() || singularAdminActive(); }
 
-    match /admins/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
-      allow write: if false;
-    }
+    match /admins/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
+    match /admin/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
 
-    match /admin/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
-      allow write: if false;
-    }
+    match /artists/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /albums/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /songs/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /videoAlbums/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /videos/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /products/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /productVariants/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /newsArticles/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /sitePages/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
+    match /siteSettings/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
 
-    match /{collection}/{document=**} {
-      allow read: if collection in ['artists','albums','songs','videoAlbums','videos','products','productVariants','newsArticles','sitePages','siteSettings']
-                  && resource.data.status == 'published';
-      allow read, write: if activeAdmin();
-    }
+    match /orders/{id} { allow read, write: if activeAdmin(); }
+    match /customers/{id} { allow read, write: if activeAdmin(); }
+    match /downloads/{id} { allow read, write: if activeAdmin(); }
+    match /payments/{id} { allow read, write: if activeAdmin(); }
+    match /enquiries/{id} { allow read, write: if activeAdmin(); }
+    match /auditLogs/{id} { allow read, write: if activeAdmin(); }
 
-    match /orders/{orderId} {
-      allow read, write: if activeAdmin();
-    }
-
-    match /customers/{customerId} {
-      allow read, write: if activeAdmin();
-    }
-
-    match /downloads/{downloadId} {
-      allow read, write: if activeAdmin();
-    }
-
-    match /auditLogs/{logId} {
-      allow read, write: if activeAdmin();
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }
