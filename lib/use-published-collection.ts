@@ -6,6 +6,13 @@ import { firestore } from '@/lib/firebase-client';
 
 export type PublicRecord = DocumentData & { id: string };
 
+function isReleased(record: DocumentData) {
+  const value = record.publishAt || record.scheduledAt;
+  if (!value) return true;
+  const date = value?.toDate?.() || new Date(value);
+  return Number.isNaN(date.getTime()) || date.getTime() <= Date.now();
+}
+
 export function usePublishedCollection<T extends PublicRecord>(collectionName: string, fallback: T[] = []) {
   const [items, setItems] = useState<T[]>(fallback);
   const [loading, setLoading] = useState(true);
@@ -15,7 +22,7 @@ export function usePublishedCollection<T extends PublicRecord>(collectionName: s
     const unsubscribe = onSnapshot(
       publishedQuery,
       (snapshot) => {
-        const records = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as T));
+        const records = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() } as T)).filter(isReleased);
         setItems(records.length ? records : fallback);
         setLoading(false);
       },
@@ -25,7 +32,7 @@ export function usePublishedCollection<T extends PublicRecord>(collectionName: s
       }
     );
     return unsubscribe;
-  }, [collectionName]);
+  }, [collectionName, fallback]);
 
   return { items, loading };
 }
