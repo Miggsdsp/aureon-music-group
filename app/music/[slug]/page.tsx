@@ -7,126 +7,31 @@ import { ArrowLeft, ListMusic } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { LatestPlayButton } from '@/components/LatestPlayButton';
-import { getAlbumBySlug, getSongAudioPath } from '@/data/albums';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 
-type SongRecord = PublicRecord & {
-  title?: string;
-  slug?: string;
-  artistId?: string;
-  artistName?: string;
-  artistSlug?: string;
-  albumId?: string;
-  albumTitle?: string;
-  albumSlug?: string;
-  duration?: string;
-  price?: number;
-  promotional?: boolean;
-  previewUrl?: string;
-  audioUrl?: string;
-  trackNumber?: number;
-  releaseDate?: string;
-  details?: {
-    previewUrl?: string;
-    audioUrl?: string;
-    artistId?: string;
-    artistName?: string;
-    artistSlug?: string;
-    albumId?: string;
-    albumTitle?: string;
-    albumSlug?: string;
-    duration?: string;
-    price?: number;
-    promotional?: boolean;
-    trackNumber?: number;
-    releaseDate?: string;
-  };
-};
+type SongRecord = PublicRecord & { title?:string; slug?:string; artistId?:string; artistName?:string; artistSlug?:string; albumId?:string; albumTitle?:string; albumSlug?:string; duration?:string; price?:number; promotional?:boolean; previewUrl?:string; trackNumber?:number; details?:Record<string,any> };
+const norm=(value:unknown)=>String(value||'').trim().toLowerCase();
 
-function normalise(value: unknown) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function sameArtist(song: SongRecord, albumArtist: string, albumArtistSlug: string) {
-  const details = song.details || {};
-  const songArtistSlug = song.artistSlug || details.artistSlug;
-  const songArtistName = song.artistName || details.artistName;
-  return Boolean(
-    (albumArtistSlug && normalise(songArtistSlug) === normalise(albumArtistSlug)) ||
-    (albumArtist && normalise(songArtistName) === normalise(albumArtist))
-  );
-}
-
-export default function AlbumPage() {
-  const { slug } = useParams<{ slug: string }>();
-  const fallback = getAlbumBySlug(slug) as any;
-  const { data: album, loading } = usePublishedDocument<any>('albums', slug, fallback || null);
-  const { items: uploadedSongs } = usePublishedCollection<SongRecord>('songs', []);
-
-  if (!album && !loading) return <main className="page-shell"><Header/><section className="content-panel"><h1>Album not found</h1></section><Footer/></main>;
-  if (!album) return null;
-
-  const cover = album.coverImageUrl || album.details?.coverImageUrl || album.coverUrl || album.cover || album.image || '/images/branding/Aureon_Header_Logo.png';
-  const albumArtist = album.artistName || album.artist || album.details?.artistName || '';
-  const albumArtistSlug = album.artistSlug || album.details?.artistSlug || '';
-  const staticSongs = Array.isArray(album.songs) ? album.songs : [];
-
-  const artistSongs = uploadedSongs.filter((song) => sameArtist(song, albumArtist, albumArtistSlug));
-
-  const songsForAlbum = artistSongs.filter((song) => {
-    const details = song.details || {};
-    const songAlbumId = song.albumId || details.albumId;
-    const songAlbumSlug = song.albumSlug || details.albumSlug;
-    const songAlbumTitle = song.albumTitle || details.albumTitle;
-
-    if (!songAlbumId && !songAlbumSlug && !songAlbumTitle) return true;
-
-    return Boolean(
-      (album.id && songAlbumId === album.id) ||
-      (songAlbumSlug && normalise(songAlbumSlug) === normalise(album.slug || slug)) ||
-      (songAlbumTitle && normalise(songAlbumTitle) === normalise(album.title))
-    );
-  });
-
-  const mergedSongs = staticSongs.map((track:any) => {
-    const uploaded = songsForAlbum.find((song) =>
-      normalise(song.title) === normalise(track.title) ||
-      (track.slug && normalise(song.slug) === normalise(track.slug))
-    );
-    if (!uploaded) return track;
-    return {
-      ...track,
-      ...uploaded,
-      details: { ...(track.details || {}), ...(uploaded.details || {}) },
-      previewUrl: uploaded.previewUrl || uploaded.details?.previewUrl || track.previewUrl,
-      audioUrl: uploaded.audioUrl || uploaded.details?.audioUrl || track.audioUrl,
-      price: uploaded.price ?? uploaded.details?.price ?? track.price,
-      promotional: uploaded.promotional ?? uploaded.details?.promotional ?? track.promotional,
-      duration: uploaded.duration || uploaded.details?.duration || track.duration,
-      trackNumber: uploaded.trackNumber ?? uploaded.details?.trackNumber ?? track.trackNumber
-    };
-  });
-
-  const existingTitles = new Set(mergedSongs.map((song:any) => normalise(song.title)));
-  const extraUploadedSongs = songsForAlbum.filter((song) => !existingTitles.has(normalise(song.title)));
-  const songs = [...mergedSongs, ...extraUploadedSongs].sort((a:any, b:any) => {
-    const aTrack = Number(a.trackNumber ?? a.details?.trackNumber ?? 0);
-    const bTrack = Number(b.trackNumber ?? b.details?.trackNumber ?? 0);
-    if (aTrack && bTrack && aTrack !== bTrack) return aTrack - bTrack;
-    if (aTrack && !bTrack) return -1;
-    if (!aTrack && bTrack) return 1;
-    return 0;
-  });
-
-  return <main className="page-shell album-detail-page"><Header/>
-    <section className="album-hero-detail"><div className="album-detail-cover"><Image src={cover} alt={`${album.title} album artwork`} width={1000} height={1000} unoptimized/></div>
-      <div className="album-detail-copy"><Link href="/music" className="back-link"><ArrowLeft size={16}/> Back to albums</Link><p className="eyebrow">{album.albumCode || album.id} · {album.genre} · {album.year || album.releaseYear || ''}</p><h1>{album.title}</h1><h2>{albumArtist}</h2><p>{album.description}</p>{albumArtistSlug ? <Link className="ghost-button" href={`/artists/${albumArtistSlug}`}>View artist profile →</Link> : null}</div>
-    </section>
-    <section className="album-track-section"><div className="album-track-heading"><ListMusic/><div><p className="eyebrow">Track List</p><h2>Songs in this album</h2></div></div>
-      <div className="track-list">{songs.map((song:any,index:number)=>{
-        const src = song.previewUrl || song.details?.previewUrl || song.audioUrl || song.details?.audioUrl || (fallback ? getSongAudioPath(fallback, song) : '');
-        const artistName = song.artistName || song.details?.artistName || albumArtist;
-        return <article className="track-row" key={song.id || song.slug || song.title}><span>{String(song.trackNumber || song.details?.trackNumber || index+1).padStart(2,'0')}</span><div><h3>{song.title}</h3><p>{artistName} · {song.duration || song.details?.duration || ''} · Digital download €{Number(song.price ?? song.details?.price ?? 0.99).toFixed(2)}</p></div><LatestPlayButton title={song.title} src={src} purchase={{id:song.id || song.slug || `${album.slug || slug}-${index}`,title:song.title,artist:artistName,image:cover,price:Number(song.price ?? song.details?.price ?? 0.99),promotional:Boolean(song.promotional ?? song.details?.promotional)}}/></article>})}</div>
-    </section><Footer/></main>;
+export default function AlbumPage(){
+ const {slug}=useParams<{slug:string}>();
+ const {data:album,loading}=usePublishedDocument<any>('albums',slug,null);
+ const {items:allSongs}=usePublishedCollection<SongRecord>('songs',[]);
+ if(!album&&!loading)return <main className="page-shell"><Header/><section className="content-panel"><h1>Album not found</h1><p>This album is not published or has been removed.</p></section><Footer/></main>;
+ if(!album)return null;
+ const details=album.details||{};
+ const cover=album.coverImageUrl||details.coverImageUrl||album.coverUrl||'/images/branding/Aureon_Header_Logo.png';
+ const artistName=album.artistName||details.artistName||'';
+ const artistSlug=album.artistSlug||details.artistSlug||'';
+ const songs=allSongs.filter(song=>{
+   const d=song.details||{};
+   const sameAlbum=(song.albumId||d.albumId)===album.id||norm(song.albumSlug||d.albumSlug)===norm(album.slug||slug)||norm(song.albumTitle||d.albumTitle)===norm(album.title);
+   const sameArtist=!artistSlug&&!artistName||norm(song.artistSlug||d.artistSlug)===norm(artistSlug)||norm(song.artistName||d.artistName)===norm(artistName);
+   return sameAlbum&&sameArtist;
+ }).sort((a,b)=>Number(a.trackNumber??a.details?.trackNumber??999)-Number(b.trackNumber??b.details?.trackNumber??999));
+ return <main className="page-shell album-detail-page"><Header/>
+  <section className="album-hero-detail"><div className="album-detail-cover"><Image src={cover} alt={`${album.title} album artwork`} width={1000} height={1000} unoptimized/></div><div className="album-detail-copy"><Link href="/music" className="back-link"><ArrowLeft size={16}/> Back to music</Link><p className="eyebrow">{album.genre||''} · {album.releaseDate||album.year||''}</p><h1>{album.title}</h1><h2>{artistName}</h2><p>{album.description||''}</p>{artistSlug?<Link className="ghost-button" href={`/artists/${artistSlug}`}>View artist profile →</Link>:null}</div></section>
+  <section className="album-track-section"><div className="album-track-heading"><ListMusic/><div><p className="eyebrow">Track List</p><h2>Songs in this album</h2></div></div>
+   {songs.length?<div className="track-list">{songs.map((song,index)=>{const d=song.details||{};const price=Number(song.price??d.price??0.99);const src=song.previewUrl||d.previewUrl||'';const songArtist=song.artistName||d.artistName||artistName;return <article className="track-row" key={song.id}><span>{String(song.trackNumber||d.trackNumber||index+1).padStart(2,'0')}</span><div><h3>{song.title}</h3><p>{songArtist} · {song.duration||d.duration||''} · Digital download €{price.toFixed(2)}</p></div><LatestPlayButton title={song.title||'Track'} src={src} purchase={{id:song.id,title:song.title||'Track',artist:songArtist,image:cover,price,promotional:Boolean(song.promotional??d.promotional)}}/></article>})}</div>:<div className="store-empty"><h3>No published tracks yet</h3><p>Assign and publish songs for this album in the Control Center.</p></div>}
+  </section><Footer/></main>;
 }
