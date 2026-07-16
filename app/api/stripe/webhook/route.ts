@@ -13,61 +13,51 @@ type PurchasedSong = {
   title: string;
   artist: string;
   privateFilePath: string;
+  unitAmount: number;
   token: string;
 };
 
 function getPrivateFilePath(data: Record<string, any>) {
   const details = data.details && typeof data.details === 'object' ? data.details : {};
-  return String(
-    data.privateFilePath ||
-    details.privateFilePath ||
-    data.fullTrackPath ||
-    details.fullTrackPath ||
-    ''
-  ).trim();
+  return String(data.privateFilePath || details.privateFilePath || data.fullTrackPath || details.fullTrackPath || '').trim();
+}
+
+function getPriceCents(data: Record<string, any>) {
+  const details = data.details && typeof data.details === 'object' ? data.details : {};
+  const price = Number(data.price ?? details.price ?? 0);
+  return Number.isFinite(price) ? Math.round(price * 100) : 0;
 }
 
 function normalisePurchaseReference(reference: string) {
-  const trimmed = String(reference || '').trim();
-  return trimmed.replace(/^SONG-/i, '');
+  return String(reference || '').trim().replace(/^SONG-/i, '');
 }
 
 async function resolveSongRecord(reference: string) {
   const songs = adminFirestore.collection('songs');
   const candidates = Array.from(new Set([String(reference || '').trim(), normalisePurchaseReference(reference)].filter(Boolean)));
-
   for (const candidate of candidates) {
     const direct = await songs.doc(candidate).get();
     if (direct.exists) return direct;
   }
-
   for (const candidate of candidates) {
     const bySlug = await songs.where('slug', '==', candidate).limit(1).get();
     if (!bySlug.empty) return bySlug.docs[0];
   }
-
   for (const candidate of candidates) {
     const byTitle = await songs.where('title', '==', candidate).limit(1).get();
     if (!byTitle.empty) return byTitle.docs[0];
   }
-
   return null;
 }
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return NextResponse.json({ error: 'Webhook secret not configured.' }, { status: 500 });
-  }
-
+  if (!webhookSecret) return NextResponse.json({ error: 'Webhook secret not configured.' }, { status: 500 });
   const signature = request.headers.get('stripe-signature');
-  if (!signature) {
-    return NextResponse.json({ error: 'Missing Stripe signature.' }, { status: 400 });
-  }
+  if (!signature) return NextResponse.json({ error: 'Missing Stripe signature.' }, { status: 400 });
 
   const rawBody = await request.text();
   let event: Stripe.Event;
-
   try {
     event = getStripe().webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (error) {
@@ -76,10 +66,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (event.type === 'checkout.session.completed') {
-      await fulfilPaidCheckout(event.data.object as Stripe.Checkout.Session);
-    }
-
+    if (event.type === 'checkout.session.completed') await fulfilPaidCheckout(event.data.object as Stripe.Checkout.Session);
     if (event.type === 'checkout.session.expired') {
       const session = event.data.object as Stripe.Checkout.Session;
       await adminFirestore.collection('orders').doc(session.id).set({
@@ -89,7 +76,6 @@ export async function POST(request: Request) {
         updatedAt: FieldValue.serverTimestamp()
       }, { merge: true });
     }
-
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Stripe webhook processing failed:', error);
@@ -111,18 +97,15 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
   const songs: PurchasedSong[] = await Promise.all(songReferences.map(async reference => {
     const snapshot = await resolveSongRecord(reference);
     if (!snapshot) throw new Error(`Purchased song record not found: ${reference}`);
-
     const data = snapshot.data() || {};
     const privateFilePath = getPrivateFilePath(data);
-    if (!privateFilePath.startsWith('private/full-tracks/')) {
-      throw new Error(`Purchased song has no valid private file path: ${snapshot.id}`);
-    }
-
+    if (!privateFilePath.startsWith('private/full-tracks/')) throw new Error(`Purchased song has no valid private file path: ${snapshot.id}`);
     return {
       id: snapshot.id,
       title: String(data.title || data.name || normalisePurchaseReference(reference)),
       artist: String(data.artist || data.artistName || data.details?.artistName || 'Aureon Music Group'),
       privateFilePath,
+      unitAmount: getPriceCents(data),
       token: randomBytes(32).toString('hex')
     };
   }));
@@ -137,6 +120,9 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       name: customerName,
       phone: session.customer_details?.phone || session.metadata?.phone || '',
       stripeCustomerId: typeof session.customer === 'string' ? session.customer : session.customer?.id || '',
+      totalOrders: FieldValue.increment(1),
+      lifetimeSpend: FieldValue.increment(session.amount_total || 0),
+      lastOrderAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp()
     }, { merge: true });
@@ -150,14 +136,15 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       currency: session.currency || 'eur',
       amountTotal: session.amount_total || 0,
       songIds: songs.map(song => song.id),
-      songs: songs.map(song => ({ id: song.id, title: song.title, artist: song.artist, privateFilePath: song.privateFilePath })),
+      songs: songs.map(song => ({ id: song.id, title: song.title, artist: song.artist, privateFilePath: song.privateFilePath, unitAmount: song.unitAmount, quantity: 1 })),
       status: 'paid',
       paymentStatus: session.payment_status,
       downloadStatus: 'available',
       downloadPolicy: 'single-use',
       emailStatus: 'pending',
       createdAt: FieldValue.serverTimestamp(),
-      paidAt: FieldValue.serverTimestamp()
+      paidAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
     const paymentRef = adminFirestore.collection('payments').doc(paymentIntentId || session.id);
@@ -191,28 +178,18 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
         createdAt: FieldValue.serverTimestamp()
       });
     }
-
     return true;
   });
 
   if (!created || !customerEmail) return;
-
   try {
     const result = await sendPurchaseDownloadEmail({
       to: customerEmail,
       customerName,
       orderNumber,
-      items: songs.map(song => ({
-        title: song.title,
-        artist: song.artist,
-        downloadUrl: `${siteUrl}/api/download/${song.token}`
-      }))
+      items: songs.map(song => ({ title: song.title, artist: song.artist, downloadUrl: `${siteUrl}/api/download/${song.token}` }))
     });
-
-    await orderRef.set({
-      emailStatus: result.sent ? 'sent' : 'not-configured',
-      emailSentAt: result.sent ? FieldValue.serverTimestamp() : null
-    }, { merge: true });
+    await orderRef.set({ emailStatus: result.sent ? 'sent' : 'not-configured', emailSentAt: result.sent ? FieldValue.serverTimestamp() : null }, { merge: true });
   } catch (error) {
     console.error('Purchase email failed:', error);
     await orderRef.set({ emailStatus: 'failed', emailError: String(error) }, { merge: true });
