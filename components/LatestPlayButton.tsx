@@ -11,6 +11,8 @@ type SongPurchase = {
   image: string;
   price?: number;
   promotional?: boolean;
+  slug?: string;
+  artistSlug?: string;
 };
 
 type CartProduct = {
@@ -73,13 +75,16 @@ export function LatestPlayButton({ title, src, purchase }: { title: string; src?
 
   function addSongToCart() {
     if (!purchase) return;
+
+    // The cart and Stripe metadata must carry the real Firestore song document ID.
+    // Prefixing it with "SONG-" breaks the webhook-to-file relationship.
     const product: CartProduct = {
-      id: `SONG-${purchase.id}`,
+      id: purchase.id,
       name: purchase.title,
-      slug: purchase.id,
+      slug: purchase.slug || purchase.id,
       category: 'Digital Music',
       artist: purchase.artist,
-      artistSlug: purchase.id.split('-')[0],
+      artistSlug: purchase.artistSlug || '',
       price,
       image: purchase.image,
       description: `Full digital download of ${purchase.title} by ${purchase.artist}.`,
