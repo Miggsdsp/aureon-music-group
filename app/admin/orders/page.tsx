@@ -48,8 +48,11 @@ export default function OrdersPage() {
     const unsubscribeOrders = onSnapshot(
       collection(firestore, 'orders'),
       snapshot => {
-        const rows = snapshot.docs
-          .map(item => ({ id: item.id, ...item.data() }))
+        const rows: Row[] = snapshot.docs
+          .map(item => ({
+            id: item.id,
+            ...(item.data() as Record<string, any>),
+          }))
           .sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt));
         setOrders(rows);
       },
@@ -59,8 +62,11 @@ export default function OrdersPage() {
     const unsubscribeCustomers = onSnapshot(
       collection(firestore, 'customers'),
       snapshot => {
-        const rows = snapshot.docs
-          .map(item => ({ id: item.id, ...item.data() }))
+        const rows: Row[] = snapshot.docs
+          .map(item => ({
+            id: item.id,
+            ...(item.data() as Record<string, any>),
+          }))
           .sort(
             (a, b) =>
               dateValue(b.lastOrderAt || b.updatedAt) -
@@ -74,8 +80,11 @@ export default function OrdersPage() {
     const unsubscribeEnquiries = onSnapshot(
       collection(firestore, 'enquiries'),
       snapshot => {
-        const rows = snapshot.docs
-          .map(item => ({ id: item.id, ...item.data() }))
+        const rows: Row[] = snapshot.docs
+          .map(item => ({
+            id: item.id,
+            ...(item.data() as Record<string, any>),
+          }))
           .sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt));
         setEnquiries(rows);
       },
