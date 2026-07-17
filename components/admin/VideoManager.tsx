@@ -12,7 +12,21 @@ const safe=(v:string)=>v.toLowerCase().replace(/[^a-z0-9.]+/g,'-');
 export function VideoManager(){
  const [tab,setTab]=useState<'videos'|'albums'>('videos');const [artists,setArtists]=useState<Row[]>([]);const [albums,setAlbums]=useState<Row[]>([]);const [videos,setVideos]=useState<Row[]>([]);const [editing,setEditing]=useState<Row|null>(null);const [message,setMessage]=useState('');const [progress,setProgress]=useState(0);
  const [form,setForm]=useState<any>({title:'',slug:'',artistId:'',videoAlbumId:'',type:'Music video',duration:'',releaseDate:'',description:'',externalUrl:'',thumbnailUrl:'',videoUrl:'',featured:false,status:'draft',shortForm:false});
- useEffect(()=>{const u=[onSnapshot(collection(firestore,'artists'),s=>setArtists(s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==='published'||x.status==='draft'))),onSnapshot(collection(firestore,'videoAlbums'),s=>setAlbums(s.docs.map(d=>({id:d.id,...d.data()}))),onSnapshot(collection(firestore,'videos'),s=>setVideos(s.docs.map(d=>({id:d.id,...d.data()})))];return()=>u.forEach(x=>x());},[]);
+ useEffect(()=>{
+  const unsubscribers=[
+   onSnapshot(collection(firestore,'artists'),snapshot=>{
+    const rows=snapshot.docs.map(item=>({id:item.id,...item.data()} as Row)).filter(item=>item.status==='published'||item.status==='draft');
+    setArtists(rows);
+   }),
+   onSnapshot(collection(firestore,'videoAlbums'),snapshot=>{
+    setAlbums(snapshot.docs.map(item=>({id:item.id,...item.data()} as Row)));
+   }),
+   onSnapshot(collection(firestore,'videos'),snapshot=>{
+    setVideos(snapshot.docs.map(item=>({id:item.id,...item.data()} as Row)));
+   })
+  ];
+  return()=>unsubscribers.forEach(unsubscribe=>unsubscribe());
+ },[]);
  const artist=artists.find(x=>x.id===form.artistId);const availableAlbums=useMemo(()=>albums.filter(x=>!form.artistId||x.artistId===form.artistId||x.details?.artistId===form.artistId),[albums,form.artistId]);
  function reset(){setEditing(null);setProgress(0);setForm({title:'',slug:'',artistId:'',videoAlbumId:'',type:'Music video',duration:'',releaseDate:'',description:'',externalUrl:'',thumbnailUrl:'',videoUrl:'',featured:false,status:'draft',shortForm:false});}
  function edit(x:Row){setEditing(x);setTab(x.__kind||'videos');setForm({title:x.title||'',slug:x.slug||'',artistId:x.artistId||x.details?.artistId||'',videoAlbumId:x.videoAlbumId||x.details?.videoAlbumId||'',type:x.type||x.details?.type||'Music video',duration:x.duration||x.details?.duration||'',releaseDate:x.releaseDate||x.details?.releaseDate||'',description:x.description||'',externalUrl:x.externalUrl||x.youtubeUrl||x.vimeoUrl||x.details?.externalUrl||'',thumbnailUrl:x.thumbnailUrl||x.coverImageUrl||x.details?.thumbnailUrl||'',videoUrl:x.videoUrl||x.details?.videoUrl||'',featured:Boolean(x.featured),status:x.status||'draft',shortForm:Boolean(x.shortForm||x.details?.shortForm)});}
