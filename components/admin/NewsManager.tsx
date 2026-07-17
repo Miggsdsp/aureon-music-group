@@ -14,7 +14,44 @@ import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { firebaseStorage, firestore } from '@/lib/firebase-client';
 import { AdminShell } from './AdminShell';
 
-type Row = { id: string; [key: string]: any };
+type Row = {
+  id: string;
+  title?: string;
+  slug?: string;
+  category?: string;
+  tags?: string[] | string;
+  author?: string;
+  excerpt?: string;
+  description?: string;
+  body?: string[] | string;
+  content?: string;
+  featuredImageUrl?: string;
+  imageUrl?: string;
+  publishAt?: any;
+  publishDate?: string;
+  createdAt?: any;
+  featured?: boolean;
+  status?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  [key: string]: any;
+};
+
+type NewsForm = {
+  title: string;
+  slug: string;
+  category: string;
+  tags: string;
+  author: string;
+  excerpt: string;
+  body: string;
+  featuredImageUrl: string;
+  publishAt: string;
+  featured: boolean;
+  status: string;
+  seoTitle: string;
+  seoDescription: string;
+};
 
 const slugify = (value: string) =>
   value
@@ -23,7 +60,7 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-const emptyForm = {
+const emptyForm: NewsForm = {
   title: '',
   slug: '',
   category: 'Company news',
@@ -39,24 +76,41 @@ const emptyForm = {
   seoDescription: '',
 };
 
+function toDateTimeLocal(value: any): string {
+  if (!value) return '';
+  try {
+    const date = value?.toDate?.() ?? new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const offset = date.getTimezoneOffset();
+    return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
+  } catch {
+    return '';
+  }
+}
+
+function sortValue(item: Row): string {
+  const value = item.publishAt ?? item.createdAt ?? '';
+  if (value?.toDate) return value.toDate().toISOString();
+  return String(value);
+}
+
 export function NewsManager() {
   const [items, setItems] = useState<Row[]>([]);
   const [editing, setEditing] = useState<Row | null>(null);
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState(0);
-  const [form, setForm] = useState<any>(emptyForm);
+  const [form, setForm] = useState<NewsForm>({ ...emptyForm });
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(firestore, 'newsArticles'),
       snapshot => {
-        const nextItems = snapshot.docs
-          .map(item => ({ id: item.id, ...item.data() }))
-          .sort((a, b) => {
-            const bValue = String(b.publishAt || b.createdAt || '');
-            const aValue = String(a.publishAt || a.createdAt || '');
-            return bValue.localeCompare(aValue);
-          });
+        const nextItems: Row[] = snapshot.docs
+          .map(item => ({
+            id: item.id,
+            ...(item.data() as Omit<Row, 'id'>),
+          }))
+          .sort((a, b) => sortValue(b).localeCompare(sortValue(a)));
 
         setItems(nextItems);
       },
@@ -72,7 +126,7 @@ export function NewsManager() {
   function reset() {
     setEditing(null);
     setProgress(0);
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
   }
 
   function edit(item: Row) {
@@ -88,9 +142,7 @@ export function NewsManager() {
         ? item.body.join('\n\n')
         : item.body || item.content || '',
       featuredImageUrl: item.featuredImageUrl || item.imageUrl || '',
-      publishAt:
-        item.publishAt?.toDate?.().toISOString().slice(0, 16) ||
-        String(item.publishAt || '').slice(0, 16),
+      publishAt: toDateTimeLocal(item.publishAt),
       featured: Boolean(item.featured),
       status: item.status || 'draft',
       seoTitle: item.seoTitle || '',
@@ -122,7 +174,7 @@ export function NewsManager() {
       });
 
       const url = await getDownloadURL(task.snapshot.ref);
-      setForm((current: any) => ({ ...current, featuredImageUrl: url }));
+      setForm(current => ({ ...current, featuredImageUrl: url }));
       setMessage('Featured image uploaded.');
     } catch (error) {
       console.error('News image upload failed', error);
@@ -136,7 +188,7 @@ export function NewsManager() {
     event.preventDefault();
     setMessage('');
 
-    if (!form.title || !form.body) {
+    if (!form.title.trim() || !form.body.trim()) {
       setMessage('Title and article body are required.');
       return;
     }
@@ -148,11 +200,11 @@ export function NewsManager() {
       category: form.category,
       tags: form.tags
         .split(',')
-        .map((tag: string) => tag.trim())
+        .map(tag => tag.trim())
         .filter(Boolean),
-      author: form.author,
-      excerpt: form.excerpt,
-      description: form.excerpt,
+      author: form.author.trim() || 'Aureon Music Group',
+      excerpt: form.excerpt.trim(),
+      description: form.excerpt.trim(),
       body: form.body,
       content: form.body,
       featuredImageUrl: form.featuredImageUrl,
@@ -161,8 +213,8 @@ export function NewsManager() {
       publishDate: publishAt?.toISOString().slice(0, 10) || '',
       featured: form.featured,
       status: form.status,
-      seoTitle: form.seoTitle,
-      seoDescription: form.seoDescription,
+      seoTitle: form.seoTitle.trim(),
+      seoDescription: form.seoDescription.trim(),
       updatedAt: serverTimestamp(),
     };
 
@@ -365,15 +417,15 @@ export function NewsManager() {
               {items.length ? (
                 items.map(item => (
                   <tr key={item.id}>
-                    <td>{item.title}</td>
-                    <td>{item.category}</td>
+                    <td>{item.title || 'Untitled article'}</td>
+                    <td>{item.category || '—'}</td>
                     <td>
                       {item.publishAt?.toDate?.().toLocaleString?.() ||
                         item.publishDate ||
                         'Immediately'}
                     </td>
                     <td>{item.featured ? 'Yes' : 'No'}</td>
-                    <td>{item.status}</td>
+                    <td>{item.status || 'draft'}</td>
                     <td>
                       <button type="button" onClick={() => edit(item)}>
                         Edit
