@@ -1,37 +1,490 @@
 'use client';
 
-import { useEffect,useMemo,useState } from 'react';
-import { addDoc,collection,deleteDoc,doc,onSnapshot,serverTimestamp,updateDoc } from 'firebase/firestore';
-import { getDownloadURL,ref,uploadBytesResumable } from 'firebase/storage';
-import { firebaseStorage,firestore } from '@/lib/firebase-client';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+} from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
+import { firebaseStorage, firestore } from '@/lib/firebase-client';
 import { AdminShell } from './AdminShell';
 
-type Row={id:string;[key:string]:any};
-const slugify=(v:string)=>v.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-const safe=(v:string)=>v.toLowerCase().replace(/[^a-z0-9.]+/g,'-');
-export function VideoManager(){
- const [tab,setTab]=useState<'videos'|'albums'>('videos');const [artists,setArtists]=useState<Row[]>([]);const [albums,setAlbums]=useState<Row[]>([]);const [videos,setVideos]=useState<Row[]>([]);const [editing,setEditing]=useState<Row|null>(null);const [message,setMessage]=useState('');const [progress,setProgress]=useState(0);
- const [form,setForm]=useState<any>({title:'',slug:'',artistId:'',videoAlbumId:'',type:'Music video',duration:'',releaseDate:'',description:'',externalUrl:'',thumbnailUrl:'',videoUrl:'',featured:false,status:'draft',shortForm:false});
- useEffect(()=>{
-  const unsubscribers=[
-   onSnapshot(collection(firestore,'artists'),snapshot=>{
-    const rows=snapshot.docs.map(item=>({id:item.id,...item.data()} as Row)).filter(item=>item.status==='published'||item.status==='draft');
-    setArtists(rows);
-   }),
-   onSnapshot(collection(firestore,'videoAlbums'),snapshot=>{
-    setAlbums(snapshot.docs.map(item=>({id:item.id,...item.data()} as Row)));
-   }),
-   onSnapshot(collection(firestore,'videos'),snapshot=>{
-    setVideos(snapshot.docs.map(item=>({id:item.id,...item.data()} as Row)));
-   })
-  ];
-  return()=>unsubscribers.forEach(unsubscribe=>unsubscribe());
- },[]);
- const artist=artists.find(x=>x.id===form.artistId);const availableAlbums=useMemo(()=>albums.filter(x=>!form.artistId||x.artistId===form.artistId||x.details?.artistId===form.artistId),[albums,form.artistId]);
- function reset(){setEditing(null);setProgress(0);setForm({title:'',slug:'',artistId:'',videoAlbumId:'',type:'Music video',duration:'',releaseDate:'',description:'',externalUrl:'',thumbnailUrl:'',videoUrl:'',featured:false,status:'draft',shortForm:false});}
- function edit(x:Row){setEditing(x);setTab(x.__kind||'videos');setForm({title:x.title||'',slug:x.slug||'',artistId:x.artistId||x.details?.artistId||'',videoAlbumId:x.videoAlbumId||x.details?.videoAlbumId||'',type:x.type||x.details?.type||'Music video',duration:x.duration||x.details?.duration||'',releaseDate:x.releaseDate||x.details?.releaseDate||'',description:x.description||'',externalUrl:x.externalUrl||x.youtubeUrl||x.vimeoUrl||x.details?.externalUrl||'',thumbnailUrl:x.thumbnailUrl||x.coverImageUrl||x.details?.thumbnailUrl||'',videoUrl:x.videoUrl||x.details?.videoUrl||'',featured:Boolean(x.featured),status:x.status||'draft',shortForm:Boolean(x.shortForm||x.details?.shortForm)});}
- async function upload(file:File,key:'thumbnailUrl'|'videoUrl'){const folder=key==='thumbnailUrl'?'public/videos/thumbnails':'public/videos/files';const path=`${folder}/${slugify(String(artist?.slug||artist?.name||'unassigned'))}/${Date.now()}-${safe(file.name)}`;setProgress(1);const task=uploadBytesResumable(ref(firebaseStorage,path),file,{contentType:file.type});await new Promise<void>((resolve,reject)=>task.on('state_changed',s=>setProgress(Math.round(s.bytesTransferred/s.totalBytes*100)),reject,()=>resolve()));const url=await getDownloadURL(task.snapshot.ref);setForm((f:any)=>({...f,[key]:url}));setProgress(0);}
- async function save(e:React.FormEvent){e.preventDefault();if(!form.title||!form.artistId)return setMessage('Title and artist are required.');const selectedAlbum=albums.find(x=>x.id===form.videoAlbumId);const payload:any={title:form.title.trim(),slug:form.slug.trim()||slugify(form.title),artistId:artist?.id||'',artistName:artist?.name||artist?.title||'',artistSlug:artist?.slug||'',description:form.description,status:form.status,featured:form.featured,releaseDate:form.releaseDate,updatedAt:serverTimestamp()};if(tab==='videos')Object.assign(payload,{videoAlbumId:selectedAlbum?.id||'',videoAlbumSlug:selectedAlbum?.slug||'',videoAlbumTitle:selectedAlbum?.title||'',type:form.type,duration:form.duration,externalUrl:form.externalUrl,thumbnailUrl:form.thumbnailUrl,videoUrl:form.videoUrl,shortForm:form.shortForm});else Object.assign(payload,{coverImageUrl:form.thumbnailUrl,genre:form.type});const col=tab==='videos'?'videos':'videoAlbums';if(editing)await updateDoc(doc(firestore,col,editing.id),payload);else await addDoc(collection(firestore,col),{...payload,createdAt:serverTimestamp()});setMessage('Saved successfully.');reset();}
- const list=(tab==='videos'?videos:albums).map(x=>({...x,__kind:tab}));
- return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Visual catalogue</p><h1>Video Management</h1><p>Manage music videos, artist galleries, video albums, YouTube/Vimeo links and short-form clips.</p></div>{message&&<div className="admin-cms-message">{message}</div>}<div className="admin-toolbar"><button onClick={()=>{setTab('videos');reset()}}>Individual videos</button><button onClick={()=>{setTab('albums');reset()}}>Video albums</button></div><section className="admin-cms-grid"><form className="admin-cms-form" onSubmit={save}><h2>{editing?'Edit':'Create'} {tab==='videos'?'video':'video album'}</h2><label>Title<input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label><label>Artist<select required value={form.artistId} onChange={e=>setForm({...form,artistId:e.target.value,videoAlbumId:''})}><option value="">Select artist</option>{artists.map(a=><option key={a.id} value={a.id}>{a.name||a.title}</option>)}</select></label>{tab==='videos'&&<label>Video album (optional)<select value={form.videoAlbumId} onChange={e=>setForm({...form,videoAlbumId:e.target.value})}><option value="">Artist gallery / no album</option>{availableAlbums.map(a=><option key={a.id} value={a.id}>{a.title}</option>)}</select></label>}<label>URL slug<input value={form.slug} onChange={e=>setForm({...form,slug:e.target.value})}/></label><div className="checkout-fields two-columns"><label>{tab==='videos'?'Video category':'Genre'}<select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>{['Music video','Lyric video','Visualizer','Live performance','Interview','Behind the song','Short-form clip'].map(x=><option key={x}>{x}</option>)}</select></label><label>Release date<input type="date" value={form.releaseDate} onChange={e=>setForm({...form,releaseDate:e.target.value})}/></label></div>{tab==='videos'&&<><label>Duration<input placeholder="3:42" value={form.duration} onChange={e=>setForm({...form,duration:e.target.value})}/></label><label>YouTube / Vimeo / external URL<input value={form.externalUrl} onChange={e=>setForm({...form,externalUrl:e.target.value})}/></label><label style={{display:'flex',gap:10,alignItems:'center'}}><input type="checkbox" checked={form.shortForm} onChange={e=>setForm({...form,shortForm:e.target.checked})}/> Short-form promotional clip</label></>}<label>Description<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label><label>Thumbnail / cover<input type="file" accept="image/*" onChange={e=>e.target.files?.[0]&&upload(e.target.files[0],'thumbnailUrl')}/></label>{tab==='videos'&&<label>Upload video file<input type="file" accept="video/*" onChange={e=>e.target.files?.[0]&&upload(e.target.files[0],'videoUrl')}/></label>}{progress>0&&<p>Uploading: {progress}%</p>}<label>Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></label><label style={{display:'flex',gap:10,alignItems:'center'}}><input type="checkbox" checked={form.featured} onChange={e=>setForm({...form,featured:e.target.checked})}/> Feature on homepage</label><button className="primary-button" disabled={progress>0}>{editing?'Update':'Save'}</button>{editing&&<button type="button" onClick={reset}>Cancel</button>}</form><div className="admin-table-wrap"><table><thead><tr><th>Title</th><th>Artist</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody>{list.length?list.map(x=><tr key={x.id}><td>{x.title}</td><td>{x.artistName||'—'}</td><td>{x.type||x.genre||'—'}</td><td>{x.status}</td><td><button onClick={()=>edit(x)}>Edit</button><button onClick={()=>confirm('Delete permanently?')&&deleteDoc(doc(firestore,tab==='videos'?'videos':'videoAlbums',x.id))}>Delete</button></td></tr>):<tr><td colSpan={5}>No records yet.</td></tr>}</tbody></table></div></section></AdminShell>;
+type Row = { id: string; [key: string]: any };
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+const safe = (value: string) => value.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
+
+const emptyForm = {
+  title: '',
+  slug: '',
+  artistId: '',
+  videoAlbumId: '',
+  type: 'Music video',
+  duration: '',
+  releaseDate: '',
+  description: '',
+  externalUrl: '',
+  thumbnailUrl: '',
+  videoUrl: '',
+  featured: false,
+  status: 'draft',
+  shortForm: false,
+};
+
+export function VideoManager() {
+  const [tab, setTab] = useState<'videos' | 'albums'>('videos');
+  const [artists, setArtists] = useState<Row[]>([]);
+  const [albums, setAlbums] = useState<Row[]>([]);
+  const [videos, setVideos] = useState<Row[]>([]);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [message, setMessage] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [form, setForm] = useState<any>(emptyForm);
+
+  useEffect(() => {
+    const unsubscribers = [
+      onSnapshot(collection(firestore, 'artists'), snapshot => {
+        const rows: Row[] = snapshot.docs
+          .map(item => ({ id: item.id, ...(item.data() as Record<string, any>) }))
+          .filter(item => item.status === 'published' || item.status === 'draft');
+        setArtists(rows);
+      }),
+      onSnapshot(collection(firestore, 'videoAlbums'), snapshot => {
+        const rows: Row[] = snapshot.docs.map(item => ({
+          id: item.id,
+          ...(item.data() as Record<string, any>),
+        }));
+        setAlbums(rows);
+      }),
+      onSnapshot(collection(firestore, 'videos'), snapshot => {
+        const rows: Row[] = snapshot.docs.map(item => ({
+          id: item.id,
+          ...(item.data() as Record<string, any>),
+        }));
+        setVideos(rows);
+      }),
+    ];
+
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
+  }, []);
+
+  const artist = artists.find(item => item.id === form.artistId);
+  const availableAlbums = useMemo(
+    () =>
+      albums.filter(
+        item =>
+          !form.artistId ||
+          item.artistId === form.artistId ||
+          item.details?.artistId === form.artistId,
+      ),
+    [albums, form.artistId],
+  );
+
+  function reset() {
+    setEditing(null);
+    setProgress(0);
+    setForm(emptyForm);
+  }
+
+  function edit(item: Row) {
+    setEditing(item);
+    setTab(item.__kind === 'albums' ? 'albums' : 'videos');
+    setForm({
+      title: item.title || '',
+      slug: item.slug || '',
+      artistId: item.artistId || item.details?.artistId || '',
+      videoAlbumId: item.videoAlbumId || item.details?.videoAlbumId || '',
+      type: item.type || item.details?.type || 'Music video',
+      duration: item.duration || item.details?.duration || '',
+      releaseDate: item.releaseDate || item.details?.releaseDate || '',
+      description: item.description || '',
+      externalUrl:
+        item.externalUrl ||
+        item.youtubeUrl ||
+        item.vimeoUrl ||
+        item.details?.externalUrl ||
+        '',
+      thumbnailUrl:
+        item.thumbnailUrl || item.coverImageUrl || item.details?.thumbnailUrl || '',
+      videoUrl: item.videoUrl || item.details?.videoUrl || '',
+      featured: Boolean(item.featured),
+      status: item.status || 'draft',
+      shortForm: Boolean(item.shortForm || item.details?.shortForm),
+    });
+  }
+
+  async function upload(file: File, key: 'thumbnailUrl' | 'videoUrl') {
+    const folder =
+      key === 'thumbnailUrl' ? 'public/videos/thumbnails' : 'public/videos/files';
+    const path = `${folder}/${slugify(
+      String(artist?.slug || artist?.name || 'unassigned'),
+    )}/${Date.now()}-${safe(file.name)}`;
+
+    setProgress(1);
+    const task = uploadBytesResumable(ref(firebaseStorage, path), file, {
+      contentType: file.type,
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      task.on(
+        'state_changed',
+        snapshot =>
+          setProgress(
+            Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
+          ),
+        reject,
+        resolve,
+      );
+    });
+
+    const url = await getDownloadURL(task.snapshot.ref);
+    setForm((current: any) => ({ ...current, [key]: url }));
+    setProgress(0);
+  }
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (!form.title || !form.artistId) {
+      setMessage('Title and artist are required.');
+      return;
+    }
+
+    const selectedAlbum = albums.find(item => item.id === form.videoAlbumId);
+    const payload: Record<string, any> = {
+      title: form.title.trim(),
+      slug: form.slug.trim() || slugify(form.title),
+      artistId: artist?.id || '',
+      artistName: artist?.name || artist?.title || '',
+      artistSlug: artist?.slug || '',
+      description: form.description,
+      status: form.status,
+      featured: form.featured,
+      releaseDate: form.releaseDate,
+      updatedAt: serverTimestamp(),
+    };
+
+    if (tab === 'videos') {
+      Object.assign(payload, {
+        videoAlbumId: selectedAlbum?.id || '',
+        videoAlbumSlug: selectedAlbum?.slug || '',
+        videoAlbumTitle: selectedAlbum?.title || '',
+        type: form.type,
+        duration: form.duration,
+        externalUrl: form.externalUrl,
+        thumbnailUrl: form.thumbnailUrl,
+        videoUrl: form.videoUrl,
+        shortForm: form.shortForm,
+      });
+    } else {
+      Object.assign(payload, {
+        coverImageUrl: form.thumbnailUrl,
+        genre: form.type,
+      });
+    }
+
+    const collectionName = tab === 'videos' ? 'videos' : 'videoAlbums';
+
+    if (editing) {
+      await updateDoc(doc(firestore, collectionName, editing.id), payload);
+    } else {
+      await addDoc(collection(firestore, collectionName), {
+        ...payload,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    setMessage('Saved successfully.');
+    reset();
+  }
+
+  const list: Row[] = (tab === 'videos' ? videos : albums).map(item => ({
+    ...item,
+    __kind: tab,
+  }));
+
+  return (
+    <AdminShell>
+      <div className="admin-page-heading">
+        <p className="admin-kicker">Visual catalogue</p>
+        <h1>Video Management</h1>
+        <p>
+          Manage music videos, artist galleries, video albums, YouTube/Vimeo links and
+          short-form clips.
+        </p>
+      </div>
+
+      {message && <div className="admin-cms-message">{message}</div>}
+
+      <div className="admin-toolbar">
+        <button type="button" onClick={() => { setTab('videos'); reset(); }}>
+          Individual videos
+        </button>
+        <button type="button" onClick={() => { setTab('albums'); reset(); }}>
+          Video albums
+        </button>
+      </div>
+
+      <section className="admin-cms-grid">
+        <form className="admin-cms-form" onSubmit={save}>
+          <h2>{editing ? 'Edit' : 'Create'} {tab === 'videos' ? 'video' : 'video album'}</h2>
+
+          <label>
+            Title
+            <input
+              required
+              value={form.title}
+              onChange={event => setForm({ ...form, title: event.target.value })}
+            />
+          </label>
+
+          <label>
+            Artist
+            <select
+              required
+              value={form.artistId}
+              onChange={event =>
+                setForm({ ...form, artistId: event.target.value, videoAlbumId: '' })
+              }
+            >
+              <option value="">Select artist</option>
+              {artists.map(item => (
+                <option key={item.id} value={item.id}>
+                  {item.name || item.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {tab === 'videos' && (
+            <label>
+              Video album (optional)
+              <select
+                value={form.videoAlbumId}
+                onChange={event =>
+                  setForm({ ...form, videoAlbumId: event.target.value })
+                }
+              >
+                <option value="">Artist gallery / no album</option>
+                {availableAlbums.map(item => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label>
+            URL slug
+            <input
+              value={form.slug}
+              onChange={event => setForm({ ...form, slug: event.target.value })}
+            />
+          </label>
+
+          <div className="checkout-fields two-columns">
+            <label>
+              {tab === 'videos' ? 'Video category' : 'Genre'}
+              <select
+                value={form.type}
+                onChange={event => setForm({ ...form, type: event.target.value })}
+              >
+                {[
+                  'Music video',
+                  'Lyric video',
+                  'Visualizer',
+                  'Live performance',
+                  'Interview',
+                  'Behind the song',
+                  'Short-form clip',
+                ].map(type => (
+                  <option key={type}>{type}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Release date
+              <input
+                type="date"
+                value={form.releaseDate}
+                onChange={event =>
+                  setForm({ ...form, releaseDate: event.target.value })
+                }
+              />
+            </label>
+          </div>
+
+          {tab === 'videos' && (
+            <>
+              <label>
+                Duration
+                <input
+                  placeholder="3:42"
+                  value={form.duration}
+                  onChange={event =>
+                    setForm({ ...form, duration: event.target.value })
+                  }
+                />
+              </label>
+
+              <label>
+                YouTube / Vimeo / external URL
+                <input
+                  value={form.externalUrl}
+                  onChange={event =>
+                    setForm({ ...form, externalUrl: event.target.value })
+                  }
+                />
+              </label>
+
+              <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={form.shortForm}
+                  onChange={event =>
+                    setForm({ ...form, shortForm: event.target.checked })
+                  }
+                />
+                Short-form promotional clip
+              </label>
+            </>
+          )}
+
+          <label>
+            Description
+            <textarea
+              value={form.description}
+              onChange={event =>
+                setForm({ ...form, description: event.target.value })
+              }
+            />
+          </label>
+
+          <label>
+            Thumbnail / cover
+            <input
+              type="file"
+              accept="image/*"
+              onChange={event => {
+                const file = event.target.files?.[0];
+                if (file) void upload(file, 'thumbnailUrl');
+              }}
+            />
+          </label>
+
+          {tab === 'videos' && (
+            <label>
+              Upload video file
+              <input
+                type="file"
+                accept="video/*"
+                onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (file) void upload(file, 'videoUrl');
+                }}
+              />
+            </label>
+          )}
+
+          {progress > 0 && <p>Uploading: {progress}%</p>}
+
+          <label>
+            Status
+            <select
+              value={form.status}
+              onChange={event => setForm({ ...form, status: event.target.value })}
+            >
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+            </select>
+          </label>
+
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={form.featured}
+              onChange={event =>
+                setForm({ ...form, featured: event.target.checked })
+              }
+            />
+            Feature on homepage
+          </label>
+
+          <button className="primary-button" disabled={progress > 0}>
+            {editing ? 'Update' : 'Save'}
+          </button>
+
+          {editing && (
+            <button type="button" onClick={reset}>
+              Cancel
+            </button>
+          )}
+        </form>
+
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Artist</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.length ? (
+                list.map(item => (
+                  <tr key={item.id}>
+                    <td>{item.title}</td>
+                    <td>{item.artistName || '—'}</td>
+                    <td>{item.type || item.genre || '—'}</td>
+                    <td>{item.status}</td>
+                    <td>
+                      <button type="button" onClick={() => edit(item)}>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm('Delete permanently?')) {
+                            void deleteDoc(
+                              doc(
+                                firestore,
+                                tab === 'videos' ? 'videos' : 'videoAlbums',
+                                item.id,
+                              ),
+                            );
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5}>No records yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </AdminShell>
+  );
 }
