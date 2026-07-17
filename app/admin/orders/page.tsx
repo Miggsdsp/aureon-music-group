@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { RefreshCw, Search, Send, Save } from 'lucide-react';
+import { RefreshCw, Save, Search, Send } from 'lucide-react';
 import { firestore } from '@/lib/firebase-client';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { useAdminAuth } from '@/components/admin/AdminAuthProvider';
@@ -19,6 +19,9 @@ const displayDate = (value: any) => {
 };
 
 const money = (value: any) => `€${(Number(value || 0) / 100).toFixed(2)}`;
+
+const snapshotRows = (docs: Array<{ id: string; data: () => any }>): Row[] =>
+  docs.map<Row>(item => ({ id: item.id, ...(item.data() as Record<string, any>) }));
 
 export default function OrdersPage() {
   const { authorised, loading, user } = useAdminAuth();
@@ -48,12 +51,9 @@ export default function OrdersPage() {
     const unsubscribeOrders = onSnapshot(
       collection(firestore, 'orders'),
       snapshot => {
-        const rows: Row[] = snapshot.docs
-          .map(item => ({
-            id: item.id,
-            ...(item.data() as Record<string, any>),
-          }))
-          .sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt));
+        const rows = snapshotRows(snapshot.docs).sort(
+          (a, b) => dateValue(b.createdAt) - dateValue(a.createdAt),
+        );
         setOrders(rows);
       },
       fail,
@@ -62,16 +62,11 @@ export default function OrdersPage() {
     const unsubscribeCustomers = onSnapshot(
       collection(firestore, 'customers'),
       snapshot => {
-        const rows: Row[] = snapshot.docs
-          .map(item => ({
-            id: item.id,
-            ...(item.data() as Record<string, any>),
-          }))
-          .sort(
-            (a, b) =>
-              dateValue(b.lastOrderAt || b.updatedAt) -
-              dateValue(a.lastOrderAt || a.updatedAt),
-          );
+        const rows = snapshotRows(snapshot.docs).sort(
+          (a, b) =>
+            dateValue(b.lastOrderAt || b.updatedAt) -
+            dateValue(a.lastOrderAt || a.updatedAt),
+        );
         setCustomers(rows);
       },
       fail,
@@ -80,12 +75,9 @@ export default function OrdersPage() {
     const unsubscribeEnquiries = onSnapshot(
       collection(firestore, 'enquiries'),
       snapshot => {
-        const rows: Row[] = snapshot.docs
-          .map(item => ({
-            id: item.id,
-            ...(item.data() as Record<string, any>),
-          }))
-          .sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt));
+        const rows = snapshotRows(snapshot.docs).sort(
+          (a, b) => dateValue(b.createdAt) - dateValue(a.createdAt),
+        );
         setEnquiries(rows);
       },
       fail,
@@ -103,9 +95,8 @@ export default function OrdersPage() {
   const filteredOrders = useMemo(
     () =>
       orders.filter(order => {
-        const statusMatches =
-          statusFilter === 'all' ||
-          String(order.paymentStatus || order.status).toLowerCase() === statusFilter;
+        const status = String(order.paymentStatus || order.status || '').toLowerCase();
+        const statusMatches = statusFilter === 'all' || status === statusFilter;
         const searchText = [
           order.orderNumber,
           order.id,
@@ -160,21 +151,14 @@ export default function OrdersPage() {
 
   const customerOrders = useMemo(() => {
     if (!selectedCustomer) return [];
-    const identifier = String(selectedCustomer.email || selectedCustomer.id).toLowerCase();
-    return orders.filter(
-      order => String(order.customerEmail || '').toLowerCase() === identifier,
-    );
+    const email = String(selectedCustomer.email || '').toLowerCase();
+    return orders.filter(order => String(order.customerEmail || '').toLowerCase() === email);
   }, [orders, selectedCustomer]);
 
-  const customerDownloads = useMemo(() => {
-    if (!selectedCustomer) return [];
-    const identifier = String(selectedCustomer.email || selectedCustomer.id).toLowerCase();
-    return orders.flatMap(order =>
-      String(order.customerEmail || '').toLowerCase() === identifier
-        ? order.songs || []
-        : [],
-    );
-  }, [orders, selectedCustomer]);
+  const customerDownloads = useMemo(
+    () => customerOrders.flatMap(order => order.songs || []),
+    [customerOrders],
+  );
 
   async function setEnquiryStatus(id: string, status: string) {
     await updateDoc(doc(firestore, 'enquiries', id), {
@@ -184,29 +168,20 @@ export default function OrdersPage() {
   }
 
   async function regenerateDownload(order: Row) {
-    if (!user || !confirm(`Email new one-time download links to ${order.customerEmail}?`)) {
-      return;
-    }
-
+    if (!user || !confirm(`Email new one-time download links to ${order.customerEmail}?`)) return;
     setActionId(order.id);
+    setError('');
     try {
       const token = await user.getIdToken(true);
       const response = await fetch(
         `/api/admin/orders/${encodeURIComponent(order.id)}/regenerate-download`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
       );
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) throw new Error(data.error || 'Unable to regenerate download.');
       setMessage(`New download email sent to ${order.customerEmail}.`);
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to regenerate download.',
-      );
+      setError(requestError instanceof Error ? requestError.message : 'Unable to regenerate download.');
     } finally {
       setActionId('');
     }
@@ -214,8 +189,8 @@ export default function OrdersPage() {
 
   async function sendReply() {
     if (!user || !selectedEnquiry || !reply.trim()) return;
-
     setActionId(selectedEnquiry.id);
+    setError('');
     try {
       const token = await user.getIdToken(true);
       const response = await fetch(`/api/admin/enquiries/${selectedEnquiry.id}/reply`, {
@@ -224,10 +199,10 @@ export default function OrdersPage() {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: reply }),
+        body: JSON.stringify({ message: reply.trim() }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) throw new Error(data.error || 'Unable to send reply.');
       setMessage(`Reply sent to ${selectedEnquiry.email}.`);
       setReply('');
     } catch (requestError) {
@@ -324,7 +299,7 @@ export default function OrdersPage() {
                   <td>{(order.songs || order.items || []).map((item: any) => item.title || item.name).join(', ')}</td>
                   <td>{money(order.amountTotal)}</td>
                   <td>{order.paymentStatus || order.status}</td>
-                  <td><button disabled={actionId === order.id || order.status !== 'paid'} onClick={() => regenerateDownload(order)}><RefreshCw size={14} /> Regenerate</button></td>
+                  <td><button disabled={actionId === order.id || String(order.status).toLowerCase() !== 'paid'} onClick={() => regenerateDownload(order)}><RefreshCw size={14} /> Regenerate</button></td>
                 </tr>
               )) : <tr><td colSpan={7}>No matching orders.</td></tr>
             ) : tab === 'customers' ? (
@@ -362,10 +337,10 @@ export default function OrdersPage() {
         <section className="admin-dashboard-grid">
           <article style={{ gridColumn: '1 / -1' }}>
             <h2>Order details</h2>
-            <p><strong>{selectedOrder.orderNumber}</strong> · {displayDate(selectedOrder.paidAt)}</p>
+            <p><strong>{selectedOrder.orderNumber || selectedOrder.id}</strong> · {displayDate(selectedOrder.paidAt || selectedOrder.createdAt)}</p>
             <p>{selectedOrder.customerName} · {selectedOrder.customerEmail}</p>
             <p>Stripe: {selectedOrder.stripePaymentIntentId || '—'} · Email: {selectedOrder.emailStatus || '—'} · Download: {selectedOrder.downloadStatus || '—'}</p>
-            <table><thead><tr><th>Song</th><th>Artist</th><th>Album</th><th>Price</th></tr></thead><tbody>{(selectedOrder.songs || []).map((song: any, index: number) => <tr key={song.id || index}><td>{song.title}</td><td>{song.artist}</td><td>{song.albumTitle || 'Single'}</td><td>{money(song.unitAmount)}</td></tr>)}</tbody></table>
+            <table><thead><tr><th>Song</th><th>Artist</th><th>Album</th><th>Price</th></tr></thead><tbody>{(selectedOrder.songs || []).map((song: any, index: number) => <tr key={song.id || index}><td>{song.title}</td><td>{song.artist || song.artistName}</td><td>{song.albumTitle || 'Single'}</td><td>{money(song.unitAmount)}</td></tr>)}</tbody></table>
             <button onClick={() => setSelectedOrder(null)}>Close</button>
           </article>
         </section>
@@ -380,7 +355,7 @@ export default function OrdersPage() {
             <label>Internal notes<textarea value={notes} onChange={event => setNotes(event.target.value)} /></label>
             <button className="primary-button" onClick={saveNotes}><Save size={14} /> Save notes</button>
             <h3>Purchase history</h3>
-            <table><thead><tr><th>Date</th><th>Order</th><th>Music</th><th>Total</th><th>Status</th></tr></thead><tbody>{customerOrders.map(order => <tr key={order.id}><td>{displayDate(order.paidAt)}</td><td>{order.orderNumber}</td><td>{(order.songs || []).map((song: any) => song.title).join(', ')}</td><td>{money(order.amountTotal)}</td><td>{order.status}</td></tr>)}</tbody></table>
+            <table><thead><tr><th>Date</th><th>Order</th><th>Music</th><th>Total</th><th>Status</th></tr></thead><tbody>{customerOrders.map(order => <tr key={order.id}><td>{displayDate(order.paidAt || order.createdAt)}</td><td>{order.orderNumber || order.id}</td><td>{(order.songs || []).map((song: any) => song.title).join(', ')}</td><td>{money(order.amountTotal)}</td><td>{order.status || order.paymentStatus}</td></tr>)}</tbody></table>
             <button onClick={() => setSelectedCustomer(null)}>Close</button>
           </article>
         </section>
