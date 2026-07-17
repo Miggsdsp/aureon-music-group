@@ -15,17 +15,26 @@ import { firebaseStorage, firestore } from '@/lib/firebase-client';
 import { AdminShell } from './AdminShell';
 
 type Row = { id: string; [key: string]: any };
+type Tab = 'videos' | 'albums';
 
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+type FormState = {
+  title: string;
+  slug: string;
+  artistId: string;
+  videoAlbumId: string;
+  type: string;
+  duration: string;
+  releaseDate: string;
+  description: string;
+  externalUrl: string;
+  thumbnailUrl: string;
+  videoUrl: string;
+  featured: boolean;
+  status: string;
+  shortForm: boolean;
+};
 
-const safe = (value: string) => value.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
-
-const emptyForm = {
+const emptyForm: FormState = {
   title: '',
   slug: '',
   artistId: '',
@@ -42,44 +51,55 @@ const emptyForm = {
   shortForm: false,
 };
 
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+const safe = (value: string) => value.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
+
+const toRow = (item: { id: string; data: () => unknown }): Row => ({
+  id: item.id,
+  ...((item.data() || {}) as Record<string, any>),
+});
+
 export function VideoManager() {
-  const [tab, setTab] = useState<'videos' | 'albums'>('videos');
+  const [tab, setTab] = useState<Tab>('videos');
   const [artists, setArtists] = useState<Row[]>([]);
   const [albums, setAlbums] = useState<Row[]>([]);
   const [videos, setVideos] = useState<Row[]>([]);
   const [editing, setEditing] = useState<Row | null>(null);
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState(0);
-  const [form, setForm] = useState<any>(emptyForm);
+  const [form, setForm] = useState<FormState>(emptyForm);
 
   useEffect(() => {
-    const unsubscribers = [
-      onSnapshot(collection(firestore, 'artists'), snapshot => {
-        const rows: Row[] = snapshot.docs
-          .map(item => ({ id: item.id, ...(item.data() as Record<string, any>) }))
-          .filter(item => item.status === 'published' || item.status === 'draft');
-        setArtists(rows);
-      }),
-      onSnapshot(collection(firestore, 'videoAlbums'), snapshot => {
-        const rows: Row[] = snapshot.docs.map(item => ({
-          id: item.id,
-          ...(item.data() as Record<string, any>),
-        }));
-        setAlbums(rows);
-      }),
-      onSnapshot(collection(firestore, 'videos'), snapshot => {
-        const rows: Row[] = snapshot.docs.map(item => ({
-          id: item.id,
-          ...(item.data() as Record<string, any>),
-        }));
-        setVideos(rows);
-      }),
-    ];
+    const unsubscribeArtists = onSnapshot(collection(firestore, 'artists'), snapshot => {
+      const rows = snapshot.docs
+        .map(toRow)
+        .filter(item => item.status === 'published' || item.status === 'draft');
+      setArtists(rows);
+    });
 
-    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
+    const unsubscribeAlbums = onSnapshot(collection(firestore, 'videoAlbums'), snapshot => {
+      setAlbums(snapshot.docs.map(toRow));
+    });
+
+    const unsubscribeVideos = onSnapshot(collection(firestore, 'videos'), snapshot => {
+      setVideos(snapshot.docs.map(toRow));
+    });
+
+    return () => {
+      unsubscribeArtists();
+      unsubscribeAlbums();
+      unsubscribeVideos();
+    };
   }, []);
 
   const artist = artists.find(item => item.id === form.artistId);
+
   const availableAlbums = useMemo(
     () =>
       albums.filter(
@@ -91,10 +111,20 @@ export function VideoManager() {
     [albums, form.artistId],
   );
 
+  const list: Row[] = (tab === 'videos' ? videos : albums).map(item => ({
+    ...item,
+    __kind: tab,
+  }));
+
   function reset() {
     setEditing(null);
     setProgress(0);
     setForm(emptyForm);
+  }
+
+  function changeTab(nextTab: Tab) {
+    setTab(nextTab);
+    reset();
   }
 
   function edit(item: Row) {
@@ -105,7 +135,7 @@ export function VideoManager() {
       slug: item.slug || '',
       artistId: item.artistId || item.details?.artistId || '',
       videoAlbumId: item.videoAlbumId || item.details?.videoAlbumId || '',
-      type: item.type || item.details?.type || 'Music video',
+      type: item.type || item.genre || item.details?.type || 'Music video',
       duration: item.duration || item.details?.duration || '',
       releaseDate: item.releaseDate || item.details?.releaseDate || '',
       description: item.description || '',
@@ -125,36 +155,42 @@ export function VideoManager() {
   }
 
   async function upload(file: File, key: 'thumbnailUrl' | 'videoUrl') {
-    const folder =
-      key === 'thumbnailUrl' ? 'public/videos/thumbnails' : 'public/videos/files';
-    const path = `${folder}/${slugify(
-      String(artist?.slug || artist?.name || 'unassigned'),
-    )}/${Date.now()}-${safe(file.name)}`;
+    try {
+      const folder =
+        key === 'thumbnailUrl' ? 'public/videos/thumbnails' : 'public/videos/files';
+      const artistFolder = slugify(String(artist?.slug || artist?.name || 'unassigned'));
+      const path = `${folder}/${artistFolder}/${Date.now()}-${safe(file.name)}`;
+      const task = uploadBytesResumable(ref(firebaseStorage, path), file, {
+        contentType: file.type,
+      });
 
-    setProgress(1);
-    const task = uploadBytesResumable(ref(firebaseStorage, path), file, {
-      contentType: file.type,
-    });
+      setProgress(1);
+      await new Promise<void>((resolve, reject) => {
+        task.on(
+          'state_changed',
+          snapshot =>
+            setProgress(
+              Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
+            ),
+          reject,
+          resolve,
+        );
+      });
 
-    await new Promise<void>((resolve, reject) => {
-      task.on(
-        'state_changed',
-        snapshot =>
-          setProgress(
-            Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
-          ),
-        reject,
-        resolve,
-      );
-    });
-
-    const url = await getDownloadURL(task.snapshot.ref);
-    setForm((current: any) => ({ ...current, [key]: url }));
-    setProgress(0);
+      const url = await getDownloadURL(task.snapshot.ref);
+      setForm(current => ({ ...current, [key]: url }));
+      setMessage('Upload complete.');
+    } catch (error) {
+      console.error('Video upload failed', error);
+      setMessage('Upload failed. Please try again.');
+    } finally {
+      setProgress(0);
+    }
   }
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    setMessage('');
 
     if (!form.title || !form.artistId) {
       setMessage('Title and artist are required.');
@@ -196,23 +232,22 @@ export function VideoManager() {
 
     const collectionName = tab === 'videos' ? 'videos' : 'videoAlbums';
 
-    if (editing) {
-      await updateDoc(doc(firestore, collectionName, editing.id), payload);
-    } else {
-      await addDoc(collection(firestore, collectionName), {
-        ...payload,
-        createdAt: serverTimestamp(),
-      });
+    try {
+      if (editing) {
+        await updateDoc(doc(firestore, collectionName, editing.id), payload);
+      } else {
+        await addDoc(collection(firestore, collectionName), {
+          ...payload,
+          createdAt: serverTimestamp(),
+        });
+      }
+      setMessage('Saved successfully.');
+      reset();
+    } catch (error) {
+      console.error('Unable to save video record', error);
+      setMessage('Unable to save. Please try again.');
     }
-
-    setMessage('Saved successfully.');
-    reset();
   }
-
-  const list: Row[] = (tab === 'videos' ? videos : albums).map(item => ({
-    ...item,
-    __kind: tab,
-  }));
 
   return (
     <AdminShell>
@@ -228,17 +263,19 @@ export function VideoManager() {
       {message && <div className="admin-cms-message">{message}</div>}
 
       <div className="admin-toolbar">
-        <button type="button" onClick={() => { setTab('videos'); reset(); }}>
+        <button type="button" onClick={() => changeTab('videos')}>
           Individual videos
         </button>
-        <button type="button" onClick={() => { setTab('albums'); reset(); }}>
+        <button type="button" onClick={() => changeTab('albums')}>
           Video albums
         </button>
       </div>
 
       <section className="admin-cms-grid">
         <form className="admin-cms-form" onSubmit={save}>
-          <h2>{editing ? 'Edit' : 'Create'} {tab === 'videos' ? 'video' : 'video album'}</h2>
+          <h2>
+            {editing ? 'Edit' : 'Create'} {tab === 'videos' ? 'video' : 'video album'}
+          </h2>
 
           <label>
             Title
