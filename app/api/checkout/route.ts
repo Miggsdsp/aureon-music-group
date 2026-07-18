@@ -17,6 +17,12 @@ type CheckoutBody = {
   firstName?: string;
   surname?: string;
   phone?: string;
+  deviceType?: string;
+  trafficSource?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  landingPath?: string;
   items?: CheckoutItem[];
 };
 
@@ -29,6 +35,10 @@ type ValidatedSong = {
 
 function cleanReference(value: unknown) {
   return String(value || '').trim().replace(/^SONG-/i, '');
+}
+
+function safeMetadata(value: unknown, max = 150) {
+  return String(value || '').trim().slice(0, max);
 }
 
 function getPriceCents(data: Record<string, any>) {
@@ -79,7 +89,7 @@ export async function POST(request: Request) {
         id: snapshot.id,
         title: String(data.title || data.name || 'Aureon song'),
         artist: String(data.artistName || data.artist || details.artistName || 'Aureon Music Group'),
-        priceCents: getPriceCents(data)
+        priceCents: getPriceCents(data),
       };
     }));
 
@@ -89,7 +99,7 @@ export async function POST(request: Request) {
       mode: 'payment',
       customer_creation: 'always',
       customer_email: email,
-      billing_address_collection: 'auto',
+      billing_address_collection: 'required',
       allow_promotion_codes: false,
       line_items: validatedSongs.map(song => ({
         quantity: 1,
@@ -99,18 +109,24 @@ export async function POST(request: Request) {
           product_data: {
             name: song.title,
             description: `${song.artist} · Full digital music download`,
-            metadata: { songId: song.id }
-          }
-        }
+            metadata: { songId: song.id },
+          },
+        },
       })),
       metadata: {
-        firstName: String(body.firstName || '').slice(0, 100),
-        surname: String(body.surname || '').slice(0, 100),
-        phone: String(body.phone || '').slice(0, 50),
-        songIds: validatedSongs.map(song => song.id).join(',')
+        firstName: safeMetadata(body.firstName, 100),
+        surname: safeMetadata(body.surname, 100),
+        phone: safeMetadata(body.phone, 50),
+        songIds: validatedSongs.map(song => song.id).join(','),
+        deviceType: safeMetadata(body.deviceType || 'Not captured', 50),
+        trafficSource: safeMetadata(body.trafficSource || 'Direct', 120),
+        utmSource: safeMetadata(body.utmSource, 100),
+        utmMedium: safeMetadata(body.utmMedium, 100),
+        utmCampaign: safeMetadata(body.utmCampaign, 100),
+        landingPath: safeMetadata(body.landingPath, 180),
       },
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/checkout/cancelled`
+      cancel_url: `${origin}/checkout/cancelled`,
     });
 
     return NextResponse.json({ url: session.url });
