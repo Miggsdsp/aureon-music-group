@@ -16,6 +16,27 @@ type CartItem = {
   quantity: number;
 };
 
+function detectDevice() {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/ipad|tablet/.test(ua)) return 'Tablet';
+  if (/iphone|android.+mobile|mobile/.test(ua)) return 'Mobile';
+  return 'Desktop';
+}
+
+function trafficSource() {
+  const params = new URLSearchParams(window.location.search);
+  const utm = params.get('utm_source');
+  if (utm) return utm;
+  if (!document.referrer) return 'Direct';
+  try {
+    const referrer = new URL(document.referrer);
+    if (referrer.hostname === window.location.hostname) return 'Internal navigation';
+    return referrer.hostname.replace(/^www\./, '');
+  } catch {
+    return 'Referral';
+  }
+}
+
 export function CheckoutForm() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +72,7 @@ export function CheckoutForm() {
     }
 
     const form = new FormData(event.currentTarget);
+    const params = new URLSearchParams(window.location.search);
     setSubmitting(true);
 
     try {
@@ -62,14 +84,20 @@ export function CheckoutForm() {
           surname: form.get('surname'),
           email: form.get('email'),
           phone: form.get('phone'),
+          deviceType: detectDevice(),
+          trafficSource: trafficSource(),
+          utmSource: params.get('utm_source') || '',
+          utmMedium: params.get('utm_medium') || '',
+          utmCampaign: params.get('utm_campaign') || '',
+          landingPath: sessionStorage.getItem('aureon-landing-path') || window.location.pathname,
           items: cart.map(item => ({
             id: item.product.id,
             name: item.product.name,
             artist: item.product.artist,
             quantity: 1,
-            digital: true
-          }))
-        })
+            digital: true,
+          })),
+        }),
       });
 
       const data = await response.json();
