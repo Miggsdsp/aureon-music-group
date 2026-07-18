@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         stripeCheckoutSessionId: session.id,
         status: 'expired',
         paymentStatus: session.payment_status,
-        updatedAt: FieldValue.serverTimestamp()
+        updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     }
     return NextResponse.json({ received: true });
@@ -89,6 +89,12 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
   const songReferences = String(session.metadata?.songIds || '').split(',').filter(Boolean);
   const customerEmail = session.customer_details?.email || session.customer_email || '';
   const customerName = session.customer_details?.name || `${session.metadata?.firstName || ''} ${session.metadata?.surname || ''}`.trim();
+  const billingAddress = session.customer_details?.address;
+  const country = billingAddress?.country || 'Not captured';
+  const city = billingAddress?.city || '';
+  const postalCode = billingAddress?.postal_code || '';
+  const deviceType = session.metadata?.deviceType || 'Not captured';
+  const trafficSource = session.metadata?.trafficSource || session.metadata?.utmSource || 'Direct';
   const orderRef = adminFirestore.collection('orders').doc(session.id);
   const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || '';
   const orderNumber = `AUR-${session.created}-${session.id.slice(-6).toUpperCase()}`;
@@ -106,7 +112,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       artist: String(data.artist || data.artistName || data.details?.artistName || 'Aureon Music Group'),
       privateFilePath,
       unitAmount: getPriceCents(data),
-      token: randomBytes(32).toString('hex')
+      token: randomBytes(32).toString('hex'),
     };
   }));
 
@@ -119,12 +125,15 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       email: customerEmail,
       name: customerName,
       phone: session.customer_details?.phone || session.metadata?.phone || '',
+      country,
+      city,
+      postalCode,
       stripeCustomerId: typeof session.customer === 'string' ? session.customer : session.customer?.id || '',
       totalOrders: FieldValue.increment(1),
       lifetimeSpend: FieldValue.increment(session.amount_total || 0),
       lastOrderAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
-      createdAt: FieldValue.serverTimestamp()
+      createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
     transaction.set(orderRef, {
@@ -133,6 +142,16 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       stripePaymentIntentId: paymentIntentId,
       customerEmail,
       customerName,
+      customerCountry: country,
+      country,
+      customerCity: city,
+      customerPostalCode: postalCode,
+      deviceType,
+      trafficSource,
+      utmSource: session.metadata?.utmSource || '',
+      utmMedium: session.metadata?.utmMedium || '',
+      utmCampaign: session.metadata?.utmCampaign || '',
+      landingPath: session.metadata?.landingPath || '',
       currency: session.currency || 'eur',
       amountTotal: session.amount_total || 0,
       songIds: songs.map(song => song.id),
@@ -144,7 +163,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       emailStatus: 'pending',
       createdAt: FieldValue.serverTimestamp(),
       paidAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
     const paymentRef = adminFirestore.collection('payments').doc(paymentIntentId || session.id);
@@ -156,7 +175,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       amount: session.amount_total || 0,
       currency: session.currency || 'eur',
       status: 'paid',
-      createdAt: FieldValue.serverTimestamp()
+      createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
     for (const song of songs) {
@@ -175,7 +194,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
         maxDownloads: 1,
         downloadCount: 0,
         expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
-        createdAt: FieldValue.serverTimestamp()
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
     return true;
@@ -187,7 +206,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       to: customerEmail,
       customerName,
       orderNumber,
-      items: songs.map(song => ({ title: song.title, artist: song.artist, downloadUrl: `${siteUrl}/api/download/${song.token}` }))
+      items: songs.map(song => ({ title: song.title, artist: song.artist, downloadUrl: `${siteUrl}/api/download/${song.token}` })),
     });
     await orderRef.set({ emailStatus: result.sent ? 'sent' : 'not-configured', emailSentAt: result.sent ? FieldValue.serverTimestamp() : null }, { merge: true });
   } catch (error) {
