@@ -27,7 +27,11 @@ service cloud.firestore {
     match /downloads/{id} { allow read, write: if activeAdmin(); }
     match /payments/{id} { allow read, write: if activeAdmin(); }
     match /enquiries/{id} { allow read, write: if activeAdmin(); }
-    match /auditLogs/{id} { allow read, write: if activeAdmin(); }
+    match /analyticsEvents/{id} { allow read: if activeAdmin(); allow write: if false; }
+
+    // Audit and rate-limit records are written only by trusted server code via Admin SDK.
+    match /auditLogs/{id} { allow read: if activeAdmin(); allow write: if false; }
+    match /_rateLimits/{id} { allow read, write: if false; }
 
     match /{document=**} { allow read, write: if false; }
   }
