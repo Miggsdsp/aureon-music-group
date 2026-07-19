@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Clapperboard, ExternalLink, Film, Play } from 'lucide-react';
+import { Clapperboard, Film, Play } from 'lucide-react';
 import { PageShell } from '@/components/PageShell';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 
@@ -36,10 +36,6 @@ type VideoRecord = PublicRecord & {
   shortForm?: boolean;
 };
 
-function videoHref(video: VideoRecord) {
-  return video.externalUrl || video.youtubeUrl || video.vimeoUrl || video.videoUrl || '';
-}
-
 export default function VideosPage() {
   const { items: videoAlbums, loading: albumsLoading } =
     usePublishedCollection<VideoAlbumRecord>('videoAlbums', []);
@@ -69,10 +65,13 @@ export default function VideosPage() {
               <div className="section-heading">
                 <div><p className="eyebrow">Watch now</p><h2>Latest videos</h2></div>
               </div>
-              <div className="news-grid">
-                {videos.map(video => {
-                  const href = videoHref(video);
-                  const card = (
+              <div className="news-grid video-release-grid">
+                {videos.map(video => (
+                  <Link
+                    key={video.id}
+                    href={`/videos/${video.slug || video.id}`}
+                    className="video-release-link"
+                  >
                     <article className="news-card video-release-card">
                       <div className="video-release-thumb">
                         <Image
@@ -84,20 +83,17 @@ export default function VideosPage() {
                         />
                         <span><Play size={24} /></span>
                       </div>
-                      <p className="eyebrow">
-                        {video.shortForm ? 'Short-form clip' : video.type || 'Music video'}
-                      </p>
-                      <h3>{video.title || 'Untitled video'}</h3>
-                      <p>{video.artistName || 'Aureon Music Group'}{video.duration ? ` · ${video.duration}` : ''}</p>
-                      <strong>Watch video <ExternalLink size={14} /></strong>
+                      <div className="video-release-copy">
+                        <p className="eyebrow">
+                          {video.shortForm ? 'Short-form clip' : video.type || 'Music video'}
+                        </p>
+                        <h3>{video.title || 'Untitled video'}</h3>
+                        <p>{video.artistName || 'Aureon Music Group'}{video.duration ? ` · ${video.duration}` : ''}</p>
+                        <strong>Play on Aureon →</strong>
+                      </div>
                     </article>
-                  );
-                  return href ? (
-                    <a key={video.id} href={href} target="_blank" rel="noreferrer">{card}</a>
-                  ) : (
-                    <div key={video.id}>{card}</div>
-                  );
-                })}
+                  </Link>
+                ))}
               </div>
             </section>
           )}
