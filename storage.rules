@@ -29,13 +29,61 @@ service firebase.storage {
       return pluralAdminActive() || singularAdminActive();
     }
 
-    match /public/{allPaths=**} {
+    function validImage() {
+      return request.resource != null
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function validAudio() {
+      return request.resource != null
+        && request.resource.size < 150 * 1024 * 1024
+        && request.resource.contentType.matches('audio/.*');
+    }
+
+    function validVideo() {
+      return request.resource != null
+        && request.resource.size < 750 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+    }
+
+    function validDocument() {
+      return request.resource != null
+        && request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType == 'application/pdf'
+          || request.resource.contentType.matches('text/.*'));
+    }
+
+    match /public/videos/thumbnails/{allPaths=**} {
       allow read: if true;
-      allow write: if activeAdmin();
+      allow create, update: if activeAdmin() && validImage();
+      allow delete: if activeAdmin();
+    }
+
+    match /public/videos/files/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if activeAdmin() && validVideo();
+      allow delete: if activeAdmin();
+    }
+
+    match /public/{path=**} {
+      allow read: if true;
+      allow create, update: if activeAdmin()
+        && (validImage() || validAudio() || validVideo() || validDocument());
+      allow delete: if activeAdmin();
+    }
+
+    match /private/full-tracks/{allPaths=**} {
+      allow read: if activeAdmin();
+      allow create, update: if activeAdmin() && validAudio();
+      allow delete: if activeAdmin();
     }
 
     match /private/{allPaths=**} {
-      allow read, write: if activeAdmin();
+      allow read: if activeAdmin();
+      allow create, update: if activeAdmin()
+        && (validImage() || validAudio() || validVideo() || validDocument());
+      allow delete: if activeAdmin();
     }
 
     match /{allPaths=**} {
