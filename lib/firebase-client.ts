@@ -1,6 +1,7 @@
 'use client';
 
 import { getApp, getApps, initializeApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -16,6 +17,24 @@ const firebaseConfig = {
 };
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+const appCheckSiteKey = process.env.NEXT_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY;
+
+if (typeof window !== 'undefined' && appCheckSiteKey) {
+  try {
+    initializeAppCheck(firebaseApp, {
+      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true
+    });
+  } catch (error) {
+    // In development, hot reload can attempt to initialize App Check more than once.
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.toLowerCase().includes('already')) {
+      console.error('Firebase App Check initialization failed:', error);
+    }
+  }
+}
+
 export const firebaseAuth = getAuth(firebaseApp);
 export const firestore = getFirestore(firebaseApp);
 export const firebaseStorage = getStorage(firebaseApp);
