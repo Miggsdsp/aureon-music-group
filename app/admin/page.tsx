@@ -64,11 +64,20 @@ export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<Row[]>([]);
   const [customers, setCustomers] = useState<Row[]>([]);
   const [downloads, setDownloads] = useState<Row[]>([]);
-  const [connected, setConnected] = useState(false);
+  const [connectedCollections, setConnectedCollections] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [dashboardError, setDashboardError] = useState('');
 
   useEffect(() => {
     if (loading || !authorised) return;
+
+    setConnectedCollections(0);
+
+    const markLive = () => {
+      setConnectedCollections(current => Math.min(current + 1, 3));
+      setLastUpdated(new Date());
+      setDashboardError('');
+    };
 
     const handleError = (error: unknown) => {
       console.error('Admin dashboard Firestore listener failed:', error);
@@ -82,19 +91,24 @@ export default function AdminDashboardPage() {
         collection(firestore, 'orders'),
         snapshot => {
           setOrders(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() })));
-          setConnected(true);
-          setDashboardError('');
+          markLive();
         },
         handleError,
       ),
       onSnapshot(
         collection(firestore, 'customers'),
-        snapshot => setCustomers(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() }))),
+        snapshot => {
+          setCustomers(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() })));
+          markLive();
+        },
         handleError,
       ),
       onSnapshot(
         collection(firestore, 'downloads'),
-        snapshot => setDownloads(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() }))),
+        snapshot => {
+          setDownloads(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() })));
+          markLive();
+        },
         handleError,
       ),
     ];
@@ -103,6 +117,8 @@ export default function AdminDashboardPage() {
   }, [authorised, loading]);
 
   const metrics = useMemo<Metrics>(() => {
+    if (!authorised) return initialMetrics;
+
     const paidOrders = orders.filter(isPaid);
     const todayStart = startOfToday();
     const revenueToday = paidOrders
@@ -123,7 +139,7 @@ export default function AdminDashboardPage() {
       customers: customers.length,
       downloads: usedDownloads,
     };
-  }, [orders, customers, downloads]);
+  }, [authorised, orders, customers, downloads]);
 
   const cards = useMemo(
     () => [
@@ -137,6 +153,8 @@ export default function AdminDashboardPage() {
     [metrics],
   );
 
+  const dashboardLive = connectedCollections === 3;
+
   return (
     <AdminShell>
       <div className="admin-page-heading">
@@ -144,8 +162,10 @@ export default function AdminDashboardPage() {
         <h1>Dashboard</h1>
         <p>Live secure operations overview for Aureon Music Group.</p>
       </div>
+
       {dashboardError && <div className="admin-cms-message">{dashboardError}</div>}
-      <section className="admin-stat-grid">
+
+      <section className="admin-stat-grid" aria-live="polite">
         {cards.map(([label, value]) => (
           <article key={label}>
             <span>{label}</span>
@@ -153,14 +173,20 @@ export default function AdminDashboardPage() {
           </article>
         ))}
       </section>
+
       <section className="admin-dashboard-grid">
         <article>
-          <h2>Backend connected</h2>
-          <p>{connected ? 'Firebase Authentication, Firestore and Storage are operational.' : 'Connecting securely to Firebase…'}</p>
+          <h2>{dashboardLive ? 'Live connection active' : 'Connecting securely'}</h2>
+          <p>
+            {dashboardLive
+              ? 'Orders, customers and completed downloads are subscribed to Firestore in real time.'
+              : `Connected to ${connectedCollections} of 3 live data sources…`}
+          </p>
+          {lastUpdated && <p>Last update: {lastUpdated.toLocaleString()}</p>}
         </article>
         <article>
-          <h2>Metrics update live</h2>
-          <p>Paid orders, sales, customers and completed downloads update automatically from Firestore.</p>
+          <h2>Metrics update automatically</h2>
+          <p>New paid orders, song sales, merchandise sales, customers and completed downloads appear without refreshing the page.</p>
         </article>
       </section>
     </AdminShell>
