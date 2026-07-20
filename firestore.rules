@@ -2,14 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
     function pluralAdminExists() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function singularAdminExists() { return signedIn() && exists(/databases/$(database)/documents/admin/$(request.auth.uid)); }
     function pluralAdminActive() { return pluralAdminExists() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true; }
     function singularAdminActive() { return singularAdminExists() && get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.active == true; }
     function activeAdmin() { return pluralAdminActive() || singularAdminActive(); }
 
-    match /admins/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
-    match /admin/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
+    match /admins/{uid} { allow read: if owns(uid); allow write: if false; }
+    match /admin/{uid} { allow read: if owns(uid); allow write: if false; }
 
     match /artists/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
     match /albums/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
@@ -22,14 +23,28 @@ service cloud.firestore {
     match /sitePages/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
     match /siteSettings/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
 
+    match /members/{uid} {
+      allow read: if owns(uid) || activeAdmin();
+      allow create: if owns(uid) && request.resource.data.keys().hasOnly(['uid','email','name','createdAt','updatedAt']);
+      allow update, delete: if activeAdmin();
+      match /playlists/{playlistId} {
+        allow read, create, update, delete: if owns(uid) || activeAdmin();
+      }
+      match /library/{songId} {
+        allow read, create, delete: if owns(uid) || activeAdmin();
+        allow update: if activeAdmin();
+      }
+    }
+
+    match /licenses/{id} { allow read: if signedIn() && (resource.data.uid == request.auth.uid || activeAdmin()); allow write: if activeAdmin(); }
+    match /subscriptionEvents/{id} { allow read: if activeAdmin(); allow write: if false; }
+
     match /orders/{id} { allow read, write: if activeAdmin(); }
     match /customers/{id} { allow read, write: if activeAdmin(); }
     match /downloads/{id} { allow read, write: if activeAdmin(); }
     match /payments/{id} { allow read, write: if activeAdmin(); }
     match /enquiries/{id} { allow read, write: if activeAdmin(); }
     match /analyticsEvents/{id} { allow read: if activeAdmin(); allow write: if false; }
-
-    // Audit and rate-limit records are written only by trusted server code via Admin SDK.
     match /auditLogs/{id} { allow read: if activeAdmin(); allow write: if false; }
     match /_rateLimits/{id} { allow read, write: if false; }
 
