@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       line_items: [{ price, quantity: 1 }],
       allow_promotion_codes: true,
       billing_address_collection: 'required',
-      success_url: `${siteUrl}/account?subscription=success`,
+      success_url: `${siteUrl}/account?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/membership?subscription=cancelled`,
       metadata: { firebaseUid: uid, plan },
       subscription_data: { metadata: { firebaseUid: uid, plan } },
