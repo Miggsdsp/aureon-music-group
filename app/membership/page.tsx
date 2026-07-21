@@ -2,23 +2,23 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
 import { firebaseAuth } from '@/lib/firebase-client';
+import './membership.css';
 
 const plans = [
   {
     id: 'listener',
     name: 'Aureon Listener',
     price: '€8.99',
-    description: 'Unlimited listening to the Aureon catalogue, custom playlists and up to five member downloads each month.',
-    features: ['Full-track streaming', 'Create personal playlists', '5 downloads per billing month', 'Access while membership is active'],
+    description: 'Unlimited access to the Aureon catalogue, personal playlists and up to five high-quality downloads every billing month.',
+    features: ['Full-track premium streaming', 'Create and manage personal playlists', '5 downloads per billing month', 'Access to every published Aureon artist', 'Cancel anytime'],
   },
   {
     id: 'creator',
     name: 'Aureon Creator',
     price: '€24.99',
-    description: 'Commercial music access for creators, podcasts, YouTube and social content within the Aureon licence limits.',
-    features: ['Everything in Listener', 'Creator commercial licence', 'YouTube, podcast and social use', 'Licences remain valid only while subscription is active'],
+    description: 'Professional music access and licensing for YouTube, podcasts, social media and commercial content within the Aureon licence terms.',
+    features: ['Everything included in Listener', 'Creator commercial licence', 'YouTube, podcast and social use', 'High-quality licensed downloads', 'Rights remain active while subscribed'],
   },
 ] as const;
 
@@ -34,6 +34,7 @@ export default function MembershipPage() {
       window.location.href = `/account?plan=${plan}`;
       return;
     }
+
     try {
       const token = await user.getIdToken();
       const response = await fetch('/api/subscriptions/checkout', {
@@ -42,36 +43,43 @@ export default function MembershipPage() {
         body: JSON.stringify({ plan }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to start subscription.');
-      window.location.href = data.url;
+      if (!response.ok) throw new Error(data.error || 'Unable to start subscription checkout.');
+      if (!data.url) throw new Error('Stripe did not return a checkout link.');
+      window.location.assign(data.url);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to start subscription.');
+      const raw = error instanceof Error ? error.message : 'Unable to start subscription checkout.';
+      setMessage(raw.includes('Stripe price is not configured')
+        ? 'Subscription pricing is not connected on this environment. Add the Stripe price IDs to .env.local for localhost, restart the server, and try again.'
+        : raw);
       setBusy('');
     }
   }
 
   return (
-    <main className="page-shell">
-      <section className="page-hero compact-hero">
-        <p className="section-kicker">Aureon Membership</p>
-        <h1>Listen more. Create more.</h1>
-        <p>Choose a premium membership built for music lovers or professional content creators.</p>
+    <main className="membership-page">
+      <section className="membership-hero">
+        <p className="membership-eyebrow">Aureon Membership</p>
+        <h1>Listen more.<br />Create more.</h1>
+        <p>Choose premium access for personal listening or professional music licensing for your content and business.</p>
       </section>
-      {message && <p className="form-message">{message}</p>}
-      <section className="membership-grid">
+
+      {message && <div className="membership-message" role="alert">{message}</div>}
+
+      <section className="membership-grid" aria-label="Membership plans">
         {plans.map(plan => (
-          <article className="membership-card" key={plan.id}>
-            <p className="section-kicker">{plan.name}</p>
+          <article className={`membership-card ${plan.id === 'creator' ? 'creator' : ''}`} key={plan.id}>
+            <p className="membership-plan">{plan.name}</p>
             <h2>{plan.price}<small> / month</small></h2>
-            <p>{plan.description}</p>
+            <p className="membership-description">{plan.description}</p>
             <ul>{plan.features.map(feature => <li key={feature}>{feature}</li>)}</ul>
-            <button className="primary-button" disabled={Boolean(busy)} onClick={() => subscribe(plan.id)}>
+            <button className="primary-button membership-button" disabled={Boolean(busy)} onClick={() => subscribe(plan.id)}>
               {busy === plan.id ? 'Opening secure checkout…' : `Choose ${plan.name}`}
             </button>
           </article>
         ))}
       </section>
-      <p className="membership-note">Subscriptions renew monthly until cancelled. Creator licences end when the Creator subscription is no longer active. See the <Link href="/licensing">Digital Download and Licensing terms</Link>.</p>
+
+      <p className="membership-note">Subscriptions renew monthly until cancelled. Creator licence rights require an active Creator subscription. See the <Link href="/licensing">Digital Download and Licensing terms</Link>.</p>
     </main>
   );
 }
