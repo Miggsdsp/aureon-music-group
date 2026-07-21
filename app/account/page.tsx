@@ -40,6 +40,39 @@ export default function AccountPage() {
     return () => { unsubMember(); unsubPlaylists(); };
   }, [user, profileName]);
 
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+    if (params.get('subscription') !== 'success' || !sessionId) return;
+
+    let cancelled = false;
+    async function confirmSubscription() {
+      setBusy('confirming');
+      setMessage('Confirming your Aureon membership…');
+      try {
+        const token = await user.getIdToken();
+        const response = await fetch('/api/subscriptions/confirm', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ sessionId }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to confirm subscription.');
+        if (!cancelled) {
+          setMessage(`Your ${data.plan === 'creator' ? 'Aureon Creator' : 'Aureon Listener'} membership is now active.`);
+          window.history.replaceState({}, '', '/account');
+        }
+      } catch (error) {
+        if (!cancelled) setMessage(error instanceof Error ? error.message : 'Unable to confirm subscription.');
+      } finally {
+        if (!cancelled) setBusy('');
+      }
+    }
+    confirmSubscription();
+    return () => { cancelled = true; };
+  }, [user]);
+
   const rawPlan = String(member?.plan || 'free').toLowerCase();
   const status = String(member?.subscriptionStatus || 'inactive').toLowerCase();
   const active = status === 'active' || status === 'trialing';
@@ -119,7 +152,7 @@ export default function AccountPage() {
       <section className={styles.hero}><p className={styles.kicker}>Personal member dashboard</p><h1>{user.displayName || 'Welcome back'}</h1><p>{user.email}</p></section>
       {message && <p className={styles.message}>{message}</p>}
       <section className={styles.dashboard}>
-        <article className={`${styles.card} ${styles.membership}`}><p className={styles.kicker}>Current membership</p><h2>{planLabel}</h2><span className={styles.status}>{active ? `${status} subscription` : 'No active subscription'}</span><div className={styles.metricRow}><div className={styles.metric}><span>Downloads this month</span><strong>{downloadsUsed} / {downloadLimit}</strong></div><div className={styles.metric}><span>Account access</span><strong>{active ? 'Active' : 'Free'}</strong></div></div><div className={styles.actions}>{currentPlan !== 'listener' && <button className={styles.primary} disabled={Boolean(busy)} onClick={() => subscribe('listener')}>{busy === 'listener' ? 'Opening…' : 'Choose Listener €8.99'}</button>}{currentPlan !== 'creator' && <button className={styles.primary} disabled={Boolean(busy)} onClick={() => subscribe('creator')}>{busy === 'creator' ? 'Opening…' : currentPlan === 'listener' ? 'Upgrade to Creator €24.99' : 'Choose Creator €24.99'}</button>}{member?.stripeCustomerId && <button className={styles.secondary} disabled={Boolean(busy)} onClick={billingPortal}>{busy === 'billing' ? 'Opening…' : 'Manage billing'}</button>}</div></article>
+        <article className={`${styles.card} ${styles.membership}`}><p className={styles.kicker}>Current membership</p><h2>{busy === 'confirming' ? 'Confirming membership…' : planLabel}</h2><span className={styles.status}>{active ? `${status} subscription` : busy === 'confirming' ? 'Checking Stripe payment' : 'No active subscription'}</span><div className={styles.metricRow}><div className={styles.metric}><span>Downloads this month</span><strong>{downloadsUsed} / {downloadLimit}</strong></div><div className={styles.metric}><span>Account access</span><strong>{active ? 'Active' : 'Free'}</strong></div></div><div className={styles.actions}>{currentPlan !== 'listener' && <button className={styles.primary} disabled={Boolean(busy)} onClick={() => subscribe('listener')}>{busy === 'listener' ? 'Opening…' : 'Choose Listener €8.99'}</button>}{currentPlan !== 'creator' && <button className={styles.primary} disabled={Boolean(busy)} onClick={() => subscribe('creator')}>{busy === 'creator' ? 'Opening…' : currentPlan === 'listener' ? 'Upgrade to Creator €24.99' : 'Choose Creator €24.99'}</button>}{member?.stripeCustomerId && <button className={styles.secondary} disabled={Boolean(busy)} onClick={billingPortal}>{busy === 'billing' ? 'Opening…' : 'Manage billing'}</button>}</div></article>
         <article className={`${styles.card} ${styles.profile}`}><p className={styles.kicker}>Account</p><h2>Member details</h2><form className={styles.form} onSubmit={saveProfile}><label>Full name<input value={profileName} onChange={e => setProfileName(e.target.value)} placeholder="Your full name" /></label><label>Email address<input value={user.email || ''} disabled /></label><button className={styles.secondary} disabled={busy === 'profile'}>{busy === 'profile' ? 'Saving…' : 'Save profile changes'}</button></form></article>
         <article className={`${styles.card} ${styles.playlists}`}><p className={styles.kicker}>Your library</p><h2>Personal playlists</h2><form className={styles.playlistForm} onSubmit={createPlaylist}><label>New playlist<input value={playlistName} onChange={e => setPlaylistName(e.target.value)} placeholder="My Aureon favourites" /></label><button className={styles.secondary}>Create playlist</button></form>{playlists.length ? <ul className={styles.list}>{playlists.map(playlist => <li key={playlist.id}><span><strong>{playlist.name}</strong><small>{Array.isArray(playlist.songIds) ? `${playlist.songIds.length} songs` : '0 songs'}</small></span><button className={styles.danger} onClick={() => deleteDoc(doc(firestore, 'members', user.uid, 'playlists', playlist.id))}>Delete</button></li>)}</ul> : <p className={styles.subtle}>No playlists yet. Create one, then choose songs from the member library.</p>}<div className={styles.actions}><Link className={styles.primary} href="/library">Browse songs and add to playlist</Link></div></article>
         <article className={`${styles.card} ${styles.licence}`}><p className={styles.kicker}>Creator licence</p><h2>{currentPlan === 'creator' ? 'Creator access active' : 'Creator access unavailable'}</h2><p className={styles.subtle}>{currentPlan === 'creator' ? 'Commercial licence tools remain available while your Creator subscription is active.' : 'Commercial use, licence certificates and creator downloads require Aureon Creator.'}</p></article>
