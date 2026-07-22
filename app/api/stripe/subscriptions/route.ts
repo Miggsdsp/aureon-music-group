@@ -6,7 +6,11 @@ import { markInvoicePaymentFailure, recordInvoicePaid, syncStripeSubscription } 
 export const runtime = 'nodejs';
 
 async function subscriptionFromInvoice(invoice: Stripe.Invoice) {
-  const subscriptionValue = invoice.parent?.subscription_details?.subscription;
+  const value = invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+    parent?: { subscription_details?: { subscription?: string | Stripe.Subscription | null } | null } | null;
+  };
+  const subscriptionValue = value.parent?.subscription_details?.subscription ?? value.subscription;
   const subscriptionId = typeof subscriptionValue === 'string' ? subscriptionValue : subscriptionValue?.id;
   return subscriptionId ? getStripe().subscriptions.retrieve(subscriptionId) : null;
 }
