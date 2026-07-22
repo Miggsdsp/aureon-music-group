@@ -1,0 +1,2 @@
+.heroFix{background-position:center top!important;background-size:100% auto!important;background-repeat:no-repeat!important;min-height:max(100svh,56.25vw)!important;overflow:hidden}
+@media(max-width:900px){.heroFix{background-size:cover!important;background-position:center center!important;min-height:100svh!important}}
