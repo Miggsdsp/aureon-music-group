@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { useSiteFeatures } from '@/lib/useSiteFeatures';
+import styles from './CinematicHero.module.css';
 
 export function CinematicHero() {
   const { features } = useSiteFeatures();
@@ -13,7 +14,7 @@ export function CinematicHero() {
   });
   const style = data?.heroImage ? { backgroundImage: `url(${data.heroImage})` } : undefined;
   return (
-    <section className="hero approved-hero" aria-label={data?.title || 'Aureon Music Group homepage'} style={style}>
+    <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'} style={style}>
       <div className="cinematic-fx light-fx" aria-hidden="true" />
       <div className="cinematic-fx dust-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
       <div className="cinematic-fx led-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
