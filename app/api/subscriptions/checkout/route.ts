@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getStripe } from '@/lib/stripe-server';
 import { memberError, requireMember, type MemberPlan } from '@/lib/member-server';
+import { getSubscriptionPlan, syncStripeSubscription } from '@/lib/subscription-sync';
 
 export const runtime = 'nodejs';
 
@@ -46,6 +47,33 @@ export async function POST(request: Request) {
     const { uid, email, name, memberRef, member } = await requireMember(request);
     const price = prices[plan] as string;
     const stripe = getStripe();
+
+    const existingSubscriptionId = String(member.stripeSubscriptionId || '');
+    if (existingSubscriptionId) {
+      try {
+        const existing = await stripe.subscriptions.retrieve(existingSubscriptionId);
+        const stillManaged = !['canceled', 'incomplete_expired'].includes(existing.status);
+        if (stillManaged) {
+          const existingPlan = getSubscriptionPlan(existing);
+          if (existingPlan === plan) {
+            return NextResponse.json({ error: `Your ${plan === 'creator' ? 'Aureon Creator' : 'Aureon Listener'} subscription already exists. Use Manage billing to review it.` }, { status: 409 });
+          }
+
+          const item = existing.items.data[0];
+          if (!item) return NextResponse.json({ error: 'Stripe subscription has no billable item.' }, { status: 409 });
+
+          const updated = await stripe.subscriptions.update(existing.id, {
+            items: [{ id: item.id, price }],
+            metadata: { ...existing.metadata, firebaseUid: uid, plan },
+            proration_behavior: 'create_prorations',
+          });
+          await syncStripeSubscription(updated, 'account-plan-change');
+          return NextResponse.json({ changed: true, plan, url: '/account?plan=changed' });
+        }
+      } catch (error) {
+        console.warn('Existing subscription could not be reused:', error);
+      }
+    }
 
     let customerId = String(member.stripeCustomerId || '');
     if (!customerId) {
