@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { adminFirestore, adminStorage } from '@/lib/firebase-admin';
+import { adminFirestore } from '@/lib/firebase-admin';
 import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 function privatePath(data: Record<string, any>) {
   const details = data.details && typeof data.details === 'object' ? data.details : {};
@@ -17,11 +18,16 @@ export async function GET(request: Request, context: { params: Promise<{ songId:
     const { songId } = await context.params;
     const song = await adminFirestore.collection('songs').doc(songId).get();
     if (!song.exists || song.data()?.status !== 'published') return NextResponse.json({ error: 'Song not found.' }, { status: 404 });
+
     const path = privatePath(song.data() || {});
     if (!path.startsWith('private/full-tracks/')) return NextResponse.json({ error: 'Full track is unavailable.' }, { status: 404 });
 
-    const [url] = await adminStorage.bucket().file(path).getSignedUrl({ action: 'read', expires: Date.now() + 10 * 60 * 1000 });
-    return NextResponse.json({ url, expiresIn: 600 });
+    const authorization = request.headers.get('authorization') || '';
+    const token = authorization.replace(/^Bearer\s+/i, '').trim();
+    if (!token) return NextResponse.json({ error: 'Member authentication is required.' }, { status: 401 });
+
+    const url = `/api/member/audio/${encodeURIComponent(songId)}?token=${encodeURIComponent(token)}`;
+    return NextResponse.json({ url, expiresIn: 3600 });
   } catch (error) {
     console.error('Member stream failed:', error);
     const result = memberError(error);
