@@ -31,6 +31,8 @@ export async function POST(request: Request) {
   }
 
   try {
+    console.info('Stripe subscription webhook received:', event.type, event.id);
+
     switch (event.type) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
@@ -58,9 +60,15 @@ export async function POST(request: Request) {
       case 'invoice.payment_failed':
       case 'invoice.payment_action_required': {
         const invoice = event.data.object as Stripe.Invoice;
-        await markInvoicePaymentFailure(invoice);
         const subscription = await subscriptionFromInvoice(invoice);
+
+        // Synchronise IDs, plan and period information first. The explicit
+        // failed-payment state must be written last because Stripe can leave a
+        // subscription itself marked active while its renewal invoice is being
+        // retried. Writing the failure last prevents that active status from
+        // immediately overwriting the account restriction.
         if (subscription) await syncStripeSubscription(subscription, event.type);
+        await markInvoicePaymentFailure(invoice);
         break;
       }
 
