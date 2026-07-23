@@ -12,7 +12,13 @@ function privatePath(data: Record<string, any>) {
 
 export async function GET(request: Request, context: { params: Promise<{ songId: string }> }) {
   try {
-    const { member } = await requireMember(request);
+    const requestUrl = new URL(request.url);
+    const queryToken = requestUrl.searchParams.get('token') || '';
+    const authenticatedRequest = queryToken
+      ? new Request(request.url, { headers: { authorization: `Bearer ${queryToken}` } })
+      : request;
+
+    const { member } = await requireMember(authenticatedRequest);
     if (!hasActivePlan(member)) {
       return NextResponse.json({ error: 'An active Aureon membership is required.' }, { status: 403 });
     }
@@ -31,15 +37,16 @@ export async function GET(request: Request, context: { params: Promise<{ songId:
     const file = adminStorage.bucket().file(path);
     const [metadata] = await file.getMetadata();
     const [buffer] = await file.download();
+    const contentType = String(metadata.contentType || 'audio/mpeg');
 
     return new NextResponse(buffer, {
       status: 200,
       headers: {
-        'Content-Type': metadata.contentType || 'audio/mpeg',
+        'Content-Type': contentType,
         'Content-Length': String(buffer.length),
         'Cache-Control': 'private, no-store, max-age=0',
-        'Accept-Ranges': 'bytes',
-        'Content-Disposition': `inline; filename="${encodeURIComponent(String(song.data()?.title || 'aureon-track'))}.mp3"`,
+        'Content-Disposition': `inline; filename="${encodeURIComponent(String(song.data()?.title || 'aureon-track'))}"`,
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (error) {
