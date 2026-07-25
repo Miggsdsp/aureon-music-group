@@ -15,16 +15,40 @@ async function subscriptionFromInvoice(invoice: Stripe.Invoice) {
   return subscriptionId ? getStripe().subscriptions.retrieve(subscriptionId) : null;
 }
 
-export async function POST(request: Request) {
-  const secret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET;
-  if (!secret) return NextResponse.json({ error: 'Subscription webhook secret not configured.' }, { status: 500 });
+function webhookSecrets() {
+  return [
+    process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET,
+    process.env.STRIPE_SUBSCRIPTION_TEST_WEBHOOK_SECRET,
+  ]
+    .flatMap(value => value?.split(',') ?? [])
+    .map(value => value.trim().replace(/^['"]|['"]$/g, ''))
+    .filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
+}
 
+function constructStripeEvent(payload: string, signature: string) {
+  const secrets = webhookSecrets();
+  if (secrets.length === 0) throw new Error('Subscription webhook secret not configured.');
+
+  let lastError: unknown;
+  for (const secret of secrets) {
+    try {
+      return getStripe().webhooks.constructEvent(payload, signature, secret);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Invalid Stripe webhook signature.');
+}
+
+export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) return NextResponse.json({ error: 'Missing Stripe signature.' }, { status: 400 });
 
   let event: Stripe.Event;
   try {
-    event = getStripe().webhooks.constructEvent(await request.text(), signature, secret);
+    const payload = await request.text();
+    event = constructStripeEvent(payload, signature);
   } catch (error) {
     console.error('Invalid subscription webhook signature:', error);
     return NextResponse.json({ error: 'Invalid signature.' }, { status: 400 });
