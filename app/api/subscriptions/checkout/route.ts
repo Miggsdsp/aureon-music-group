@@ -65,21 +65,62 @@ export async function POST(request: Request) {
           const isUpgrade = existingPlan === 'listener' && plan === 'creator';
 
           if (isUpgrade) {
-            // Charge the prorated Listener-to-Creator difference immediately.
-            // error_if_incomplete prevents Creator access from being granted when
-            // Stripe cannot collect the upgrade invoice.
+            // Keep the price change pending until Stripe successfully collects the
+            // prorated Listener-to-Creator difference. This prevents Creator access
+            // from being granted on an unpaid or action-required invoice.
             const updated = await stripe.subscriptions.update(existing.id, {
               items: [{ id: item.id, price }],
               metadata: { ...existing.metadata, firebaseUid: uid, plan },
               cancel_at_period_end: false,
               proration_behavior: 'always_invoice',
-              payment_behavior: 'error_if_incomplete',
+              payment_behavior: 'pending_if_incomplete',
+              expand: ['latest_invoice'],
             });
+
+            const invoice = typeof updated.latest_invoice === 'object' && updated.latest_invoice
+              ? updated.latest_invoice as {
+                  id: string;
+                  status: string | null;
+                  amount_due: number;
+                  amount_paid: number;
+                  hosted_invoice_url?: string | null;
+                }
+              : null;
+
+            if (!invoice) {
+              return NextResponse.json({
+                error: 'Stripe did not create an upgrade invoice. The plan has not been upgraded.',
+              }, { status: 502 });
+            }
+
+            if (invoice.amount_due <= 0 && invoice.amount_paid <= 0) {
+              return NextResponse.json({
+                error: 'Stripe calculated a zero-value upgrade invoice. Creator access was not granted. Check the Listener and Creator price configuration in Stripe.',
+              }, { status: 409 });
+            }
+
+            if (updated.pending_update || invoice.status !== 'paid' || invoice.amount_paid <= 0) {
+              if (invoice.hosted_invoice_url) {
+                return NextResponse.json({
+                  paymentRequired: true,
+                  changed: false,
+                  plan: existingPlan,
+                  url: invoice.hosted_invoice_url,
+                  message: 'Complete the prorated upgrade payment before Creator access is activated.',
+                }, { status: 402 });
+              }
+
+              return NextResponse.json({
+                error: 'The prorated upgrade payment was not completed. Your Listener plan remains active.',
+              }, { status: 402 });
+            }
 
             await syncStripeSubscription(updated, 'account-paid-upgrade');
             return NextResponse.json({
               changed: true,
               charged: true,
+              amountCharged: invoice.amount_paid,
+              currency: invoice.id,
               plan,
               url: '/account?plan=upgraded',
             });
