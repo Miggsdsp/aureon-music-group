@@ -23,11 +23,21 @@ export async function requireMember(request: Request) {
 
 export function hasActivePlan(member: Record<string, any>, required?: MemberPlan) {
   const status = String(member.subscriptionStatus || '').toLowerCase();
-  const active = status === 'active' || status === 'trialing';
-  if (!active) return false;
-  if (!required) return true;
+  const statusAllowsAccess = status === 'active' || status === 'trialing';
+
+  // Fail closed. Premium access requires both an eligible Stripe status and the
+  // explicit server-managed access flag. A failed-payment webhook sets this
+  // flag to false immediately, preventing streaming, downloads and licences.
+  if (!statusAllowsAccess || member.subscriptionActive !== true) return false;
+
   const plan = String(member.plan || '').toLowerCase();
-  return required === 'listener' ? plan === 'listener' || plan === 'creator' : plan === 'creator';
+  if (plan !== 'listener' && plan !== 'creator') return false;
+
+  if (!required) return true;
+  if (required === 'listener') return plan === 'listener' || plan === 'creator';
+
+  // Creator benefits require the Creator plan and its separate licence flag.
+  return plan === 'creator' && member.creatorLicenseActive === true;
 }
 
 export function memberError(error: unknown) {
