@@ -62,16 +62,39 @@ export async function POST(request: Request) {
           const item = existing.items.data[0];
           if (!item) return NextResponse.json({ error: 'Stripe subscription has no billable item.' }, { status: 409 });
 
-          const updated = await stripe.subscriptions.update(existing.id, {
-            items: [{ id: item.id, price }],
-            metadata: { ...existing.metadata, firebaseUid: uid, plan },
-            proration_behavior: 'create_prorations',
-          });
-          await syncStripeSubscription(updated, 'account-plan-change');
-          return NextResponse.json({ changed: true, plan, url: '/account?plan=changed' });
+          const isUpgrade = existingPlan === 'listener' && plan === 'creator';
+
+          if (isUpgrade) {
+            // Charge the prorated Listener-to-Creator difference immediately.
+            // error_if_incomplete prevents Creator access from being granted when
+            // Stripe cannot collect the upgrade invoice.
+            const updated = await stripe.subscriptions.update(existing.id, {
+              items: [{ id: item.id, price }],
+              metadata: { ...existing.metadata, firebaseUid: uid, plan },
+              cancel_at_period_end: false,
+              proration_behavior: 'always_invoice',
+              payment_behavior: 'error_if_incomplete',
+            });
+
+            await syncStripeSubscription(updated, 'account-paid-upgrade');
+            return NextResponse.json({
+              changed: true,
+              charged: true,
+              plan,
+              url: '/account?plan=upgraded',
+            });
+          }
+
+          // A Creator-to-Listener change should be managed in Stripe Billing so
+          // the lower plan can begin at the period end without issuing a cash refund.
+          return NextResponse.json({
+            error: 'Use Manage billing to schedule your downgrade. Creator access remains active until the end of the paid billing period.',
+            manageBilling: true,
+          }, { status: 409 });
         }
       } catch (error) {
         console.warn('Existing subscription could not be reused:', error);
+        throw error;
       }
     }
 
