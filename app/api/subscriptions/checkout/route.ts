@@ -65,9 +65,6 @@ export async function POST(request: Request) {
           const isUpgrade = existingPlan === 'listener' && plan === 'creator';
 
           if (isUpgrade) {
-            // Keep the price change pending until Stripe successfully collects the
-            // prorated Listener-to-Creator difference. This prevents Creator access
-            // from being granted on an unpaid or action-required invoice.
             const updated = await stripe.subscriptions.update(existing.id, {
               items: [{ id: item.id, price }],
               metadata: { ...existing.metadata, firebaseUid: uid, plan },
@@ -83,6 +80,7 @@ export async function POST(request: Request) {
                   status: string | null;
                   amount_due: number;
                   amount_paid: number;
+                  currency: string;
                   hosted_invoice_url?: string | null;
                 }
               : null;
@@ -107,7 +105,7 @@ export async function POST(request: Request) {
                   plan: existingPlan,
                   url: invoice.hosted_invoice_url,
                   message: 'Complete the prorated upgrade payment before Creator access is activated.',
-                }, { status: 402 });
+                });
               }
 
               return NextResponse.json({
@@ -120,14 +118,12 @@ export async function POST(request: Request) {
               changed: true,
               charged: true,
               amountCharged: invoice.amount_paid,
-              currency: invoice.id,
+              currency: invoice.currency,
               plan,
               url: '/account?plan=upgraded',
             });
           }
 
-          // A Creator-to-Listener change should be managed in Stripe Billing so
-          // the lower plan can begin at the period end without issuing a cash refund.
           return NextResponse.json({
             error: 'Use Manage billing to schedule your downgrade. Creator access remains active until the end of the paid billing period.',
             manageBilling: true,
