@@ -38,8 +38,12 @@ export async function GET(request: Request, context: { params: Promise<{ songId:
     const [metadata] = await file.getMetadata();
     const [buffer] = await file.download();
     const contentType = String(metadata.contentType || 'audio/mpeg');
+    const body = buffer.buffer.slice(
+      buffer.byteOffset,
+      buffer.byteOffset + buffer.byteLength,
+    ) as ArrayBuffer;
 
-    return new NextResponse(buffer, {
+    return new NextResponse(body, {
       status: 200,
       headers: {
         'Content-Type': contentType,
