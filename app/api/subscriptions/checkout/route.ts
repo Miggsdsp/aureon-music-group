@@ -92,15 +92,15 @@ export async function POST(request: Request) {
             let invoice = await stripe.invoices.retrieve(latestInvoiceId);
 
             if (invoice.status === 'draft') {
-              invoice = await stripe.invoices.finalizeInvoice(invoice.id);
+              invoice = await stripe.invoices.finalizeInvoice(latestInvoiceId);
             }
 
             if (invoice.status === 'open' && invoice.amount_remaining > 0) {
               try {
-                invoice = await stripe.invoices.pay(invoice.id, { paid_out_of_band: false });
+                invoice = await stripe.invoices.pay(latestInvoiceId, { paid_out_of_band: false });
               } catch (paymentError) {
                 console.warn('Immediate Creator upgrade payment failed:', paymentError);
-                invoice = await stripe.invoices.retrieve(invoice.id);
+                invoice = await stripe.invoices.retrieve(latestInvoiceId);
               }
             }
 
