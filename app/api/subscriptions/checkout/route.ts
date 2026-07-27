@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
+import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe-server';
 import { memberError, requireMember, type MemberPlan } from '@/lib/member-server';
 import { getSubscriptionPlan, syncStripeSubscription } from '@/lib/subscription-sync';
@@ -31,6 +32,13 @@ function configurationError(plan: MemberPlan) {
   }
 
   return '';
+}
+
+function invoiceIdFromSubscription(subscription: Stripe.Subscription): string | null {
+  if (!subscription.latest_invoice) return null;
+  return typeof subscription.latest_invoice === 'string'
+    ? subscription.latest_invoice
+    : subscription.latest_invoice.id;
 }
 
 export async function POST(request: Request) {
@@ -74,52 +82,60 @@ export async function POST(request: Request) {
               expand: ['latest_invoice'],
             });
 
-            const invoice = typeof updated.latest_invoice === 'object' && updated.latest_invoice
-              ? updated.latest_invoice as {
-                  id: string;
-                  status: string | null;
-                  amount_due: number;
-                  amount_paid: number;
-                  currency: string;
-                  hosted_invoice_url?: string | null;
-                }
-              : null;
-
-            if (!invoice) {
+            const latestInvoiceId = invoiceIdFromSubscription(updated);
+            if (!latestInvoiceId) {
               return NextResponse.json({
-                error: 'Stripe did not create an upgrade invoice. The plan has not been upgraded.',
+                error: 'Stripe did not create an immediate upgrade invoice. Your Listener plan remains active.',
               }, { status: 502 });
+            }
+
+            let invoice = await stripe.invoices.retrieve(latestInvoiceId);
+
+            if (invoice.status === 'draft') {
+              invoice = await stripe.invoices.finalizeInvoice(invoice.id);
+            }
+
+            if (invoice.status === 'open' && invoice.amount_remaining > 0) {
+              try {
+                invoice = await stripe.invoices.pay(invoice.id, { paid_out_of_band: false });
+              } catch (paymentError) {
+                console.warn('Immediate Creator upgrade payment failed:', paymentError);
+                invoice = await stripe.invoices.retrieve(invoice.id);
+              }
             }
 
             if (invoice.amount_due <= 0 && invoice.amount_paid <= 0) {
               return NextResponse.json({
-                error: 'Stripe calculated a zero-value upgrade invoice. Creator access was not granted. Check the Listener and Creator price configuration in Stripe.',
+                error: 'Stripe calculated a zero-value upgrade. Creator access was not granted. Check the Listener and Creator price IDs and currencies in Stripe.',
               }, { status: 409 });
             }
 
-            if (updated.pending_update || invoice.status !== 'paid' || invoice.amount_paid <= 0) {
-              if (invoice.hosted_invoice_url) {
-                return NextResponse.json({
-                  paymentRequired: true,
-                  changed: false,
-                  plan: existingPlan,
-                  url: invoice.hosted_invoice_url,
-                  message: 'Complete the prorated upgrade payment before Creator access is activated.',
-                });
-              }
-
+            const paid = invoice.status === 'paid' && invoice.amount_paid > 0;
+            if (!paid) {
               return NextResponse.json({
-                error: 'The prorated upgrade payment was not completed. Your Listener plan remains active.',
-              }, { status: 402 });
+                paymentRequired: true,
+                changed: false,
+                plan: existingPlan,
+                url: invoice.hosted_invoice_url || null,
+                message: 'Pay the prorated upgrade difference before Creator access is activated.',
+              }, { status: invoice.hosted_invoice_url ? 200 : 402 });
             }
 
-            await syncStripeSubscription(updated, 'account-paid-upgrade');
+            const confirmed = await stripe.subscriptions.retrieve(updated.id);
+            if (getSubscriptionPlan(confirmed) !== 'creator' || confirmed.pending_update) {
+              return NextResponse.json({
+                error: 'The payment succeeded, but Stripe has not completed the plan change yet. Refresh the account in a moment.',
+              }, { status: 409 });
+            }
+
+            await syncStripeSubscription(confirmed, 'account-paid-upgrade');
             return NextResponse.json({
               changed: true,
               charged: true,
               amountCharged: invoice.amount_paid,
               currency: invoice.currency,
               plan,
+              renewalUnchanged: true,
               url: '/account?plan=upgraded',
             });
           }
