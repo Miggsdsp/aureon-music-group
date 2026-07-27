@@ -35,10 +35,10 @@ function configurationError(plan: MemberPlan) {
 }
 
 function invoiceIdFromSubscription(subscription: Stripe.Subscription): string | null {
-  if (!subscription.latest_invoice) return null;
-  return typeof subscription.latest_invoice === 'string'
-    ? subscription.latest_invoice
-    : subscription.latest_invoice.id;
+  const latestInvoice = subscription.latest_invoice;
+  if (!latestInvoice) return null;
+  if (typeof latestInvoice === 'string') return latestInvoice;
+  return latestInvoice.id ?? null;
 }
 
 export async function POST(request: Request) {
