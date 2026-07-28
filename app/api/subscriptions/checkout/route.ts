@@ -43,8 +43,58 @@ function invoiceIdFromSubscription(subscription: Stripe.Subscription): string | 
 }
 
 function periodEndFromSubscription(subscription: Stripe.Subscription): Date | null {
-  const value = subscription as Stripe.Subscription & { current_period_end?: number | null };
-  return value.current_period_end ? new Date(value.current_period_end * 1000) : null;
+  const value = subscription.items.data[0]?.current_period_end;
+  return value ? new Date(value * 1000) : null;
+}
+
+function periodStartFromSubscription(subscription: Stripe.Subscription): number {
+  return subscription.items.data[0]?.current_period_start || Math.floor(Date.now() / 1000);
+}
+
+async function scheduleListenerDowngrade(
+  stripe: Stripe,
+  subscription: Stripe.Subscription,
+  listenerPrice: string,
+  uid: string,
+) {
+  const item = subscription.items.data[0];
+  if (!item) throw new Error('Stripe subscription has no billable item.');
+
+  const periodEnd = item.current_period_end;
+  if (!periodEnd) throw new Error('Stripe did not return the end of the current billing period.');
+
+  const scheduleId = typeof subscription.schedule === 'string'
+    ? subscription.schedule
+    : subscription.schedule?.id;
+
+  const schedule = scheduleId
+    ? await stripe.subscriptionSchedules.retrieve(scheduleId)
+    : await stripe.subscriptionSchedules.create({ from_subscription: subscription.id });
+
+  const currentPrice = item.price.id;
+  const currentQuantity = item.quantity || 1;
+  const currentPhaseStart = schedule.current_phase?.start_date || periodStartFromSubscription(subscription);
+
+  const updatedSchedule = await stripe.subscriptionSchedules.update(schedule.id, {
+    end_behavior: 'release',
+    phases: [
+      {
+        start_date: currentPhaseStart,
+        end_date: periodEnd,
+        items: [{ price: currentPrice, quantity: currentQuantity }],
+        proration_behavior: 'none',
+        metadata: { firebaseUid: uid, plan: 'creator' },
+      },
+      {
+        start_date: periodEnd,
+        items: [{ price: listenerPrice, quantity: 1 }],
+        proration_behavior: 'none',
+        metadata: { firebaseUid: uid, plan: 'listener' },
+      },
+    ],
+  } as Stripe.SubscriptionScheduleUpdateParams);
+
+  return { schedule: updatedSchedule, effectiveAt: new Date(periodEnd * 1000) };
 }
 
 export async function POST(request: Request) {
@@ -128,9 +178,6 @@ export async function POST(request: Request) {
 
             await syncStripeSubscription(confirmed, 'account-paid-upgrade');
 
-            // The account route performs the plan sync before Stripe's webhook is
-            // delivered. Sending here guarantees one immediate upgrade receipt;
-            // the webhook then sees Creator already stored and will not duplicate it.
             if (email) {
               try {
                 await sendSubscriptionLifecycleEmail({
@@ -143,8 +190,6 @@ export async function POST(request: Request) {
                   currency: invoice.currency,
                 });
               } catch (emailError) {
-                // Payment and access must not be rolled back because an email
-                // provider is temporarily unavailable. Log it for investigation.
                 console.error('Creator upgrade confirmation email failed:', emailError);
               }
             }
@@ -160,10 +205,39 @@ export async function POST(request: Request) {
             });
           }
 
-          return NextResponse.json({
-            error: 'Use Manage billing to schedule your downgrade. Creator access remains active until the end of the paid billing period.',
-            manageBilling: true,
-          }, { status: 409 });
+          if (existingPlan === 'creator' && plan === 'listener') {
+            const downgrade = await scheduleListenerDowngrade(stripe, existing, price, uid);
+
+            await memberRef.set({
+              pendingPlan: 'listener',
+              pendingPlanEffectiveAt: downgrade.effectiveAt,
+              stripeSubscriptionScheduleId: downgrade.schedule.id,
+              updatedAt: FieldValue.serverTimestamp(),
+            }, { merge: true });
+
+            if (email) {
+              try {
+                await sendSubscriptionLifecycleEmail({
+                  to: email,
+                  customerName: name,
+                  kind: 'downgraded',
+                  plan: 'listener',
+                  effectiveDate: downgrade.effectiveAt,
+                });
+              } catch (emailError) {
+                console.error('Listener downgrade confirmation email failed:', emailError);
+              }
+            }
+
+            return NextResponse.json({
+              changed: true,
+              scheduled: true,
+              plan: 'listener',
+              effectiveAt: downgrade.effectiveAt.toISOString(),
+              message: 'Your downgrade to Aureon Listener is scheduled for the end of the current paid billing period.',
+              url: '/account?plan=downgrade-scheduled',
+            });
+          }
         }
       } catch (error) {
         console.warn('Existing subscription could not be reused:', error);
