@@ -18,7 +18,8 @@ export type SubscriptionEmailKind =
   | 'cancellation-scheduled'
   | 'cancelled'
   | 'payment-failed'
-  | 'payment-restored';
+  | 'payment-restored'
+  | 'renewal-paid';
 
 type SubscriptionEmail = {
   to: string;
@@ -93,9 +94,9 @@ export async function sendSubscriptionLifecycleEmail(input: SubscriptionEmail) {
       body: `You have upgraded to Aureon Creator.${amount ? ` The prorated upgrade charge of ${amount} has been processed.` : ' The prorated difference has been processed by Stripe.'}${date ? ` Your normal renewal date remains ${date}.` : ''}`,
     },
     downgraded: {
-      subject: 'Your Aureon membership has been changed',
-      heading: 'Your plan has been changed.',
-      body: `Your membership has been changed to Aureon Listener.${date ? ` The change applies from ${date}.` : ''}`,
+      subject: 'Your Aureon downgrade is scheduled',
+      heading: 'Your plan change is confirmed.',
+      body: `Your Aureon Creator membership will remain active for the rest of the period you have already paid for.${date ? ` On ${date}, your subscription will automatically change to Aureon Listener at €8.99 per month.` : ' At the end of the current paid period, your subscription will automatically change to Aureon Listener at €8.99 per month.'}`,
     },
     'cancellation-scheduled': {
       subject: 'Your Aureon cancellation is scheduled',
@@ -116,6 +117,11 @@ export async function sendSubscriptionLifecycleEmail(input: SubscriptionEmail) {
       subject: 'Your Aureon membership access has been restored',
       heading: 'Payment received.',
       body: `Your subscription payment has been received and your ${planName} member benefits are active again.${date ? ` Your next renewal date is ${date}.` : ''}`,
+    },
+    'renewal-paid': {
+      subject: `${planName} payment receipt`,
+      heading: 'Your membership payment was successful.',
+      body: `${amount ? `We received your payment of ${amount} for ` : 'We received your payment for '}${planName}.${date ? ` Your next renewal date is ${date}.` : ''} Your member access remains active.`,
     },
   };
 
