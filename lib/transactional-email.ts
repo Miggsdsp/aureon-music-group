@@ -11,78 +11,127 @@ type PurchaseEmail = {
   items: DownloadEmailItem[];
 };
 
-export async function sendPurchaseDownloadEmail(input: PurchaseEmail) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.TRANSACTIONAL_EMAIL_FROM || 'Aureon Music Group <downloads@aureonmusicgroup.com>';
+export type SubscriptionEmailKind =
+  | 'confirmed'
+  | 'upgraded'
+  | 'downgraded'
+  | 'cancellation-scheduled'
+  | 'cancelled'
+  | 'payment-failed'
+  | 'payment-restored';
 
+type SubscriptionEmail = {
+  to: string;
+  customerName?: string;
+  kind: SubscriptionEmailKind;
+  plan?: 'listener' | 'creator';
+  effectiveDate?: Date | null;
+  amountPaid?: number | null;
+  currency?: string;
+};
+
+function emailConfig() {
+  return {
+    apiKey: process.env.RESEND_API_KEY,
+    from: process.env.TRANSACTIONAL_EMAIL_FROM || 'Aureon Music Group <members@aureonmusicgroup.com>',
+  };
+}
+
+async function sendEmail(payload: { to: string; subject: string; text: string; html: string }) {
+  const { apiKey, from } = emailConfig();
   if (!apiKey) {
-    console.warn('RESEND_API_KEY is not configured. Download email was not sent.');
+    console.warn('RESEND_API_KEY is not configured. Transactional email was not sent.');
     return { sent: false, reason: 'not-configured' } as const;
   }
 
-  const itemHtml = input.items.map(item => {
-    const safeTitle = escapeHtml(item.title);
-    const safeArtist = escapeHtml(item.artist || 'Aureon Music Group');
-    const safeUrl = escapeHtml(item.downloadUrl);
-
-    return `
-      <div style="margin:0 0 22px;padding:20px;border:1px solid #c7a85a;background:#ffffff;color:#111111;">
-        <div style="font-size:20px;font-weight:700;line-height:1.3;">${safeTitle}</div>
-        <div style="margin-top:5px;color:#666666;">${safeArtist}</div>
-        <div style="margin-top:18px;">
-          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 22px;background:#b9973f;color:#ffffff;text-decoration:none;font-weight:700;border-radius:2px;">Download your purchased song</a>
-        </div>
-        <p style="margin:16px 0 6px;color:#555555;font-size:13px;line-height:1.5;">Button not working? Copy and paste this secure link into your browser:</p>
-        <p style="margin:0;word-break:break-all;font-size:13px;line-height:1.5;"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#8d7134;text-decoration:underline;">${safeUrl}</a></p>
-      </div>
-    `;
-  }).join('');
-
-  const textItems = input.items.map(item => (
-    `${item.title}${item.artist ? ` — ${item.artist}` : ''}\nDownload link: ${item.downloadUrl}`
-  )).join('\n\n');
-
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      from,
-      to: [input.to],
-      subject: `Your Aureon download is ready — ${input.orderNumber}`,
-      text: `Your Aureon music is ready.\n\nOrder reference: ${input.orderNumber}\n\nEach purchased song can be downloaded once only.\n\n${textItems}\n\nIf a technical problem prevents your download, contact Aureon support and quote your order reference.`,
-      html: `
-        <div style="background:#050505;padding:32px;font-family:Arial,sans-serif;color:#f5f1e8;">
-          <div style="max-width:640px;margin:0 auto;">
-            <p style="letter-spacing:3px;color:#d8b85f;text-transform:uppercase;">Aureon Music Group</p>
-            <h1 style="font-size:32px;margin:10px 0 18px;">Your music is ready.</h1>
-            <p>Hello ${escapeHtml(input.customerName || 'music lover')},</p>
-            <p>Thank you for your purchase. Your order reference is <strong>${escapeHtml(input.orderNumber)}</strong>.</p>
-            <p><strong>Each purchased song can be downloaded once only.</strong> Save the file securely after the download begins. Opening this email does not use your download.</p>
-            <div style="margin-top:28px;">${itemHtml}</div>
-            <p style="margin-top:26px;color:#bcbcbc;">If a genuine technical problem prevents your download, contact Aureon support and quote your order reference.</p>
-          </div>
-        </div>
-      `
-    })
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [payload.to], subject: payload.subject, text: payload.text, html: payload.html }),
   });
 
   if (!response.ok) {
     const details = await response.text();
     throw new Error(`Resend email failed: ${response.status} ${details}`);
   }
-
   return { sent: true } as const;
 }
 
+export async function sendPurchaseDownloadEmail(input: PurchaseEmail) {
+  const itemHtml = input.items.map(item => {
+    const safeTitle = escapeHtml(item.title);
+    const safeArtist = escapeHtml(item.artist || 'Aureon Music Group');
+    const safeUrl = escapeHtml(item.downloadUrl);
+    return `<div style="margin:0 0 22px;padding:20px;border:1px solid #c7a85a;background:#ffffff;color:#111111;"><div style="font-size:20px;font-weight:700;line-height:1.3;">${safeTitle}</div><div style="margin-top:5px;color:#666666;">${safeArtist}</div><div style="margin-top:18px;"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 22px;background:#b9973f;color:#ffffff;text-decoration:none;font-weight:700;border-radius:2px;">Download your purchased song</a></div><p style="margin:16px 0 6px;color:#555555;font-size:13px;line-height:1.5;">Button not working? Copy and paste this secure link into your browser:</p><p style="margin:0;word-break:break-all;font-size:13px;line-height:1.5;"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#8d7134;text-decoration:underline;">${safeUrl}</a></p></div>`;
+  }).join('');
+  const textItems = input.items.map(item => `${item.title}${item.artist ? ` — ${item.artist}` : ''}\nDownload link: ${item.downloadUrl}`).join('\n\n');
+
+  return sendEmail({
+    to: input.to,
+    subject: `Your Aureon download is ready — ${input.orderNumber}`,
+    text: `Your Aureon music is ready.\n\nOrder reference: ${input.orderNumber}\n\nEach purchased song can be downloaded once only.\n\n${textItems}\n\nIf a technical problem prevents your download, contact Aureon support and quote your order reference.`,
+    html: `<div style="background:#050505;padding:32px;font-family:Arial,sans-serif;color:#f5f1e8;"><div style="max-width:640px;margin:0 auto;"><p style="letter-spacing:3px;color:#d8b85f;text-transform:uppercase;">Aureon Music Group</p><h1 style="font-size:32px;margin:10px 0 18px;">Your music is ready.</h1><p>Hello ${escapeHtml(input.customerName || 'music lover')},</p><p>Thank you for your purchase. Your order reference is <strong>${escapeHtml(input.orderNumber)}</strong>.</p><p><strong>Each purchased song can be downloaded once only.</strong> Save the file securely after the download begins. Opening this email does not use your download.</p><div style="margin-top:28px;">${itemHtml}</div><p style="margin-top:26px;color:#bcbcbc;">If a genuine technical problem prevents your download, contact Aureon support and quote your order reference.</p></div></div>`,
+  });
+}
+
+export async function sendSubscriptionLifecycleEmail(input: SubscriptionEmail) {
+  const planName = input.plan === 'creator' ? 'Aureon Creator' : 'Aureon Listener';
+  const date = input.effectiveDate ? new Intl.DateTimeFormat('en-IE', { day: 'numeric', month: 'long', year: 'numeric' }).format(input.effectiveDate) : '';
+  const amount = input.amountPaid != null
+    ? new Intl.NumberFormat('en-IE', { style: 'currency', currency: String(input.currency || 'EUR').toUpperCase() }).format(input.amountPaid / 100)
+    : '';
+
+  const messages: Record<SubscriptionEmailKind, { subject: string; heading: string; body: string }> = {
+    confirmed: {
+      subject: `Your ${planName} membership is active`,
+      heading: 'Welcome to Aureon.',
+      body: `Your ${planName} subscription is confirmed and your member access is now active.${date ? ` Your next renewal date is ${date}.` : ''}`,
+    },
+    upgraded: {
+      subject: 'Your Aureon membership has been upgraded',
+      heading: 'Your Creator access is active.',
+      body: `You have upgraded to Aureon Creator.${amount ? ` The prorated upgrade charge of ${amount} has been processed.` : ' The prorated difference has been processed by Stripe.'}${date ? ` Your normal renewal date remains ${date}.` : ''}`,
+    },
+    downgraded: {
+      subject: 'Your Aureon membership has been changed',
+      heading: 'Your plan has been changed.',
+      body: `Your membership has been changed to Aureon Listener.${date ? ` The change applies from ${date}.` : ''}`,
+    },
+    'cancellation-scheduled': {
+      subject: 'Your Aureon cancellation is scheduled',
+      heading: 'Cancellation confirmed.',
+      body: `Your ${planName} membership will remain active until the end of your paid billing period${date ? ` on ${date}` : ''}. You will not be charged again after that date.`,
+    },
+    cancelled: {
+      subject: 'Your Aureon membership has ended',
+      heading: 'Your membership is now cancelled.',
+      body: `Your ${planName} subscription has ended and paid member benefits are no longer active.`,
+    },
+    'payment-failed': {
+      subject: 'Action required: Aureon subscription payment failed',
+      heading: 'We could not process your payment.',
+      body: `Your paid member benefits have been restricted because the latest subscription payment was unsuccessful. Open Manage Billing to update your payment method.`,
+    },
+    'payment-restored': {
+      subject: 'Your Aureon membership access has been restored',
+      heading: 'Payment received.',
+      body: `Your subscription payment has been received and your ${planName} member benefits are active again.${date ? ` Your next renewal date is ${date}.` : ''}`,
+    },
+  };
+
+  const message = messages[input.kind];
+  const name = escapeHtml(input.customerName || 'music lover');
+  const safeBody = escapeHtml(message.body);
+  const siteUrl = escapeHtml((process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/, ''));
+
+  return sendEmail({
+    to: input.to,
+    subject: message.subject,
+    text: `${message.heading}\n\nHello ${input.customerName || 'music lover'},\n\n${message.body}\n\nManage your membership: ${siteUrl}/account`,
+    html: `<div style="background:#050505;padding:32px;font-family:Arial,sans-serif;color:#f5f1e8;"><div style="max-width:640px;margin:0 auto;border:1px solid #5b4925;padding:34px;background:#0b0b0b;"><p style="letter-spacing:3px;color:#d8b85f;text-transform:uppercase;">Aureon Music Group</p><h1 style="font-size:32px;line-height:1.2;margin:12px 0 22px;">${escapeHtml(message.heading)}</h1><p>Hello ${name},</p><p style="font-size:17px;line-height:1.7;color:#e5e0d5;">${safeBody}</p><a href="${siteUrl}/account" style="display:inline-block;margin-top:22px;padding:14px 22px;background:#c6a34f;color:#080808;text-decoration:none;font-weight:700;">Open member dashboard</a><p style="margin-top:28px;color:#999;font-size:13px;">This is an automated account notification from Aureon Music Group.</p></div></div>`,
+  });
+}
+
 function escapeHtml(value: string) {
-  return value.replace(/[&<>'"]/g, character => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    "'": '&#39;',
-    '"': '&quot;'
-  }[character] || character));
+  return value.replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character] || character));
 }
