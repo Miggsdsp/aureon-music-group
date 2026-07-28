@@ -56,26 +56,35 @@ export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) return NextResponse.json({ error: 'Missing Stripe signature.' }, { status: 400 });
 
-  const rawBody = await request.text();
   let event: Stripe.Event;
   try {
-    event = getStripe().webhooks.constructEvent(rawBody, signature, webhookSecret);
+    event = getStripe().webhooks.constructEvent(await request.text(), signature, webhookSecret);
   } catch (error) {
     console.error('Invalid Stripe webhook signature:', error);
     return NextResponse.json({ error: 'Invalid signature.' }, { status: 400 });
   }
 
   try {
-    if (event.type === 'checkout.session.completed') await fulfilPaidCheckout(event.data.object as Stripe.Checkout.Session);
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      // This endpoint is only for one-off song purchases. Membership Checkout
+      // Sessions are handled by /api/stripe/subscriptions and must never create
+      // download orders or purchase emails.
+      if (session.mode === 'payment') await fulfilPaidCheckout(session);
+    }
+
     if (event.type === 'checkout.session.expired') {
       const session = event.data.object as Stripe.Checkout.Session;
-      await adminFirestore.collection('orders').doc(session.id).set({
-        stripeCheckoutSessionId: session.id,
-        status: 'expired',
-        paymentStatus: session.payment_status,
-        updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
+      if (session.mode === 'payment' && String(session.metadata?.songIds || '').trim()) {
+        await adminFirestore.collection('orders').doc(session.id).set({
+          stripeCheckoutSessionId: session.id,
+          status: 'expired',
+          paymentStatus: session.payment_status,
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
     }
+
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Stripe webhook processing failed:', error);
@@ -84,9 +93,11 @@ export async function POST(request: Request) {
 }
 
 async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
-  if (session.payment_status !== 'paid') return;
+  if (session.mode !== 'payment' || session.payment_status !== 'paid') return;
 
-  const songReferences = String(session.metadata?.songIds || '').split(',').filter(Boolean);
+  const songReferences = String(session.metadata?.songIds || '').split(',').map(value => value.trim()).filter(Boolean);
+  if (!songReferences.length) return;
+
   const customerEmail = session.customer_details?.email || session.customer_email || '';
   const customerName = session.customer_details?.name || `${session.metadata?.firstName || ''} ${session.metadata?.surname || ''}`.trim();
   const billingAddress = session.customer_details?.address;
@@ -120,8 +131,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
     const existing = await transaction.get(orderRef);
     if (existing.exists && existing.data()?.status === 'paid') return false;
 
-    const customerRef = adminFirestore.collection('customers').doc(customerEmail || session.id);
-    transaction.set(customerRef, {
+    transaction.set(adminFirestore.collection('customers').doc(customerEmail || session.id), {
       email: customerEmail,
       name: customerName,
       phone: session.customer_details?.phone || session.metadata?.phone || '',
@@ -166,8 +176,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    const paymentRef = adminFirestore.collection('payments').doc(paymentIntentId || session.id);
-    transaction.set(paymentRef, {
+    transaction.set(adminFirestore.collection('payments').doc(paymentIntentId || session.id), {
       orderId: session.id,
       stripeCheckoutSessionId: session.id,
       stripePaymentIntentId: paymentIntentId,
@@ -179,8 +188,7 @@ async function fulfilPaidCheckout(session: Stripe.Checkout.Session) {
     }, { merge: true });
 
     for (const song of songs) {
-      const downloadRef = adminFirestore.collection('downloads').doc(song.token);
-      transaction.set(downloadRef, {
+      transaction.set(adminFirestore.collection('downloads').doc(song.token), {
         token: song.token,
         orderId: session.id,
         orderNumber,
