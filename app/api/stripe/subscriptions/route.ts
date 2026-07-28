@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { adminFirestore } from '@/lib/firebase-admin';
 import { getStripe } from '@/lib/stripe-server';
-import { markInvoicePaymentFailure, recordInvoicePaid, syncStripeSubscription } from '@/lib/subscription-sync';
+import {
+  getSubscriptionPeriodEnd,
+  getSubscriptionPlan,
+  markInvoicePaymentFailure,
+  recordInvoicePaid,
+  resolveFirebaseUid,
+  syncStripeSubscription,
+  type AureonPlan,
+} from '@/lib/subscription-sync';
+import { sendSubscriptionLifecycleEmail, type SubscriptionEmailKind } from '@/lib/transactional-email';
 
 export const runtime = 'nodejs';
 
@@ -16,10 +26,7 @@ async function subscriptionFromInvoice(invoice: Stripe.Invoice) {
 }
 
 function webhookSecrets() {
-  return [
-    process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET,
-    process.env.STRIPE_SUBSCRIPTION_TEST_WEBHOOK_SECRET,
-  ]
+  return [process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET, process.env.STRIPE_SUBSCRIPTION_TEST_WEBHOOK_SECRET]
     .flatMap(value => value?.split(',') ?? [])
     .map(value => value.trim().replace(/^['"]|['"]$/g, ''))
     .filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
@@ -28,7 +35,6 @@ function webhookSecrets() {
 function constructStripeEvent(payload: string, signature: string) {
   const secrets = webhookSecrets();
   if (secrets.length === 0) throw new Error('Subscription webhook secret not configured.');
-
   let lastError: unknown;
   for (const secret of secrets) {
     try {
@@ -37,8 +43,48 @@ function constructStripeEvent(payload: string, signature: string) {
       lastError = error;
     }
   }
-
   throw lastError instanceof Error ? lastError : new Error('Invalid Stripe webhook signature.');
+}
+
+async function sendMemberEmail(subscription: Stripe.Subscription, kind: SubscriptionEmailKind, options: { amountPaid?: number | null; currency?: string } = {}) {
+  const uid = await resolveFirebaseUid(subscription);
+  if (!uid) return;
+  const memberSnapshot = await adminFirestore.collection('members').doc(uid).get();
+  const member = memberSnapshot.data() || {};
+  let email = String(member.email || '').trim();
+  let name = String(member.name || '').trim();
+
+  if (!email) {
+    const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
+    const customer = await getStripe().customers.retrieve(customerId);
+    if (!customer.deleted) {
+      email = String(customer.email || '').trim();
+      name = name || String(customer.name || '').trim();
+    }
+  }
+  if (!email) return;
+
+  await sendSubscriptionLifecycleEmail({
+    to: email,
+    customerName: name,
+    kind,
+    plan: getSubscriptionPlan(subscription),
+    effectiveDate: getSubscriptionPeriodEnd(subscription),
+    amountPaid: options.amountPaid,
+    currency: options.currency,
+  });
+}
+
+async function memberState(subscription: Stripe.Subscription) {
+  const uid = await resolveFirebaseUid(subscription);
+  if (!uid) return null;
+  const snapshot = await adminFirestore.collection('members').doc(uid).get();
+  const data = snapshot.data() || {};
+  return {
+    plan: String(data.plan || '') as AureonPlan | '',
+    status: String(data.subscriptionStatus || ''),
+    cancelAtPeriodEnd: Boolean(data.cancelAtPeriodEnd),
+  };
 }
 
 export async function POST(request: Request) {
@@ -47,8 +93,7 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event;
   try {
-    const payload = await request.text();
-    event = constructStripeEvent(payload, signature);
+    event = constructStripeEvent(await request.text(), signature);
   } catch (error) {
     console.error('Invalid subscription webhook signature:', error);
     return NextResponse.json({ error: 'Invalid signature.' }, { status: 400 });
@@ -58,26 +103,53 @@ export async function POST(request: Request) {
     console.info('Stripe subscription webhook received:', event.type, event.id);
 
     switch (event.type) {
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        await syncStripeSubscription(event.data.object as Stripe.Subscription, event.type);
-        break;
-
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.mode === 'subscription' && typeof session.subscription === 'string') {
           const subscription = await getStripe().subscriptions.retrieve(session.subscription);
           await syncStripeSubscription(subscription, event.type);
+          await sendMemberEmail(subscription, 'confirmed');
         }
+        break;
+      }
+
+      case 'customer.subscription.created': {
+        await syncStripeSubscription(event.data.object as Stripe.Subscription, event.type);
+        break;
+      }
+
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const before = await memberState(subscription);
+        const nextPlan = getSubscriptionPlan(subscription);
+        await syncStripeSubscription(subscription, event.type);
+
+        if (before?.plan && before.plan !== nextPlan) {
+          await sendMemberEmail(subscription, nextPlan === 'creator' ? 'upgraded' : 'downgraded');
+        } else if (!before?.cancelAtPeriodEnd && subscription.cancel_at_period_end) {
+          await sendMemberEmail(subscription, 'cancellation-scheduled');
+        }
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        await syncStripeSubscription(subscription, event.type);
+        await sendMemberEmail(subscription, 'cancelled');
         break;
       }
 
       case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice;
-        await recordInvoicePaid(invoice);
         const subscription = await subscriptionFromInvoice(invoice);
-        if (subscription) await syncStripeSubscription(subscription, event.type);
+        const before = subscription ? await memberState(subscription) : null;
+        await recordInvoicePaid(invoice);
+        if (subscription) {
+          await syncStripeSubscription(subscription, event.type);
+          if (before && ['past_due', 'unpaid', 'incomplete'].includes(before.status)) {
+            await sendMemberEmail(subscription, 'payment-restored', { amountPaid: invoice.amount_paid, currency: invoice.currency });
+          }
+        }
         break;
       }
 
@@ -85,14 +157,9 @@ export async function POST(request: Request) {
       case 'invoice.payment_action_required': {
         const invoice = event.data.object as Stripe.Invoice;
         const subscription = await subscriptionFromInvoice(invoice);
-
-        // Synchronise IDs, plan and period information first. The explicit
-        // failed-payment state must be written last because Stripe can leave a
-        // subscription itself marked active while its renewal invoice is being
-        // retried. Writing the failure last prevents that active status from
-        // immediately overwriting the account restriction.
         if (subscription) await syncStripeSubscription(subscription, event.type);
         await markInvoicePaymentFailure(invoice);
+        if (subscription) await sendMemberEmail(subscription, 'payment-failed');
         break;
       }
 
