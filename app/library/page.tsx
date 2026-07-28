@@ -3,7 +3,17 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { arrayRemove, arrayUnion, collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import {
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
 import { Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { firebaseAuth, firestore } from '@/lib/firebase-client';
 import styles from './library.module.css';
@@ -16,8 +26,6 @@ type Song = {
   genre?: string;
   coverImageUrl?: string;
   imageUrl?: string;
-  status?: string;
-  details?: { status?: string };
 };
 
 type Playlist = { id: string; name?: string; songIds?: string[] };
@@ -27,14 +35,9 @@ const formatTime = (value: number) => Number.isFinite(value)
   ? `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`
   : '0:00';
 
-function isCatalogueSong(song: Song) {
-  const status = String(song.status || song.details?.status || '').trim().toLowerCase();
-  return status === 'published' || status === 'active' || status === 'live';
-}
-
 export default function LibraryPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const shouldAutoplayRef = useRef(false);
+  const autoplayRef = useRef(false);
   const [user, setUser] = useState<User | null>(null);
   const [member, setMember] = useState<Member | null>(null);
   const [accessChecked, setAccessChecked] = useState(false);
@@ -87,16 +90,16 @@ export default function LibraryPage() {
       setSongs([]);
       return;
     }
-    return onSnapshot(collection(firestore, 'songs'), snapshot => {
-      const catalogue = snapshot.docs
-        .map(item => ({ id: item.id, ...item.data() } as Song))
-        .filter(isCatalogueSong);
+
+    const publishedSongs = query(collection(firestore, 'songs'), where('status', '==', 'published'));
+    return onSnapshot(publishedSongs, snapshot => {
+      const catalogue = snapshot.docs.map(item => ({ id: item.id, ...item.data() } as Song));
       setSongs(catalogue);
-      if (!catalogue.length) setMessage('No active catalogue tracks were found.');
-      else setMessage(current => current === 'No active catalogue tracks were found.' ? '' : current);
-    }, () => {
+      setMessage(current => current.includes('catalogue') || current.includes('library could not') ? '' : current);
+    }, error => {
+      console.error('Member catalogue listener failed', error);
       setSongs([]);
-      setMessage('Your member library could not be loaded. Please refresh or open Manage billing.');
+      setMessage('The published music catalogue could not be loaded. Please refresh the page.');
     });
   }, [user, accessChecked, hasAccess]);
 
@@ -107,9 +110,10 @@ export default function LibraryPage() {
     }
     return onSnapshot(collection(firestore, 'members', user.uid, 'playlists'), snapshot => {
       setPlaylists(snapshot.docs.map(item => ({ id: item.id, ...item.data() } as Playlist)));
-    }, () => {
+    }, error => {
+      console.error('Playlist listener failed', error);
       setPlaylists([]);
-      setMessage('Your playlists could not be loaded. Please refresh or open your member dashboard.');
+      setMessage('Your playlists could not be loaded. Please refresh the page.');
     });
   }, [user, accessChecked, hasAccess]);
 
@@ -127,7 +131,6 @@ export default function LibraryPage() {
     const audio = audioRef.current;
     if (!audio || !audioUrl) return;
     audio.pause();
-    audio.defaultMuted = false;
     audio.muted = false;
     audio.volume = Math.max(0.01, volume || 1);
     audio.src = audioUrl;
@@ -135,9 +138,10 @@ export default function LibraryPage() {
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
+
     const start = async () => {
-      if (!shouldAutoplayRef.current) return;
-      shouldAutoplayRef.current = false;
+      if (!autoplayRef.current) return;
+      autoplayRef.current = false;
       try {
         await audio.play();
         setMessage('');
@@ -145,6 +149,7 @@ export default function LibraryPage() {
         setMessage(error instanceof Error ? `Playback was blocked: ${error.message}. Press Play again.` : 'Playback was blocked. Press Play again.');
       }
     };
+
     audio.addEventListener('canplay', start, { once: true });
     return () => audio.removeEventListener('canplay', start);
   }, [audioUrl, volume]);
@@ -157,7 +162,7 @@ export default function LibraryPage() {
       window.location.href = '/account';
       return null;
     }
-    if (!hasAccess) throw new Error('Your paid membership is not active. Open your dashboard to renew or choose a plan.');
+    if (!hasAccess) throw new Error('Your paid membership is not active.');
     const token = await user.getIdToken();
     const response = await fetch(path, { method, headers: { authorization: `Bearer ${token}` } });
     const data = await response.json();
@@ -168,7 +173,7 @@ export default function LibraryPage() {
   async function loadSong(song: Song, order: string[] = playOrder, index = -1) {
     setMessage('');
     setBusy(`play-${song.id}`);
-    shouldAutoplayRef.current = true;
+    autoplayRef.current = true;
     try {
       const data = await memberRequest(`/api/member/stream/${song.id}`);
       if (!data?.url) throw new Error('No playable audio URL was returned.');
@@ -177,7 +182,7 @@ export default function LibraryPage() {
       setOrderIndex(index >= 0 ? index : Math.max(0, order.indexOf(song.id)));
       setAudioUrl(String(data.url));
     } catch (error) {
-      shouldAutoplayRef.current = false;
+      autoplayRef.current = false;
       setMessage(error instanceof Error ? error.message : 'Unable to play this song.');
     } finally {
       setBusy('');
@@ -253,10 +258,14 @@ export default function LibraryPage() {
 
   async function removeFromPlaylist(playlistId: string, songId: string) {
     if (!user || !hasAccess) return;
-    await updateDoc(doc(firestore, 'members', user.uid, 'playlists', playlistId), {
-      songIds: arrayRemove(songId),
-      updatedAt: serverTimestamp(),
-    });
+    try {
+      await updateDoc(doc(firestore, 'members', user.uid, 'playlists', playlistId), {
+        songIds: arrayRemove(songId),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to remove this song.');
+    }
   }
 
   return <main className={styles.shell}>
@@ -273,11 +282,18 @@ export default function LibraryPage() {
     </section>}
 
     {hasAccess && <>
-      <section className={styles.section}><div className={styles.sectionHeader}><div><p className={styles.kicker}>Personal collection</p><h2>Your playlists</h2></div><p>Create and rename playlists from your dashboard.</p></div>
-        {playlists.length ? <div className={styles.playlistGrid}>{playlists.map(playlist => { const playlistSongs = (playlist.songIds || []).map(id => songById.get(id)).filter(Boolean) as Song[]; return <article className={styles.playlistCard} key={playlist.id}><p className={styles.kicker}>Playlist</p><h3>{playlist.name || 'Untitled playlist'}</h3><p className={styles.playlistMeta}>{playlistSongs.length} {playlistSongs.length === 1 ? 'song' : 'songs'}</p><div className={styles.actions}><button className={`${styles.button} ${styles.buttonPrimary}`} disabled={!playlistSongs.length || Boolean(busy)} onClick={() => playPlaylist(playlist)}>Play playlist</button></div>{playlistSongs.length ? <div className={styles.playlistSongs}>{playlistSongs.map((song, index) => <div className={styles.playlistSong} key={song.id}><button className={styles.songInfo} onClick={() => loadSong(song, playlistSongs.map(item => item.id), index)}><strong>{song.title || 'Untitled track'}</strong><small>{song.artistName || song.artist || 'Aureon Music Group'}</small></button><button className={styles.remove} onClick={() => removeFromPlaylist(playlist.id, song.id)}>Remove</button></div>)}</div> : <p className={styles.empty}>Add songs from the catalogue below.</p>}</article>; })}</div> : <p className={styles.message}>You have no playlists yet. Create one in your <Link href="/account">member dashboard</Link>.</p>}
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}><div><p className={styles.kicker}>Personal collection</p><h2>Your playlists</h2></div><p>Create and rename playlists from your dashboard.</p></div>
+        {playlists.length ? <div className={styles.playlistGrid}>{playlists.map(playlist => {
+          const playlistSongs = (playlist.songIds || []).map(id => songById.get(id)).filter(Boolean) as Song[];
+          return <article className={styles.playlistCard} key={playlist.id}><p className={styles.kicker}>Playlist</p><h3>{playlist.name || 'Untitled playlist'}</h3><p className={styles.playlistMeta}>{playlistSongs.length} {playlistSongs.length === 1 ? 'song' : 'songs'}</p><div className={styles.actions}><button className={`${styles.button} ${styles.buttonPrimary}`} disabled={!playlistSongs.length || Boolean(busy)} onClick={() => playPlaylist(playlist)}>Play playlist</button></div>{playlistSongs.length ? <div className={styles.playlistSongs}>{playlistSongs.map((song, index) => <div className={styles.playlistSong} key={song.id}><button className={styles.songInfo} onClick={() => loadSong(song, playlistSongs.map(item => item.id), index)}><strong>{song.title || 'Untitled track'}</strong><small>{song.artistName || song.artist || 'Aureon Music Group'}</small></button><button className={styles.remove} onClick={() => removeFromPlaylist(playlist.id, song.id)}>Remove</button></div>)}</div> : <p className={styles.empty}>Add songs from the catalogue below.</p>}</article>;
+        })}</div> : <p className={styles.message}>You have no playlists yet. Create one in your <Link href="/account">member dashboard</Link>.</p>}
       </section>
 
-      <section className={styles.section}><div className={styles.sectionHeader}><div><p className={styles.kicker}>Full catalogue</p><h2>Published releases</h2></div><p>{songs.length} tracks available</p></div><div className={styles.catalogue}>{songs.map(song => <article className={styles.songCard} key={song.id}>{(song.coverImageUrl || song.imageUrl) && <img src={song.coverImageUrl || song.imageUrl} alt={`${song.title || 'Song'} cover`} />}<div className={styles.songBody}><h3>{song.title || 'Untitled track'}</h3><p>{song.artistName || song.artist || 'Aureon Music Group'}{song.genre ? ` · ${song.genre}` : ''}</p><div className={styles.actions}><button className={`${styles.button} ${styles.buttonPrimary}`} disabled={Boolean(busy)} onClick={() => loadSong(song, [song.id], 0)}>{busy === `play-${song.id}` ? 'Loading…' : 'Play full track'}</button><button className={styles.button} disabled={Boolean(busy)} onClick={() => download(song)}>{busy === `download-${song.id}` ? 'Preparing…' : 'Download'}</button>{playlists.length > 0 && <><select className={styles.select} value={selectedPlaylists[song.id] || ''} onChange={event => setSelectedPlaylists(current => ({ ...current, [song.id]: event.target.value }))}><option value="">Choose playlist</option>{playlists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name || 'Untitled playlist'}</option>)}</select><button className={styles.button} onClick={() => addToPlaylist(song)}>Add to playlist</button></>}</div></div></article>)}</div></section>
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}><div><p className={styles.kicker}>Full catalogue</p><h2>Published releases</h2></div><p>{songs.length} tracks available</p></div>
+        <div className={styles.catalogue}>{songs.map(song => <article className={styles.songCard} key={song.id}>{(song.coverImageUrl || song.imageUrl) && <img src={song.coverImageUrl || song.imageUrl} alt={`${song.title || 'Song'} cover`} />}<div className={styles.songBody}><h3>{song.title || 'Untitled track'}</h3><p>{song.artistName || song.artist || 'Aureon Music Group'}{song.genre ? ` · ${song.genre}` : ''}</p><div className={styles.actions}><button className={`${styles.button} ${styles.buttonPrimary}`} disabled={Boolean(busy)} onClick={() => loadSong(song, [song.id], 0)}>{busy === `play-${song.id}` ? 'Loading…' : 'Play full track'}</button><button className={styles.button} disabled={Boolean(busy)} onClick={() => download(song)}>{busy === `download-${song.id}` ? 'Preparing…' : 'Download'}</button>{playlists.length > 0 && <><select className={styles.select} value={selectedPlaylists[song.id] || ''} onChange={event => setSelectedPlaylists(current => ({ ...current, [song.id]: event.target.value }))}><option value="">Choose playlist</option>{playlists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name || 'Untitled playlist'}</option>)}</select><button className={styles.button} onClick={() => addToPlaylist(song)}>Add to playlist</button></>}</div></div></article>)}</div>
+      </section>
     </>}
   </main>;
 }
