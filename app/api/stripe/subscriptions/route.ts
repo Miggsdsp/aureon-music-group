@@ -148,6 +148,8 @@ export async function POST(request: Request) {
           await syncStripeSubscription(subscription, event.type);
           if (before && ['past_due', 'unpaid', 'incomplete'].includes(before.status)) {
             await sendMemberEmail(subscription, 'payment-restored', { amountPaid: invoice.amount_paid, currency: invoice.currency });
+          } else if (invoice.billing_reason === 'subscription_cycle') {
+            await sendMemberEmail(subscription, 'renewal-paid', { amountPaid: invoice.amount_paid, currency: invoice.currency });
           }
         }
         break;
