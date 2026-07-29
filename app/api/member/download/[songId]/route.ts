@@ -5,9 +5,12 @@ import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
 
 export const runtime = 'nodejs';
 
-function monthKey() {
+function billingCycleKey(member: Record<string, any>) {
+  const value = member.currentPeriodEnd;
+  const date = value?.toDate?.() || (value ? new Date(value) : null);
+  if (date && !Number.isNaN(date.getTime())) return `cycle-${date.toISOString().slice(0, 10)}`;
   const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `cycle-${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function privatePath(data: Record<string, any>) {
@@ -26,22 +29,49 @@ export async function POST(request: Request, context: { params: Promise<{ songId
     const path = privatePath(song.data() || {});
     if (!path.startsWith('private/full-tracks/')) return NextResponse.json({ error: 'Full track is unavailable.' }, { status: 404 });
 
-    const key = monthKey();
+    const key = billingCycleKey(memberContext.member);
     const usageRef = memberContext.memberRef.collection('downloadUsage').doc(key);
+    let remaining = 0;
+    let reDownload = false;
+
     await adminFirestore.runTransaction(async transaction => {
       const usage = await transaction.get(usageRef);
       const count = Number(usage.data()?.count || 0);
-      if (count >= 5) throw new Error('QUOTA_EXCEEDED');
-      transaction.set(usageRef, { month: key, count: count + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-      transaction.set(memberContext.memberRef, { monthlyDownloadsUsed: count + 1, monthlyDownloadMonth: key, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-      transaction.set(memberContext.memberRef.collection('downloadHistory').doc(), { songId, songTitle: song.data()?.title || '', createdAt: FieldValue.serverTimestamp() });
+      const downloadedSongIds = Array.isArray(usage.data()?.downloadedSongIds) ? usage.data()?.downloadedSongIds.map(String) : [];
+      reDownload = downloadedSongIds.includes(songId);
+      if (!reDownload && count >= 5) throw new Error('QUOTA_EXCEEDED');
+      const nextCount = reDownload ? count : count + 1;
+      remaining = Math.max(0, 5 - nextCount);
+
+      transaction.set(usageRef, {
+        cycle: key,
+        count: nextCount,
+        downloadedSongIds: reDownload ? downloadedSongIds : FieldValue.arrayUnion(songId),
+        resetAt: memberContext.member.currentPeriodEnd || null,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      transaction.set(memberContext.memberRef, {
+        monthlyDownloadsUsed: nextCount,
+        monthlyDownloadCycle: key,
+        monthlyDownloadLimit: 5,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      transaction.set(memberContext.memberRef.collection('downloadHistory').doc(), {
+        songId,
+        songTitle: song.data()?.title || '',
+        artist: song.data()?.artistName || song.data()?.artist || '',
+        coverImageUrl: song.data()?.coverImageUrl || song.data()?.imageUrl || '',
+        cycle: key,
+        reDownload,
+        createdAt: FieldValue.serverTimestamp(),
+      });
     });
 
     const filename = `${String(song.data()?.title || 'aureon-track').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.mp3`;
     const [url] = await adminStorage.bucket().file(path).getSignedUrl({ action: 'read', expires: Date.now() + 5 * 60 * 1000, responseDisposition: `attachment; filename="${filename}"` });
-    return NextResponse.json({ url, remaining: Math.max(0, 4 - Number(memberContext.member.monthlyDownloadsUsed || 0)) });
+    return NextResponse.json({ url, remaining, reDownload, resetAt: memberContext.member.currentPeriodEnd || null });
   } catch (error) {
-    if (error instanceof Error && error.message === 'QUOTA_EXCEEDED') return NextResponse.json({ error: 'Your five monthly member downloads have been used.' }, { status: 429 });
+    if (error instanceof Error && error.message === 'QUOTA_EXCEEDED') return NextResponse.json({ error: 'Your five downloads for this billing period have been used. Your allowance resets on your next billing date.' }, { status: 429 });
     console.error('Member download failed:', error);
     const result = memberError(error);
     return NextResponse.json({ error: result.error }, { status: result.status });
