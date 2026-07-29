@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import MusicPlayerProvider from '@/components/music/MusicPlayerProvider';
+import ListenerExperienceMount from '@/components/member/ListenerExperienceMount';
 import './globals.css';
 import './finish.css';
 import './sprint2.css';
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body><MusicPlayerProvider>{children}</MusicPlayerProvider></body>
+      <body><MusicPlayerProvider>{children}<ListenerExperienceMount /></MusicPlayerProvider></body>
     </html>
   );
 }
