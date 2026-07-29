@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Boxes, CreditCard, FileText, ImagePlay, LayoutDashboard, LogOut, Menu, Music, Newspaper, Package, Settings, ShoppingBag, Users, X } from 'lucide-react';
+import { Activity, BarChart3, Boxes, CreditCard, FileText, ImagePlay, LayoutDashboard, LogOut, Menu, Music, Newspaper, Package, Settings, ShoppingBag, Users, X } from 'lucide-react';
 import { canAccessSection, type AdminSection } from '@/lib/admin-permissions';
 import { useAdminAuth } from './AdminAuthProvider';
 
@@ -20,6 +20,7 @@ const nav: Array<[string, string, React.ComponentType<{ size?: number }>, AdminS
   ['CRM & Subscriptions', '/admin/commerce', CreditCard, 'orders'],
   ['Pages', '/admin/pages', FileText, 'pages'],
   ['Analytics', '/admin/analytics', BarChart3, 'analytics'],
+  ['Performance', '/admin/performance', Activity, 'analytics'],
   ['Settings', '/admin/settings', Settings, 'settings']
 ];
 
