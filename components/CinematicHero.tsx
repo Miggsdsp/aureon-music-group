@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { useSiteFeatures } from '@/lib/useSiteFeatures';
@@ -12,12 +13,45 @@ export function CinematicHero() {
     artistsHref: '/artists', musicHref: '/music', videosHref: '/videos', newsHref: '/news', merchandiseHref: '/merchandise', aboutHref: '/about', contactHref: '/contact',
     announcement: '', heroImage: ''
   });
-  const style = data?.heroImage ? { backgroundImage: `url(${data.heroImage})` } : undefined;
+
+  const poster = data?.heroImage || '/images/aureon-hero-cinematic.webp';
+
   return (
-    <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'} style={style}>
+    <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'}>
+      <video
+        className={styles.heroVideo}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        poster={poster}
+        aria-hidden="true"
+      >
+        <source src="/videos/aureon-home-hero.mp4" type="video/mp4" />
+      </video>
+
+      <div className={styles.videoShade} aria-hidden="true" />
       <div className="cinematic-fx light-fx" aria-hidden="true" />
       <div className="cinematic-fx dust-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
       <div className="cinematic-fx led-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
+
+      <div className={styles.heroOverlay}>
+        <Image
+          src="/images/branding/Aureon_Header_Logo.png"
+          alt="Aureon Music Group"
+          width={760}
+          height={260}
+          priority
+          unoptimized
+          className={styles.heroLogo}
+        />
+        <p className={styles.slogan}>CREATING TOMORROW’S CLASSICS</p>
+        <Link className={styles.discoverButton} href={data?.artistsHref || '/artists'}>
+          DISCOVER OUR ARTISTS <span aria-hidden="true">↓</span>
+        </Link>
+      </div>
+
       {data?.announcement ? <div className="homepage-firestore-announcement">{data.announcement}</div> : null}
       <Link className="hotspot nav-about" href={data?.aboutHref || '/about'} aria-label="About" />
       <Link className="hotspot nav-artists" href={data?.artistsHref || '/artists'} aria-label="Artists" />
@@ -27,7 +61,6 @@ export function CinematicHero() {
       {features.merchandiseEnabled && <Link className="hotspot nav-merch" href={data?.merchandiseHref || '/merchandise'} aria-label="Merchandise" />}
       <Link className="hotspot nav-contact" href={data?.contactHref || '/contact'} aria-label="Contact" />
       <Link className="hotspot join-hotspot" href={data?.contactHref || '/contact'} aria-label="Join the journey" />
-      <Link className="hotspot discover-hotspot" href={data?.artistsHref || '/artists'} aria-label="Discover our artists" />
       <Link className="hotspot mission-hotspot" href={data?.aboutHref || '/about'} aria-label="Our mission" />
       <Link className="hotspot release-hotspot" href={data?.musicHref || '/music'} aria-label="Latest release" />
       <Link className="hotspot journey-hotspot" href={data?.contactHref || '/contact'} aria-label="Join the journey" />
