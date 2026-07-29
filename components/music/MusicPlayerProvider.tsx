@@ -43,6 +43,7 @@ export function useMusicPlayer() {
 export default function MusicPlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const shouldAutoplay = useRef(false);
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [queue, setQueue] = useState<PlayerSong[]>([]);
   const [index, setIndex] = useState(-1);
   const [audioUrl, setAudioUrl] = useState('');
@@ -74,6 +75,27 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ queue, index, volume, muted, shuffle, repeatMode }));
   }, [queue, index, volume, muted, shuffle, repeatMode]);
 
+  const memberActivity = useCallback(async (action: 'played' | 'progress', song: PlayerSong, progressSeconds = 0, durationSeconds = 0) => {
+    const user = firebaseAuth.currentUser;
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      await fetch('/api/member/library', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          action,
+          songId: song.id,
+          title: song.title || '',
+          artist: song.artistName || song.artist || '',
+          coverImageUrl: song.coverImageUrl || song.imageUrl || '',
+          progressSeconds,
+          durationSeconds,
+        }),
+      });
+    } catch {}
+  }, []);
+
   const fetchStream = useCallback(async (song: PlayerSong) => {
     const user = firebaseAuth.currentUser;
     if (!user) throw new Error('Sign in to play full tracks.');
@@ -94,11 +116,12 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
       setQueue(nextQueue);
       setIndex(nextIndex);
       setAudioUrl(url);
+      void memberActivity('played', song);
     } catch (err) {
       shouldAutoplay.current = false;
       setError(err instanceof Error ? err.message : 'Unable to play this track.');
     }
-  }, [fetchStream, queue]);
+  }, [fetchStream, memberActivity, queue]);
 
   const playSong = useCallback(async (song: PlayerSong, nextQueue?: PlayerSong[], nextIndex?: number) => {
     const targetQueue = nextQueue?.length ? nextQueue : [song];
@@ -156,6 +179,16 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     audio.addEventListener('canplay', start, { once: true });
     return () => audio.removeEventListener('canplay', start);
   }, [audioUrl, muted, volume]);
+
+  useEffect(() => {
+    if (progressTimer.current) clearInterval(progressTimer.current);
+    if (!isPlaying || !currentSong) return;
+    progressTimer.current = setInterval(() => {
+      const audio = audioRef.current;
+      if (audio && currentSong) void memberActivity('progress', currentSong, audio.currentTime, audio.duration || 0);
+    }, 15000);
+    return () => { if (progressTimer.current) clearInterval(progressTimer.current); };
+  }, [currentSong, isPlaying, memberActivity]);
 
   const toggle = async () => {
     const audio = audioRef.current;
