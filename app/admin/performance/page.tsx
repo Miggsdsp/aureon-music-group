@@ -62,8 +62,8 @@ export default function PerformancePage() {
     return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [authorised, loading]);
 
-  const window = useMemo(() => range(period, customStart, customEnd), [period, customStart, customEnd]);
-  const inRange = (value: any) => { const time = asDate(value).getTime(); return time >= window.start.getTime() && time <= window.end.getTime(); };
+  const dateRange = useMemo(() => range(period, customStart, customEnd), [period, customStart, customEnd]);
+  const inRange = (value: any) => { const time = asDate(value).getTime(); return time >= dateRange.start.getTime() && time <= dateRange.end.getTime(); };
 
   const report = useMemo(() => {
     const paid = orders.filter(order => String(order.status || order.paymentStatus).toLowerCase() === 'paid' && inRange(order.paidAt || order.createdAt));
@@ -97,7 +97,7 @@ export default function PerformancePage() {
     const returningCustomers = [...customerOrders.values()].filter(count => count > 1).length;
     const plans = active.reduce((map: Record<string,number>, member) => { const key = String(member.plan || 'unknown'); map[key] = (map[key] || 0) + 1; return map; }, {});
     return { gross, fees, refunds: refundTotal, net: gross - fees - refundTotal, orders: paid.length, newCustomers, returningCustomers, active: active.length, plans, cancellations, failedPayments, songs: sorted(songs), artists: sorted(artists), albums: sorted(albums), countries: sorted(countries), products: sorted(products) };
-  }, [orders, members, payments, refunds, window]);
+  }, [orders, members, payments, refunds, dateRange]);
 
   const chosen = report.songs.find((item: any) => item.name === selectedSong) || report.songs[0];
   const summary = [
@@ -105,7 +105,7 @@ export default function PerformancePage() {
   ];
 
   function exportCsv() {
-    const rows: unknown[][] = [['Aureon Music Group Performance'], ['From', window.start.toLocaleString('en-IE')], ['To', window.end.toLocaleString('en-IE')], [], ...summary, [], ['Subscriptions by plan'], ...Object.entries(report.plans), [], ['Song','Sales','Revenue','Top country'], ...report.songs.map((item:any)=>[item.name,item.sales,item.revenue/100,item.topCountries[0]?.[0] || 'Not captured']), [], ['Artist','Sales','Revenue'], ...report.artists.map((item:any)=>[item.name,item.sales,item.revenue/100]), [], ['Album','Sales','Revenue'], ...report.albums.map((item:any)=>[item.name,item.sales,item.revenue/100]), [], ['Merchandise','Sales','Revenue'], ...report.products.map((item:any)=>[item.name,item.sales,item.revenue/100])];
+    const rows: unknown[][] = [['Aureon Music Group Performance'], ['From', dateRange.start.toLocaleString('en-IE')], ['To', dateRange.end.toLocaleString('en-IE')], [], ...summary, [], ['Subscriptions by plan'], ...Object.entries(report.plans), [], ['Song','Sales','Revenue','Top country'], ...report.songs.map((item:any)=>[item.name,item.sales,item.revenue/100,item.topCountries[0]?.[0] || 'Not captured']), [], ['Artist','Sales','Revenue'], ...report.artists.map((item:any)=>[item.name,item.sales,item.revenue/100]), [], ['Album','Sales','Revenue'], ...report.albums.map((item:any)=>[item.name,item.sales,item.revenue/100]), [], ['Merchandise','Sales','Revenue'], ...report.products.map((item:any)=>[item.name,item.sales,item.revenue/100])];
     const blob = new Blob(['\ufeff', rows.map(row => row.map(csv).join(',')).join('\n')], { type:'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href=url; anchor.download=`Aureon-Performance-${new Date().toISOString()}.csv`; anchor.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
@@ -114,7 +114,7 @@ export default function PerformancePage() {
 
   return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Marketing intelligence</p><h1>Performance Analytics</h1><p>Subscription movement, catalogue performance, geography and merchandise results in real time.</p></div>
     {message && <div className="admin-cms-message">{message}</div>}
-    <div className="admin-toolbar"><label>Period <select value={period} onChange={event => setPeriod(event.target.value as Period)}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">Week</option><option value="month">Month</option><option value="quarter">Quarter</option><option value="year">Year</option><option value="custom">Custom</option></select></label>{period === 'custom' && <><label>From <input type="date" value={customStart} onChange={event => setCustomStart(event.target.value)}/></label><label>To <input type="date" value={customEnd} onChange={event => setCustomEnd(event.target.value)}/></label></>}<button onClick={exportCsv}><Download size={15}/> CSV</button><button onClick={() => window.print()}><Printer size={15}/> Print</button></div>
+    <div className="admin-toolbar"><label>Period <select value={period} onChange={event => setPeriod(event.target.value as Period)}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">Week</option><option value="month">Month</option><option value="quarter">Quarter</option><option value="year">Year</option><option value="custom">Custom</option></select></label>{period === 'custom' && <><label>From <input type="date" value={customStart} onChange={event => setCustomStart(event.target.value)}/></label><label>To <input type="date" value={customEnd} onChange={event => setCustomEnd(event.target.value)}/></label></>}<button onClick={exportCsv}><Download size={15}/> CSV</button><button onClick={() => globalThis.print()}><Printer size={15}/> Print</button></div>
     <section className="admin-stat-grid">{summary.map(([label,value]) => <article key={String(label)}><span>{label}</span><strong>{String(value)}</strong></article>)}</section>
     <section className="admin-dashboard-grid"><article><h2>Subscriptions by plan</h2>{Object.keys(report.plans).length ? Object.entries(report.plans).map(([plan,count]) => <p key={plan}><strong>{plan}</strong>: {count}</p>) : <p>No active subscriptions.</p>}</article><article><h2>Individual song geography</h2><select value={chosen?.name || ''} onChange={event => setSelectedSong(event.target.value)}>{report.songs.map((item:any)=><option key={item.name}>{item.name}</option>)}</select>{chosen?.topCountries?.length ? chosen.topCountries.map(([country,count]:any)=><p key={country}>{country}: <strong>{count}</strong></p>) : <p>No country data.</p>}</article></section>
     <section className="admin-dashboard-grid">{table('Top songs',report.songs)}{table('Top artists',report.artists)}{table('Top albums',report.albums)}{table('Merchandise performance',report.products)}{table('Country performance',report.countries)}</section>
