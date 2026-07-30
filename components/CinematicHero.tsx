@@ -6,15 +6,44 @@ import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { useSiteFeatures } from '@/lib/useSiteFeatures';
 import styles from './CinematicHero.module.css';
 
+type HeroSettings = {
+  heroVideoUrl?: string;
+  heroPosterUrl?: string;
+  heroOverlayOpacity?: number;
+  heroLightEffects?: boolean;
+  heroDustEffects?: boolean;
+  heroLedEffects?: boolean;
+  heroLogoScale?: number;
+};
+
 export function CinematicHero() {
   const { features } = useSiteFeatures();
   const { data } = usePublishedDocument<any>('sitePages', 'home', {
     title: 'Aureon Music Group homepage',
-    artistsHref: '/artists', musicHref: '/music', videosHref: '/videos', newsHref: '/news', merchandiseHref: '/merchandise', aboutHref: '/about', contactHref: '/contact',
-    announcement: '', heroImage: ''
+    artistsHref: '/artists',
+    musicHref: '/music',
+    videosHref: '/videos',
+    newsHref: '/news',
+    merchandiseHref: '/merchandise',
+    aboutHref: '/about',
+    contactHref: '/contact',
+    announcement: '',
+    heroImage: ''
+  });
+  const { data: platform } = usePublishedDocument<HeroSettings>('siteSettings', 'platform', {
+    heroVideoUrl: '',
+    heroPosterUrl: '',
+    heroOverlayOpacity: 58,
+    heroLightEffects: true,
+    heroDustEffects: true,
+    heroLedEffects: true,
+    heroLogoScale: 100
   });
 
-  const poster = data?.heroImage || '/images/aureon-hero-cinematic.webp';
+  const poster = platform?.heroPosterUrl || data?.heroImage || '/images/aureon-hero-cinematic.webp';
+  const videoUrl = platform?.heroVideoUrl || '/videos/aureon-home-hero.mp4';
+  const overlayOpacity = Math.min(100, Math.max(0, Number(platform?.heroOverlayOpacity ?? 58))) / 100;
+  const logoScale = Math.min(150, Math.max(60, Number(platform?.heroLogoScale ?? 100)));
 
   return (
     <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'}>
@@ -28,13 +57,13 @@ export function CinematicHero() {
         poster={poster}
         aria-hidden="true"
       >
-        <source src="/videos/aureon-home-hero.mp4" type="video/mp4" />
+        <source src={videoUrl} type="video/mp4" />
       </video>
 
-      <div className={styles.videoShade} aria-hidden="true" />
-      <div className="cinematic-fx light-fx" aria-hidden="true" />
-      <div className="cinematic-fx dust-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
-      <div className="cinematic-fx led-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
+      <div className={styles.videoShade} style={{ opacity: overlayOpacity }} aria-hidden="true" />
+      {platform?.heroLightEffects !== false && <div className="cinematic-fx light-fx" aria-hidden="true" />}
+      {platform?.heroDustEffects !== false && <div className="cinematic-fx dust-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>}
+      {platform?.heroLedEffects !== false && <div className="cinematic-fx led-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>}
 
       <div className={styles.heroOverlay}>
         <Image
@@ -45,6 +74,7 @@ export function CinematicHero() {
           priority
           unoptimized
           className={styles.heroLogo}
+          style={{ width: `${logoScale}%`, maxWidth: 760, height: 'auto' }}
         />
         <p className={styles.slogan}>CREATING TOMORROW’S CLASSICS</p>
         <Link className={styles.discoverButton} href={data?.artistsHref || '/artists'}>
