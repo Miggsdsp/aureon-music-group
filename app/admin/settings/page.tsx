@@ -7,17 +7,229 @@ import { AdminShell } from '@/components/admin/AdminShell';
 import { firestore, firebaseStorage } from '@/lib/firebase-client';
 
 type Row = { id: string; [key: string]: any };
-type Settings = { merchandiseEnabled: boolean; siteName: string; supportEmail: string; announcement: string; headerLogoUrl: string; footerLogoUrl: string; faviconUrl: string; featuredArtistId: string; featuredSongId: string; featuredAlbumId: string; featuredVideoId: string; featuredNewsId: string; termsPageId: string; privacyPageId: string; licensingPageId: string };
-const defaults: Settings = { merchandiseEnabled: false, siteName: 'Aureon Music Group', supportEmail: '', announcement: '', headerLogoUrl: '', footerLogoUrl: '', faviconUrl: '', featuredArtistId: '', featuredSongId: '', featuredAlbumId: '', featuredVideoId: '', featuredNewsId: '', termsPageId: '', privacyPageId: '', licensingPageId: '' };
+type AssetKey = 'headerLogoUrl' | 'footerLogoUrl' | 'faviconUrl' | 'heroVideoUrl' | 'heroPosterUrl';
+type Settings = {
+  merchandiseEnabled: boolean;
+  siteName: string;
+  supportEmail: string;
+  announcement: string;
+  headerLogoUrl: string;
+  footerLogoUrl: string;
+  faviconUrl: string;
+  heroVideoUrl: string;
+  heroPosterUrl: string;
+  heroOverlayOpacity: number;
+  heroLightEffects: boolean;
+  heroDustEffects: boolean;
+  heroLedEffects: boolean;
+  heroLogoScale: number;
+  featuredArtistId: string;
+  featuredSongId: string;
+  featuredAlbumId: string;
+  featuredVideoId: string;
+  featuredNewsId: string;
+  termsPageId: string;
+  privacyPageId: string;
+  licensingPageId: string;
+};
+
+const defaults: Settings = {
+  merchandiseEnabled: false,
+  siteName: 'Aureon Music Group',
+  supportEmail: '',
+  announcement: '',
+  headerLogoUrl: '',
+  footerLogoUrl: '',
+  faviconUrl: '',
+  heroVideoUrl: '',
+  heroPosterUrl: '',
+  heroOverlayOpacity: 58,
+  heroLightEffects: true,
+  heroDustEffects: true,
+  heroLedEffects: true,
+  heroLogoScale: 100,
+  featuredArtistId: '',
+  featuredSongId: '',
+  featuredAlbumId: '',
+  featuredVideoId: '',
+  featuredNewsId: '',
+  termsPageId: '',
+  privacyPageId: '',
+  licensingPageId: ''
+};
+
 const rows = (snapshot: any): Row[] => snapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
 const safeName = (name: string) => name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings>(defaults); const [artists, setArtists] = useState<Row[]>([]); const [songs, setSongs] = useState<Row[]>([]); const [albums, setAlbums] = useState<Row[]>([]); const [videos, setVideos] = useState<Row[]>([]); const [news, setNews] = useState<Row[]>([]); const [pages, setPages] = useState<Row[]>([]); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [uploading, setUploading] = useState<Record<string, number>>({}); const [message, setMessage] = useState('');
-  useEffect(() => { const unsubscribers = [onSnapshot(doc(firestore, 'siteSettings', 'platform'), snapshot => { setSettings({ ...defaults, ...(snapshot.exists() ? snapshot.data() : {}) } as Settings); setLoading(false); }, () => setLoading(false)), onSnapshot(collection(firestore, 'artists'), snapshot => setArtists(rows(snapshot))), onSnapshot(collection(firestore, 'songs'), snapshot => setSongs(rows(snapshot))), onSnapshot(collection(firestore, 'albums'), snapshot => setAlbums(rows(snapshot))), onSnapshot(collection(firestore, 'videos'), snapshot => setVideos(rows(snapshot))), onSnapshot(collection(firestore, 'newsArticles'), snapshot => setNews(rows(snapshot))), onSnapshot(collection(firestore, 'sitePages'), snapshot => setPages(rows(snapshot)))]; return () => unsubscribers.forEach(unsubscribe => unsubscribe()); }, []);
-  async function uploadBrandAsset(file: File, key: 'headerLogoUrl' | 'footerLogoUrl' | 'faviconUrl') { const path = `public/branding/${Date.now()}-${safeName(file.name)}`; const task = uploadBytesResumable(ref(firebaseStorage, path), file, { contentType: file.type }); setUploading(current => ({ ...current, [key]: 0 })); await new Promise<void>((resolve, reject) => task.on('state_changed', snapshot => { setUploading(current => ({ ...current, [key]: Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100) })); }, reject, resolve)); const url = await getDownloadURL(task.snapshot.ref); setSettings(current => ({ ...current, [key]: url })); setUploading(current => { const next = { ...current }; delete next[key]; return next; }); }
-  async function save(event: React.FormEvent) { event.preventDefault(); setSaving(true); setMessage(''); try { await setDoc(doc(firestore, 'siteSettings', 'platform'), { ...settings, title: 'Platform settings', slug: 'platform', status: 'published', updatedAt: serverTimestamp() }, { merge: true }); setMessage(`Settings saved. Merchandise is now ${settings.merchandiseEnabled ? 'ON and visible' : 'OFF and hidden'} on the public website.`); } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to save settings.'); } finally { setSaving(false); } }
-  const select = (label: string, key: keyof Settings, items: Row[], empty: string) => <label>{label}<select value={String(settings[key] || '')} onChange={event => setSettings({ ...settings, [key]: event.target.value })}><option value="">{empty}</option>{items.filter(item => item.status === 'published' || !item.status).map(item => <option key={item.id} value={item.id}>{item.name || item.title || item.slug || item.id}</option>)}</select></label>;
-  const upload = (label: string, key: 'headerLogoUrl' | 'footerLogoUrl' | 'faviconUrl', accept = 'image/*') => <label>{label}<input type="file" accept={accept} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadBrandAsset(file, key); }} />{typeof uploading[key] === 'number' && <progress value={uploading[key]} max={100} style={{ width: '100%' }} />}{settings[key] && <small>✓ Asset connected</small>}</label>;
-  return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Aureon Control Center</p><h1>Site Settings & Branding</h1><p>Operate public website features, homepage selections, brand assets and legal-page relationships without editing code.</p></div>{message && <div className="admin-cms-message" role="status">{message}</div>}<form className="admin-cms-form" style={{ maxWidth: 1080 }} onSubmit={save}><fieldset><legend>Platform</legend><div className="checkout-fields two-columns"><label>Public site name<input required value={settings.siteName} onChange={event => setSettings({ ...settings, siteName: event.target.value })} /></label><label>Support email<input type="email" value={settings.supportEmail} onChange={event => setSettings({ ...settings, supportEmail: event.target.value })} /></label></div><label>Announcement banner<textarea value={settings.announcement} onChange={event => setSettings({ ...settings, announcement: event.target.value })} placeholder="Leave blank to hide the announcement." /></label><div className="admin-feature-toggle"><div><strong>Merchandise page</strong><span>{settings.merchandiseEnabled ? 'Visible in the public navigation and available to customers.' : 'Hidden from the public navigation and unavailable to customers.'}</span></div><label className="admin-switch"><input type="checkbox" checked={settings.merchandiseEnabled} onChange={event => setSettings({ ...settings, merchandiseEnabled: event.target.checked })} aria-label="Show or hide the merchandise page" /><span className="admin-switch-track"><span className="admin-switch-thumb" /></span><b>{settings.merchandiseEnabled ? 'ON' : 'OFF'}</b></label></div></fieldset><fieldset><legend>Logos and branding assets</legend><div className="checkout-fields two-columns">{upload('Header logo', 'headerLogoUrl')}{upload('Footer logo', 'footerLogoUrl')}</div>{upload('Favicon / app icon', 'faviconUrl', 'image/png,image/x-icon,image/svg+xml')}</fieldset><fieldset><legend>Homepage featured content</legend><div className="checkout-fields two-columns">{select('Featured artist', 'featuredArtistId', artists, 'Automatic / none selected')}{select('Featured song', 'featuredSongId', songs, 'Automatic / none selected')}{select('Featured album', 'featuredAlbumId', albums, 'Automatic / none selected')}{select('Featured video', 'featuredVideoId', videos, 'Automatic / none selected')}</div>{select('Featured news article', 'featuredNewsId', news, 'Automatic / none selected')}</fieldset><fieldset><legend>Legal-page relationships</legend><p>Choose the published Control Center pages used for the public legal links.</p><div className="checkout-fields two-columns">{select('Terms of use', 'termsPageId', pages, 'Use page with slug terms')}{select('Privacy policy', 'privacyPageId', pages, 'Use page with slug privacy')}{select('Licensing terms', 'licensingPageId', pages, 'Use page with slug licensing')}</div></fieldset><button className="admin-primary-action" disabled={loading || saving || Object.keys(uploading).length > 0}>{loading ? 'Loading…' : saving ? 'Saving…' : 'Save all settings'}</button></form></AdminShell>;
+  const [settings, setSettings] = useState<Settings>(defaults);
+  const [artists, setArtists] = useState<Row[]>([]);
+  const [songs, setSongs] = useState<Row[]>([]);
+  const [albums, setAlbums] = useState<Row[]>([]);
+  const [videos, setVideos] = useState<Row[]>([]);
+  const [news, setNews] = useState<Row[]>([]);
+  const [pages, setPages] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState<Record<string, number>>({});
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const unsubscribers = [
+      onSnapshot(doc(firestore, 'siteSettings', 'platform'), snapshot => {
+        setSettings({ ...defaults, ...(snapshot.exists() ? snapshot.data() : {}) } as Settings);
+        setLoading(false);
+      }, () => setLoading(false)),
+      onSnapshot(collection(firestore, 'artists'), snapshot => setArtists(rows(snapshot))),
+      onSnapshot(collection(firestore, 'songs'), snapshot => setSongs(rows(snapshot))),
+      onSnapshot(collection(firestore, 'albums'), snapshot => setAlbums(rows(snapshot))),
+      onSnapshot(collection(firestore, 'videos'), snapshot => setVideos(rows(snapshot))),
+      onSnapshot(collection(firestore, 'newsArticles'), snapshot => setNews(rows(snapshot))),
+      onSnapshot(collection(firestore, 'sitePages'), snapshot => setPages(rows(snapshot)))
+    ];
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
+  }, []);
+
+  async function uploadAsset(file: File, key: AssetKey) {
+    const folder = key === 'heroVideoUrl' || key === 'heroPosterUrl' ? 'homepage-hero' : 'branding';
+    const path = `public/${folder}/${Date.now()}-${safeName(file.name)}`;
+    const task = uploadBytesResumable(ref(firebaseStorage, path), file, { contentType: file.type });
+    setUploading(current => ({ ...current, [key]: 0 }));
+    try {
+      await new Promise<void>((resolve, reject) => task.on('state_changed', snapshot => {
+        setUploading(current => ({ ...current, [key]: Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100) }));
+      }, reject, resolve));
+      const url = await getDownloadURL(task.snapshot.ref);
+      setSettings(current => ({ ...current, [key]: url }));
+      setMessage(`${key === 'heroVideoUrl' ? 'Homepage video' : key === 'heroPosterUrl' ? 'Homepage poster' : 'Brand asset'} uploaded. Press “Save all settings” to publish it.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to upload asset.');
+    } finally {
+      setUploading(current => { const next = { ...current }; delete next[key]; return next; });
+    }
+  }
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage('');
+    try {
+      await setDoc(doc(firestore, 'siteSettings', 'platform'), {
+        ...settings,
+        title: 'Platform settings',
+        slug: 'platform',
+        status: 'published',
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      setMessage('Settings saved and published. Homepage media and overlays now use these controls.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to save settings.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const select = (label: string, key: keyof Settings, items: Row[], empty: string) => (
+    <label>{label}
+      <select value={String(settings[key] || '')} onChange={event => setSettings({ ...settings, [key]: event.target.value })}>
+        <option value="">{empty}</option>
+        {items.filter(item => item.status === 'published' || !item.status).map(item => <option key={item.id} value={item.id}>{item.name || item.title || item.slug || item.id}</option>)}
+      </select>
+    </label>
+  );
+
+  const upload = (label: string, key: AssetKey, accept = 'image/*', help = '') => (
+    <label>{label}
+      <input type="file" accept={accept} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadAsset(file, key); }} />
+      {help && <small>{help}</small>}
+      {typeof uploading[key] === 'number' && <progress value={uploading[key]} max={100} style={{ width: '100%' }} />}
+      {settings[key] && <small>✓ Asset connected</small>}
+    </label>
+  );
+
+  const effectToggle = (label: string, key: 'heroLightEffects' | 'heroDustEffects' | 'heroLedEffects') => (
+    <div className="admin-feature-toggle">
+      <div><strong>{label}</strong><span>{settings[key] ? 'Enabled on the homepage.' : 'Disabled on the homepage.'}</span></div>
+      <label className="admin-switch">
+        <input type="checkbox" checked={settings[key]} onChange={event => setSettings({ ...settings, [key]: event.target.checked })} />
+        <span className="admin-switch-track"><span className="admin-switch-thumb" /></span>
+        <b>{settings[key] ? 'ON' : 'OFF'}</b>
+      </label>
+    </div>
+  );
+
+  return (
+    <AdminShell>
+      <div className="admin-page-heading">
+        <p className="admin-kicker">Aureon Control Center</p>
+        <h1>Site Settings & Branding</h1>
+        <p>Operate public website features, homepage media, brand assets and legal-page relationships without editing code.</p>
+      </div>
+      {message && <div className="admin-cms-message" role="status">{message}</div>}
+      <form className="admin-cms-form" style={{ maxWidth: 1080 }} onSubmit={save}>
+        <fieldset>
+          <legend>Platform</legend>
+          <div className="checkout-fields two-columns">
+            <label>Public site name<input required value={settings.siteName} onChange={event => setSettings({ ...settings, siteName: event.target.value })} /></label>
+            <label>Support email<input type="email" value={settings.supportEmail} onChange={event => setSettings({ ...settings, supportEmail: event.target.value })} /></label>
+          </div>
+          <label>Announcement banner<textarea value={settings.announcement} onChange={event => setSettings({ ...settings, announcement: event.target.value })} placeholder="Leave blank to hide the announcement." /></label>
+          <div className="admin-feature-toggle">
+            <div><strong>Merchandise page</strong><span>{settings.merchandiseEnabled ? 'Visible in the public navigation and available to customers.' : 'Hidden from the public navigation and unavailable to customers.'}</span></div>
+            <label className="admin-switch"><input type="checkbox" checked={settings.merchandiseEnabled} onChange={event => setSettings({ ...settings, merchandiseEnabled: event.target.checked })} aria-label="Show or hide the merchandise page" /><span className="admin-switch-track"><span className="admin-switch-thumb" /></span><b>{settings.merchandiseEnabled ? 'ON' : 'OFF'}</b></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Homepage Hero Manager</legend>
+          <p>Change only the background media or customise the overlays. Existing Aureon logo, slogan, buttons and navigation remain in place.</p>
+          <div className="checkout-fields two-columns">
+            {upload('Background video', 'heroVideoUrl', 'video/mp4', 'MP4 recommended. The video will autoplay muted, loop and play inline on mobile.')}
+            {upload('Poster / fallback image', 'heroPosterUrl', 'image/jpeg,image/png,image/webp', 'Shown while the video loads or when autoplay is unavailable.')}
+          </div>
+          <div className="checkout-fields two-columns">
+            <label>Overlay darkness: {settings.heroOverlayOpacity}%
+              <input type="range" min="0" max="100" value={settings.heroOverlayOpacity} onChange={event => setSettings({ ...settings, heroOverlayOpacity: Number(event.target.value) })} />
+            </label>
+            <label>Homepage logo size: {settings.heroLogoScale}%
+              <input type="range" min="60" max="150" value={settings.heroLogoScale} onChange={event => setSettings({ ...settings, heroLogoScale: Number(event.target.value) })} />
+            </label>
+          </div>
+          {effectToggle('Animated light effects', 'heroLightEffects')}
+          {effectToggle('Floating dust effects', 'heroDustEffects')}
+          {effectToggle('Studio LED effects', 'heroLedEffects')}
+          {settings.heroVideoUrl && <video src={settings.heroVideoUrl} poster={settings.heroPosterUrl || undefined} muted loop autoPlay playsInline controls style={{ width: '100%', maxHeight: 420, objectFit: 'cover', borderRadius: 12, marginTop: 16 }} />}
+        </fieldset>
+
+        <fieldset>
+          <legend>Logos and branding assets</legend>
+          <div className="checkout-fields two-columns">{upload('Header logo', 'headerLogoUrl')}{upload('Footer logo', 'footerLogoUrl')}</div>
+          {upload('Favicon / app icon', 'faviconUrl', 'image/png,image/x-icon,image/svg+xml')}
+        </fieldset>
+
+        <fieldset>
+          <legend>Homepage featured content</legend>
+          <div className="checkout-fields two-columns">
+            {select('Featured artist', 'featuredArtistId', artists, 'Automatic / none selected')}
+            {select('Featured song', 'featuredSongId', songs, 'Automatic / none selected')}
+            {select('Featured album', 'featuredAlbumId', albums, 'Automatic / none selected')}
+            {select('Featured video', 'featuredVideoId', videos, 'Automatic / none selected')}
+          </div>
+          {select('Featured news article', 'featuredNewsId', news, 'Automatic / none selected')}
+        </fieldset>
+
+        <fieldset>
+          <legend>Legal-page relationships</legend>
+          <p>Choose the published Control Center pages used for the public legal links.</p>
+          <div className="checkout-fields two-columns">
+            {select('Terms of use', 'termsPageId', pages, 'Use page with slug terms')}
+            {select('Privacy policy', 'privacyPageId', pages, 'Use page with slug privacy')}
+            {select('Licensing terms', 'licensingPageId', pages, 'Use page with slug licensing')}
+          </div>
+        </fieldset>
+
+        <button className="admin-primary-action" disabled={loading || saving || Object.keys(uploading).length > 0}>{loading ? 'Loading…' : saving ? 'Saving…' : 'Save all settings'}</button>
+      </form>
+    </AdminShell>
+  );
 }
