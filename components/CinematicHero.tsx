@@ -29,24 +29,30 @@ export function CinematicHero() {
   });
 
   const poster = platform?.heroPosterUrl || data?.heroImage || '/images/aureon-hero-cinematic.webp';
-  const videoUrl = String(platform?.heroVideoUrl || '').trim() || '/videos/aureon-home-hero.mp4';
+  const videoUrl = String(platform?.heroVideoUrl || '').trim();
   const overlayOpacity = Math.min(100, Math.max(0, Number(platform?.heroOverlayOpacity ?? 58))) / 100;
   const logoScale = Math.min(150, Math.max(60, Number(platform?.heroLogoScale ?? 100)));
 
   return (
-    <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'}>
-      <video
-        key={videoUrl}
-        src={videoUrl}
-        className={styles.heroVideo}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        poster={poster}
-        aria-hidden="true"
-      />
+    <section
+      className={`hero approved-hero ${styles.heroFix}`}
+      aria-label={data?.title || 'Aureon Music Group homepage'}
+      style={{ backgroundImage: `url(${poster})` }}
+    >
+      {videoUrl ? (
+        <video
+          key={videoUrl}
+          src={videoUrl}
+          className={styles.heroVideo}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          poster={poster}
+          aria-hidden="true"
+        />
+      ) : null}
 
       <div className={styles.videoShade} style={{ opacity: overlayOpacity }} aria-hidden="true" />
       {platform?.heroLightEffects !== false && <div className="cinematic-fx light-fx" aria-hidden="true" />}
