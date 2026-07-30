@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { useSiteFeatures } from '@/lib/useSiteFeatures';
@@ -66,15 +65,15 @@ export function CinematicHero() {
       {platform?.heroLedEffects !== false && <div className="cinematic-fx led-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>}
 
       <div className={styles.heroOverlay}>
-        <Image
+        <img
           src="/images/branding/Aureon_Header_Logo.png"
           alt="Aureon Music Group"
-          width={760}
-          height={260}
-          priority
-          unoptimized
+          width="760"
+          height="260"
           className={styles.heroLogo}
           style={{ width: `${logoScale}%`, maxWidth: 760, height: 'auto' }}
+          decoding="async"
+          fetchPriority="high"
         />
         <p className={styles.slogan}>CREATING TOMORROW’S CLASSICS</p>
         <Link className={styles.discoverButton} href={data?.artistsHref || '/artists'}>
