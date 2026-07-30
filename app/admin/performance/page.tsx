@@ -1,122 +1,15 @@
 'use client';
-
-import { useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { Download, Printer } from 'lucide-react';
-import { AdminShell } from '@/components/admin/AdminShell';
-import { firestore } from '@/lib/firebase-client';
-import { useAdminAuth } from '@/components/admin/AdminAuthProvider';
-
-type Row = { id: string; [key: string]: any };
-type Period = 'today' | 'yesterday' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
-const asDate = (value: any) => value?.toDate?.() || new Date(value || 0);
-const money = (value: number) => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(Number(value || 0) / 100);
-const csv = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-
-function range(period: Period, customStart: string, customEnd: string) {
-  const now = new Date();
-  const end = new Date(now); end.setHours(23,59,59,999);
-  let start = new Date(now); start.setHours(0,0,0,0);
-  if (period === 'yesterday') { start.setDate(start.getDate() - 1); end.setDate(end.getDate() - 1); }
-  if (period === 'week') start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-  if (period === 'month') start = new Date(now.getFullYear(), now.getMonth(), 1);
-  if (period === 'quarter') start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-  if (period === 'year') start = new Date(now.getFullYear(), 0, 1);
-  if (period === 'custom') {
-    if (customStart) start = new Date(`${customStart}T00:00:00`);
-    if (customEnd) { const value = new Date(`${customEnd}T23:59:59`); end.setTime(value.getTime()); }
-  }
-  return { start, end };
-}
-
-function add(map: Map<string, any>, key: string, revenue: number, sales = 1, country?: string) {
-  const name = key || 'Not captured';
-  const item = map.get(name) || { name, revenue: 0, sales: 0, countries: new Map<string, number>() };
-  item.revenue += revenue; item.sales += sales;
-  if (country) item.countries.set(country, (item.countries.get(country) || 0) + sales);
-  map.set(name, item);
-}
-
-export default function PerformancePage() {
-  const { authorised, loading } = useAdminAuth();
-  const [period, setPeriod] = useState<Period>('month');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
-  const [orders, setOrders] = useState<Row[]>([]);
-  const [members, setMembers] = useState<Row[]>([]);
-  const [payments, setPayments] = useState<Row[]>([]);
-  const [refunds, setRefunds] = useState<Row[]>([]);
-  const [selectedSong, setSelectedSong] = useState('');
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    if (loading || !authorised) return;
-    const convert = (snapshot: any) => snapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
-    const fail = (error: unknown) => { console.error(error); setMessage('Some performance sources could not be loaded.'); };
-    const unsubscribers = [
-      onSnapshot(collection(firestore, 'orders'), snapshot => setOrders(convert(snapshot)), fail),
-      onSnapshot(collection(firestore, 'members'), snapshot => setMembers(convert(snapshot)), fail),
-      onSnapshot(collection(firestore, 'payments'), snapshot => setPayments(convert(snapshot)), () => setPayments([])),
-      onSnapshot(collection(firestore, 'refunds'), snapshot => setRefunds(convert(snapshot)), () => setRefunds([])),
-    ];
-    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
-  }, [authorised, loading]);
-
-  const dateRange = useMemo(() => range(period, customStart, customEnd), [period, customStart, customEnd]);
-  const inRange = (value: any) => { const time = asDate(value).getTime(); return time >= dateRange.start.getTime() && time <= dateRange.end.getTime(); };
-
-  const report = useMemo(() => {
-    const paid = orders.filter(order => String(order.status || order.paymentStatus).toLowerCase() === 'paid' && inRange(order.paidAt || order.createdAt));
-    const songs = new Map<string, any>(); const artists = new Map<string, any>(); const albums = new Map<string, any>();
-    const countries = new Map<string, any>(); const products = new Map<string, any>();
-    let gross = 0; let fees = 0;
-    const customerOrders = new Map<string, number>();
-    for (const order of paid) {
-      const total = Number(order.amountTotal || 0); const fee = Number(order.stripeFee || order.feeAmount || 0);
-      const country = String(order.country || order.customerCountry || order.shippingAddress?.country || 'Not captured');
-      const email = String(order.customerEmail || '').toLowerCase();
-      gross += total; fees += fee; if (email) customerOrders.set(email, (customerOrders.get(email) || 0) + 1);
-      add(countries, country, total);
-      const music = Array.isArray(order.songs) ? order.songs : [];
-      for (const song of music) {
-        const quantity = Number(song.quantity || 1); const revenue = Number(song.unitAmount || 0) * quantity || Math.round(total / Math.max(1, music.length));
-        add(songs, String(song.title || song.name || song.id), revenue, quantity, country);
-        add(artists, String(song.artist || song.artistName || 'Unknown artist'), revenue, quantity, country);
-        add(albums, String(song.albumTitle || 'Singles / no album'), revenue, quantity, country);
-      }
-      for (const product of Array.isArray(order.items) ? order.items.filter((item: any) => !item.digital) : []) {
-        add(products, String(product.name || product.title || product.id), Number(product.unitAmount || product.price || 0) * Number(product.quantity || 1), Number(product.quantity || 1), country);
-      }
-    }
-    const sorted = (map: Map<string, any>) => [...map.values()].map(item => ({ ...item, topCountries: [...item.countries.entries()].sort((a:any,b:any)=>b[1]-a[1]) })).sort((a,b) => b.revenue - a.revenue || b.sales - a.sales);
-    const active = members.filter(member => ['active','trialing'].includes(String(member.subscriptionStatus).toLowerCase()));
-    const cancellations = members.filter(member => (member.cancelAtPeriodEnd || String(member.subscriptionStatus).toLowerCase() === 'cancelled') && inRange(member.updatedAt || member.cancelledAt)).length;
-    const failedPayments = payments.filter(payment => ['failed','past_due','unpaid'].includes(String(payment.status).toLowerCase()) && inRange(payment.createdAt || payment.updatedAt)).length;
-    const refundTotal = refunds.filter(refund => inRange(refund.createdAt || refund.updatedAt)).reduce((sum, refund) => sum + Number(refund.amount || refund.amountRefunded || 0), 0);
-    const newCustomers = [...customerOrders.values()].filter(count => count === 1).length;
-    const returningCustomers = [...customerOrders.values()].filter(count => count > 1).length;
-    const plans = active.reduce((map: Record<string,number>, member) => { const key = String(member.plan || 'unknown'); map[key] = (map[key] || 0) + 1; return map; }, {});
-    return { gross, fees, refunds: refundTotal, net: gross - fees - refundTotal, orders: paid.length, newCustomers, returningCustomers, active: active.length, plans, cancellations, failedPayments, songs: sorted(songs), artists: sorted(artists), albums: sorted(albums), countries: sorted(countries), products: sorted(products) };
-  }, [orders, members, payments, refunds, dateRange]);
-
-  const chosen = report.songs.find((item: any) => item.name === selectedSong) || report.songs[0];
-  const summary = [
-    ['Gross revenue', money(report.gross)], ['Stripe fees', money(report.fees)], ['Refunds', money(report.refunds)], ['Net revenue', money(report.net)], ['Orders', report.orders], ['New customers', report.newCustomers], ['Returning customers', report.returningCustomers], ['Active subscriptions', report.active], ['Cancellations', report.cancellations], ['Failed payments', report.failedPayments],
-  ];
-
-  function exportCsv() {
-    const rows: unknown[][] = [['Aureon Music Group Performance'], ['From', dateRange.start.toLocaleString('en-IE')], ['To', dateRange.end.toLocaleString('en-IE')], [], ...summary, [], ['Subscriptions by plan'], ...Object.entries(report.plans), [], ['Song','Sales','Revenue','Top country'], ...report.songs.map((item:any)=>[item.name,item.sales,item.revenue/100,item.topCountries[0]?.[0] || 'Not captured']), [], ['Artist','Sales','Revenue'], ...report.artists.map((item:any)=>[item.name,item.sales,item.revenue/100]), [], ['Album','Sales','Revenue'], ...report.albums.map((item:any)=>[item.name,item.sales,item.revenue/100]), [], ['Merchandise','Sales','Revenue'], ...report.products.map((item:any)=>[item.name,item.sales,item.revenue/100])];
-    const blob = new Blob(['\ufeff', rows.map(row => row.map(csv).join(',')).join('\n')], { type:'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href=url; anchor.download=`Aureon-Performance-${new Date().toISOString()}.csv`; anchor.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-  }
-
-  const table = (title: string, data: any[]) => <article><h2>{title}</h2><div className="admin-table-wrap"><table><thead><tr><th>Name</th><th>Sales</th><th>Revenue</th><th>Top country</th></tr></thead><tbody>{data.length ? data.slice(0,20).map(item => <tr key={item.name}><td>{item.name}</td><td>{item.sales}</td><td>{money(item.revenue)}</td><td>{item.topCountries?.[0]?.[0] || '—'}</td></tr>) : <tr><td colSpan={4}>No data for this period.</td></tr>}</tbody></table></div></article>;
-
-  return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Marketing intelligence</p><h1>Performance Analytics</h1><p>Subscription movement, catalogue performance, geography and merchandise results in real time.</p></div>
-    {message && <div className="admin-cms-message">{message}</div>}
-    <div className="admin-toolbar"><label>Period <select value={period} onChange={event => setPeriod(event.target.value as Period)}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">Week</option><option value="month">Month</option><option value="quarter">Quarter</option><option value="year">Year</option><option value="custom">Custom</option></select></label>{period === 'custom' && <><label>From <input type="date" value={customStart} onChange={event => setCustomStart(event.target.value)}/></label><label>To <input type="date" value={customEnd} onChange={event => setCustomEnd(event.target.value)}/></label></>}<button onClick={exportCsv}><Download size={15}/> CSV</button><button onClick={() => globalThis.print()}><Printer size={15}/> Print</button></div>
-    <section className="admin-stat-grid">{summary.map(([label,value]) => <article key={String(label)}><span>{label}</span><strong>{String(value)}</strong></article>)}</section>
-    <section className="admin-dashboard-grid"><article><h2>Subscriptions by plan</h2>{Object.keys(report.plans).length ? Object.entries(report.plans).map(([plan,count]) => <p key={plan}><strong>{plan}</strong>: {count}</p>) : <p>No active subscriptions.</p>}</article><article><h2>Individual song geography</h2><select value={chosen?.name || ''} onChange={event => setSelectedSong(event.target.value)}>{report.songs.map((item:any)=><option key={item.name}>{item.name}</option>)}</select>{chosen?.topCountries?.length ? chosen.topCountries.map(([country,count]:any)=><p key={country}>{country}: <strong>{count}</strong></p>) : <p>No country data.</p>}</article></section>
-    <section className="admin-dashboard-grid">{table('Top songs',report.songs)}{table('Top artists',report.artists)}{table('Top albums',report.albums)}{table('Merchandise performance',report.products)}{table('Country performance',report.countries)}</section>
-  </AdminShell>;
-}
+import{useEffect,useMemo,useState}from'react';import{collection,onSnapshot}from'firebase/firestore';import{Download,Printer}from'lucide-react';import{AdminShell}from'@/components/admin/AdminShell';import{firestore}from'@/lib/firebase-client';import{useAdminAuth}from'@/components/admin/AdminAuthProvider';
+type Row={id:string;[key:string]:any};type Period='today'|'yesterday'|'week'|'month'|'quarter'|'year'|'custom';const asDate=(v:any)=>v?.toDate?.()||new Date(v||0);const money=(v:number)=>new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(Number(v||0)/100);const csv=(v:unknown)=>`"${String(v??'').replace(/"/g,'""')}"`;
+function range(period:Period,customStart:string,customEnd:string){const now=new Date();const end=new Date(now);end.setHours(23,59,59,999);let start=new Date(now);start.setHours(0,0,0,0);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start=new Date(now.getFullYear(),now.getMonth(),now.getDate()-6);if(period==='month')start=new Date(now.getFullYear(),now.getMonth(),1);if(period==='quarter')start=new Date(now.getFullYear(),Math.floor(now.getMonth()/3)*3,1);if(period==='year')start=new Date(now.getFullYear(),0,1);if(period==='custom'){if(customStart)start=new Date(`${customStart}T00:00:00`);if(customEnd)end.setTime(new Date(`${customEnd}T23:59:59`).getTime())}return{start,end}}
+function bump(map:Map<string,any>,key:string,field:string,amount=1,country='Unknown'){const name=key||'Not captured';const item=map.get(name)||{name,plays:0,completes:0,previewCompletes:0,cartAdds:0,views:0,sales:0,revenue:0,listenedSeconds:0,countries:new Map<string,number>()};item[field]=(item[field]||0)+amount;if(country)item.countries.set(country,(item.countries.get(country)||0)+amount);map.set(name,item)}
+export default function PerformancePage(){const{authorised,loading}=useAdminAuth();const[period,setPeriod]=useState<Period>('month');const[customStart,setCustomStart]=useState('');const[customEnd,setCustomEnd]=useState('');const[orders,setOrders]=useState<Row[]>([]);const[members,setMembers]=useState<Row[]>([]);const[events,setEvents]=useState<Row[]>([]);const[message,setMessage]=useState('');
+useEffect(()=>{if(loading||!authorised)return;const convert=(s:any)=>s.docs.map((d:any)=>({id:d.id,...d.data()}));const fail=(e:unknown)=>{console.error(e);setMessage('Some performance sources could not be loaded.')};const u=[onSnapshot(collection(firestore,'orders'),s=>setOrders(convert(s)),fail),onSnapshot(collection(firestore,'members'),s=>setMembers(convert(s)),fail),onSnapshot(collection(firestore,'analyticsEvents'),s=>setEvents(convert(s)),fail)];return()=>u.forEach(x=>x())},[authorised,loading]);
+const dateRange=useMemo(()=>range(period,customStart,customEnd),[period,customStart,customEnd]);const inRange=(v:any)=>{const t=asDate(v).getTime();return t>=dateRange.start.getTime()&&t<=dateRange.end.getTime()};
+const report=useMemo(()=>{const songMap=new Map<string,any>(),artistMap=new Map<string,any>(),albumMap=new Map<string,any>(),productMap=new Map<string,any>(),countryMap=new Map<string,any>(),regionMap=new Map<string,any>(),cityMap=new Map<string,any>(),deviceMap=new Map<string,any>(),referrerMap=new Map<string,any>();let gross=0,fees=0;const filteredEvents=events.filter(e=>inRange(e.createdAt||e.receivedAt));for(const e of filteredEvents){const country=e.country||'Unknown',field=e.eventType==='song_play'?'plays':e.eventType==='song_complete'?'completes':e.eventType==='preview_complete'?'previewCompletes':e.eventType.includes('cart_add')?'cartAdds':'views';const amount=field==='views'||field==='cartAdds'||field==='plays'||field==='completes'||field==='previewCompletes'?1:0;if(e.entityType==='song'||String(e.eventType).startsWith('song_')||e.eventType==='preview_complete'){bump(songMap,e.title||e.entityId,field,amount,country);bump(songMap,e.title||e.entityId,'listenedSeconds',Number(e.listenedSeconds||0),'');bump(artistMap,e.artistName||e.artistId,field,amount,country);bump(albumMap,e.albumTitle||'Singles / no album',field,amount,country)}if(e.entityType==='product'||String(e.eventType).startsWith('merch_'))bump(productMap,e.productName||e.title||e.productId,field,amount,country);bump(countryMap,country,field,amount,country);bump(regionMap,`${country} · ${e.region||'Unknown'}`,field,amount,country);bump(cityMap,`${e.city||'Unknown'}, ${country}`,field,amount,country);bump(deviceMap,e.deviceType||'Unknown',field,amount,country);if(e.referrer)bump(referrerMap,e.referrer,field,amount,country)}
+const paid=orders.filter(o=>String(o.status||o.paymentStatus).toLowerCase()==='paid'&&inRange(o.paidAt||o.createdAt));for(const o of paid){const total=Number(o.amountTotal||0),fee=Number(o.stripeFee||o.feeAmount||0),country=String(o.country||o.customerCountry||o.shippingAddress?.country||'Unknown');gross+=total;fees+=fee;for(const s of Array.isArray(o.songs)?o.songs:[]){const q=Number(s.quantity||1),r=Number(s.unitAmount||0)*q||Math.round(total/Math.max(1,o.songs.length));bump(songMap,String(s.title||s.name||s.id),'sales',q,country);bump(songMap,String(s.title||s.name||s.id),'revenue',r,'');bump(artistMap,String(s.artist||s.artistName||'Unknown artist'),'sales',q,country);bump(artistMap,String(s.artist||s.artistName||'Unknown artist'),'revenue',r,'');bump(albumMap,String(s.albumTitle||'Singles / no album'),'sales',q,country);bump(albumMap,String(s.albumTitle||'Singles / no album'),'revenue',r,'')}for(const p of Array.isArray(o.items)?o.items.filter((i:any)=>!i.digital):[]){const q=Number(p.quantity||1),r=Number(p.unitAmount||p.price||0)*q;bump(productMap,String(p.name||p.title||p.id),'sales',q,country);bump(productMap,String(p.name||p.title||p.id),'revenue',r,'')}}
+const sorted=(m:Map<string,any>)=>[...m.values()].map(i=>({...i,completionRate:i.plays?Math.round(i.completes/i.plays*100):0,cartRate:i.views?Math.round(i.cartAdds/i.views*100):0,avgListen:i.plays?Math.round(i.listenedSeconds/i.plays):0,topCountries:[...i.countries.entries()].sort((a:any,b:any)=>b[1]-a[1])})).sort((a,b)=>(b.plays+b.views+b.sales)-(a.plays+a.views+a.sales));const active=members.filter(m=>['active','trialing'].includes(String(m.subscriptionStatus).toLowerCase())).length;return{gross,fees,net:gross-fees,orders:paid.length,active,eventCount:filteredEvents.length,songs:sorted(songMap),artists:sorted(artistMap),albums:sorted(albumMap),products:sorted(productMap),countries:sorted(countryMap),regions:sorted(regionMap),cities:sorted(cityMap),devices:sorted(deviceMap),referrers:sorted(referrerMap)}} ,[orders,members,events,dateRange]);
+const summary=[['Gross revenue',money(report.gross)],['Net revenue',money(report.net)],['Paid orders',report.orders],['Active subscriptions',report.active],['Tracked interactions',report.eventCount],['Song plays',report.songs.reduce((s:number,i:any)=>s+i.plays,0)],['Completed tracks',report.songs.reduce((s:number,i:any)=>s+i.completes,0)],['Preview completions',report.songs.reduce((s:number,i:any)=>s+i.previewCompletes,0)],['Merchandise views',report.products.reduce((s:number,i:any)=>s+i.views,0)],['Cart additions',report.products.reduce((s:number,i:any)=>s+i.cartAdds,0)]];
+function exportCsv(){const rows:unknown[][]=[['Aureon detailed performance'],['From',dateRange.start.toISOString()],['To',dateRange.end.toISOString()],[],...summary,[],['Songs'],['Name','Plays','Completions','Preview completions','Completion %','Average listened seconds','Cart adds','Sales','Revenue','Top country'],...report.songs.map((i:any)=>[i.name,i.plays,i.completes,i.previewCompletes,i.completionRate,i.avgListen,i.cartAdds,i.sales,i.revenue/100,i.topCountries[0]?.[0]||'Unknown']),[],['Artists'],['Name','Plays','Completions','Sales','Revenue','Top country'],...report.artists.map((i:any)=>[i.name,i.plays,i.completes,i.sales,i.revenue/100,i.topCountries[0]?.[0]||'Unknown']),[],['Albums'],['Name','Plays','Completions','Sales','Revenue','Top country'],...report.albums.map((i:any)=>[i.name,i.plays,i.completes,i.sales,i.revenue/100,i.topCountries[0]?.[0]||'Unknown']),[],['Merchandise'],['Name','Views','Cart adds','Cart rate %','Sales','Revenue','Top country'],...report.products.map((i:any)=>[i.name,i.views,i.cartAdds,i.cartRate,i.sales,i.revenue/100,i.topCountries[0]?.[0]||'Unknown'])];const blob=new Blob(['\ufeff',rows.map(r=>r.map(csv).join(',')).join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Aureon-Detailed-Performance-${new Date().toISOString()}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+const table=(title:string,data:any[],mode:'music'|'merch'|'geo'='music')=><article><h2>{title}</h2><div className="admin-table-wrap"><table><thead><tr><th>Name</th>{mode==='music'?<><th>Plays</th><th>Completed</th><th>Completion</th><th>Avg listen</th><th>Sales</th><th>Revenue</th></>:mode==='merch'?<><th>Views</th><th>Cart adds</th><th>Cart rate</th><th>Sales</th><th>Revenue</th></>:<><th>Interactions</th><th>Plays</th><th>Sales</th></>}<th>Top country</th></tr></thead><tbody>{data.length?data.slice(0,50).map(i=><tr key={i.name}><td>{i.name}</td>{mode==='music'?<><td>{i.plays}</td><td>{i.completes}</td><td>{i.completionRate}%</td><td>{i.avgListen}s</td><td>{i.sales}</td><td>{money(i.revenue)}</td></>:mode==='merch'?<><td>{i.views}</td><td>{i.cartAdds}</td><td>{i.cartRate}%</td><td>{i.sales}</td><td>{money(i.revenue)}</td></>:<><td>{i.plays+i.views+i.cartAdds+i.completes}</td><td>{i.plays}</td><td>{i.sales}</td></>}<td>{i.topCountries?.[0]?.[0]||'—'}</td></tr>):<tr><td colSpan={9}>No data for this period.</td></tr>}</tbody></table></div></article>;
+return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Marketing intelligence</p><h1>Performance Analytics</h1><p>Detailed first-party listening, catalogue, merchandise, conversion and geographic performance.</p></div>{message&&<div className="admin-cms-message">{message}</div>}<div className="admin-toolbar"><label>Period <select value={period} onChange={e=>setPeriod(e.target.value as Period)}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">Week</option><option value="month">Month</option><option value="quarter">Quarter</option><option value="year">Year</option><option value="custom">Custom</option></select></label>{period==='custom'&&<><label>From <input type="date" value={customStart} onChange={e=>setCustomStart(e.target.value)}/></label><label>To <input type="date" value={customEnd} onChange={e=>setCustomEnd(e.target.value)}/></label></>}<button onClick={exportCsv}><Download size={15}/> CSV</button><button onClick={()=>globalThis.print()}><Printer size={15}/> Print</button></div><section className="admin-stat-grid">{summary.map(([l,v])=><article key={String(l)}><span>{l}</span><strong>{String(v)}</strong></article>)}</section><section className="admin-dashboard-grid">{table('Song performance',report.songs)}{table('Artist performance',report.artists)}{table('Album performance',report.albums)}{table('Merchandise performance',report.products,'merch')}{table('Country performance',report.countries,'geo')}{table('Regional performance',report.regions,'geo')}{table('City performance',report.cities,'geo')}{table('Device performance',report.devices,'geo')}{table('Referrer performance',report.referrers,'geo')}</section></AdminShell>}
