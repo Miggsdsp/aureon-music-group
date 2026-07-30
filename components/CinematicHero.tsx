@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { useSiteFeatures } from '@/lib/useSiteFeatures';
 import styles from './CinematicHero.module.css';
@@ -23,33 +24,39 @@ export function CinematicHero() {
     merchandiseHref: '/merchandise', aboutHref: '/about', contactHref: '/contact',
     announcement: '', heroImage: ''
   });
-  const { data: platform } = usePublishedDocument<HeroSettings>('siteSettings', 'platform', {
+  const { data: platform, loading: platformLoading } = usePublishedDocument<HeroSettings>('siteSettings', 'platform', {
     heroVideoUrl: '', heroPosterUrl: '', heroOverlayOpacity: 58,
     heroLightEffects: true, heroDustEffects: true, heroLedEffects: true, heroLogoScale: 100
   });
+  const [videoReady, setVideoReady] = useState(false);
 
-  const poster = platform?.heroPosterUrl || data?.heroImage || '/images/aureon-hero-cinematic.webp';
   const videoUrl = String(platform?.heroVideoUrl || '').trim();
   const overlayOpacity = Math.min(100, Math.max(0, Number(platform?.heroOverlayOpacity ?? 58))) / 100;
   const logoScale = Math.min(150, Math.max(60, Number(platform?.heroLogoScale ?? 100)));
+
+  useEffect(() => {
+    setVideoReady(false);
+  }, [videoUrl]);
 
   return (
     <section
       className={`hero approved-hero ${styles.heroFix}`}
       aria-label={data?.title || 'Aureon Music Group homepage'}
-      style={{ backgroundImage: `url(${poster})` }}
     >
-      {videoUrl ? (
+      <div className={styles.videoLoadingBackground} aria-hidden="true" />
+
+      {!platformLoading && videoUrl ? (
         <video
           key={videoUrl}
           src={videoUrl}
-          className={styles.heroVideo}
+          className={`${styles.heroVideo} ${videoReady ? styles.heroVideoReady : ''}`}
           autoPlay
           muted
           loop
           playsInline
           preload="auto"
-          poster={poster}
+          onCanPlay={() => setVideoReady(true)}
+          onPlaying={() => setVideoReady(true)}
           aria-hidden="true"
         />
       ) : null}
