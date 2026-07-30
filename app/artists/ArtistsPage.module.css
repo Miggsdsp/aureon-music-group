@@ -1,0 +1,40 @@
+.logoFrame{
+  width:100%;
+  aspect-ratio:1/1;
+  min-height:0;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  padding:clamp(14px,2vw,28px);
+  margin:0 0 8px;
+  background:radial-gradient(circle at 50% 45%,rgba(217,180,95,.12),rgba(0,0,0,.34) 72%);
+  border-bottom:1px solid rgba(217,180,95,.18);
+}
+.logo{
+  display:block;
+  width:100%!important;
+  height:100%!important;
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain!important;
+  object-position:center!important;
+  transform:none!important;
+}
+.card{
+  padding:0!important;
+}
+.cardBody{
+  width:100%;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:0 28px 28px;
+}
+.cardBody a{
+  margin-top:auto!important;
+}
+@media(max-width:900px){
+  .logoFrame{padding:18px}
+  .cardBody{padding:0 22px 24px}
+}
