@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Headphones } from 'lucide-react';
 import { PageShell } from '@/components/PageShell';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
+import styles from './ArtistsPage.module.css';
 
 type ArtistRecord = PublicRecord & {
   name: string;
@@ -30,15 +31,24 @@ export default function ArtistsPage() {
           {artists.map((artist) => {
             const logoSrc = artist.logoUrl || artist.profileImageUrl || '/images/branding/Aureon_Header_Logo.png';
             return (
-              <article className={`artist-card identity-card logo-card artist-${artist.slug}`} key={artist.id}>
-                <div className="artist-logo-frame">
-                  <Image src={logoSrc} alt={`${artist.name} logo`} width={900} height={900} unoptimized className="artist-uploaded-logo" />
+              <article className={`artist-card identity-card logo-card artist-${artist.slug} ${styles.card}`} key={artist.id}>
+                <div className={styles.logoFrame}>
+                  <Image
+                    src={logoSrc}
+                    alt={`${artist.name} logo`}
+                    width={900}
+                    height={900}
+                    unoptimized
+                    className={styles.logo}
+                  />
                 </div>
-                <p>{artist.id}</p>
-                <h3>{artist.name}</h3>
-                <strong>{artist.genre || 'Aureon Artist'}</strong>
-                <span>{artist.description || ''}</span>
-                <Link href={`/artists/${artist.slug}`}>View artist →</Link>
+                <div className={styles.cardBody}>
+                  <p>{artist.id}</p>
+                  <h3>{artist.name}</h3>
+                  <strong>{artist.genre || 'Aureon Artist'}</strong>
+                  <span>{artist.description || ''}</span>
+                  <Link href={`/artists/${artist.slug}`}>View artist →</Link>
+                </div>
               </article>
             );
           })}
