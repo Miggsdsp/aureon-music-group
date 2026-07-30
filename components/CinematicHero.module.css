@@ -1,5 +1,7 @@
-.heroFix{position:relative;background:#050505 center top/cover no-repeat!important;height:calc(100svh - 116px)!important;min-height:620px!important;overflow:hidden;isolation:isolate}
-.heroVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0;pointer-events:none}
+.heroFix{position:relative;background:#050505!important;height:calc(100svh - 116px)!important;min-height:620px!important;overflow:hidden;isolation:isolate}
+.videoLoadingBackground{position:absolute;inset:0;z-index:0;background:radial-gradient(circle at 50% 42%,rgba(217,180,95,.06),transparent 34%),#050505;pointer-events:none}
+.heroVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0;pointer-events:none;opacity:0;transition:opacity .45s ease}
+.heroVideoReady{opacity:1}
 .videoShade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.12) 45%,rgba(0,0,0,.5) 100%),radial-gradient(circle at 50% 44%,rgba(0,0,0,.02) 0%,rgba(0,0,0,.18) 68%,rgba(0,0,0,.46) 100%)}
 .heroOverlay{position:absolute;left:50%;top:46%;z-index:20;width:min(64vw,820px);transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:none;visibility:visible;opacity:1}
 .heroLogo{position:relative!important;z-index:21!important;display:block!important;visibility:visible!important;opacity:1!important;width:min(54vw,700px);height:auto;object-fit:contain;filter:drop-shadow(0 10px 28px rgba(0,0,0,.72))}
@@ -9,4 +11,4 @@
 .heroFix :global(.cinematic-fx),.heroFix :global(.hotspot),.heroFix :global(.homepage-firestore-announcement){z-index:3}
 @media(max-width:900px){.heroFix{height:calc(100svh - 88px)!important;min-height:560px!important}.heroVideo{object-position:center center}.heroOverlay{top:45%;width:90vw}.heroLogo{width:min(82vw,620px)}.slogan{margin:clamp(-58px,-7vw,-32px) 0 9px;font-size:clamp(.62rem,2.1vw,.9rem);letter-spacing:clamp(.2em,.8vw,.42em);white-space:normal;line-height:1.4}.discoverButton{min-height:48px;font-size:.72rem}}
 @media(max-width:560px){.heroFix{height:calc(100svh - 76px)!important;min-height:520px!important}.heroOverlay{top:44%}.heroLogo{width:90vw}.slogan{margin:-34px 0 8px}.discoverButton{min-width:76vw;padding:0 16px;letter-spacing:.13em}}
-@media(prefers-reduced-motion:reduce){.heroVideo{display:none}}
+@media(prefers-reduced-motion:reduce){.heroVideo{transition:none}}
