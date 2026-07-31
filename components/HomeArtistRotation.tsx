@@ -41,7 +41,7 @@ export function HomeArtistRotation() {
         <Link href="/artists" className="ghost-button">View all artists →</Link>
       </div>
       <div className={styles.stage}>
-        <div className={styles.visual}><img key={artist.id} src={image} alt={`${artist.name || 'Aureon artist'} logo`} /></div>
+        <div className={styles.visual}><img key={artist.id} src={image} alt={`${artist.name || 'Aureon artist'} logo`} loading="lazy" decoding="async" /></div>
         <div className={styles.copy}>
           <span className={styles.genre}>{artist.genre || 'Aureon Artist'}</span>
           <h3>{artist.name}</h3>
