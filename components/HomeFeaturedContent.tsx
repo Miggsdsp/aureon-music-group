@@ -13,20 +13,20 @@ type Video = PublicRecord & {title?:string;slug?:string;artistName?:string;thumb
 export function HomeFeaturedContent(){
   const {items:news}=usePublishedCollection<News>('newsArticles',[]);
   const {items:videos}=usePublishedCollection<Video>('videos',[]);
-  const featuredNews=[...news].filter(x=>x.featured).slice(0,3);
-  const latestNews=(featuredNews.length?featuredNews:[...news]).slice(0,3);
-  const featuredVideos=[...videos].filter(x=>x.featured).slice(0,3);
-  const latestVideos=(featuredVideos.length?featuredVideos:[...videos]).slice(0,3);
+  const featuredNews=news.filter(x=>x.featured).slice(0,3);
+  const latestNews=(featuredNews.length?featuredNews:news).slice(0,3);
+  const featuredVideos=videos.filter(x=>x.featured).slice(0,3);
+  const latestVideos=(featuredVideos.length?featuredVideos:videos).slice(0,3);
   return <>
     <HomeArtistRotation />
-    <section className="content-panel">
+    <section className={`content-panel ${styles.deferredSection}`}>
       <div className="section-heading"><div><p className="eyebrow">Latest stories</p><h2>News from Aureon</h2></div><Link href="/news" className="ghost-button">View all news →</Link></div>
       {latestNews.length?<div className={styles.grid}>{latestNews.map(item=><article className={`news-card ${styles.card}`} key={item.id}>
-        {(item.featuredImageUrl||item.imageUrl)&&<Image src={item.featuredImageUrl||item.imageUrl||''} alt={item.title||'Aureon news'} width={900} height={600} unoptimized/>}
+        {(item.featuredImageUrl||item.imageUrl)&&<Image src={item.featuredImageUrl||item.imageUrl||''} alt={item.title||'Aureon news'} width={900} height={600} unoptimized loading="lazy" sizes="(max-width: 760px) 100vw, 33vw"/>}
         <p className="eyebrow"><Newspaper size={14}/> {item.featured?'Featured news':'Latest news'}</p><h3>{item.title}</h3><p>{item.excerpt||item.description}</p><Link href={`/news/${item.slug||item.id}`}>Read story →</Link>
       </article>)}</div>:<div className="store-empty"><p>Published news will appear here automatically.</p></div>}
     </section>
-    <section className="content-panel"><div className="section-heading"><div><p className="eyebrow">Watch now</p><h2>Featured videos</h2></div><Link href="/videos" className="ghost-button">View all videos →</Link></div>{latestVideos.length?<div className={styles.grid}>{latestVideos.map(item=>{const href=item.externalUrl||item.youtubeUrl||item.vimeoUrl||item.videoUrl||`/videos/${item.slug||item.id}`;return <article className={`news-card ${styles.card}`} key={item.id}>{item.thumbnailUrl&&<Image src={item.thumbnailUrl} alt={item.title||'Aureon video'} width={900} height={600} unoptimized/>}<p className="eyebrow"><Play size={14}/> {item.shortForm?'Short-form clip':item.type||'Video'}</p><h3>{item.title}</h3><p>{item.artistName}</p>{/^https?:/.test(href)?<a href={href} target="_blank" rel="noreferrer">Watch video →</a>:<Link href={href}>Watch video →</Link>}</article>})}</div>:<div className="store-empty"><p>Featured videos will appear here when published in the Control Center.</p></div>}</section>
+    <section className={`content-panel ${styles.deferredSection}`}><div className="section-heading"><div><p className="eyebrow">Watch now</p><h2>Featured videos</h2></div><Link href="/videos" className="ghost-button">View all videos →</Link></div>{latestVideos.length?<div className={styles.grid}>{latestVideos.map(item=>{const href=item.externalUrl||item.youtubeUrl||item.vimeoUrl||item.videoUrl||`/videos/${item.slug||item.id}`;return <article className={`news-card ${styles.card}`} key={item.id}>{item.thumbnailUrl&&<Image src={item.thumbnailUrl} alt={item.title||'Aureon video'} width={900} height={600} unoptimized loading="lazy" sizes="(max-width: 760px) 100vw, 33vw"/>}<p className="eyebrow"><Play size={14}/> {item.shortForm?'Short-form clip':item.type||'Video'}</p><h3>{item.title}</h3><p>{item.artistName}</p>{/^https?:/.test(href)?<a href={href} target="_blank" rel="noreferrer">Watch video →</a>:<Link href={href}>Watch video →</Link>}</article>})}</div>:<div className="store-empty"><p>Featured videos will appear here when published in the Control Center.</p></div>}</section>
     <Footer/>
   </>;
 }
