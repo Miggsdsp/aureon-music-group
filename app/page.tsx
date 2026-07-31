@@ -1,13 +1,13 @@
 import { Header } from '@/components/Header';
 import { CinematicHero } from '@/components/CinematicHero';
-import { HomeFeaturedContent } from '@/components/HomeFeaturedContent';
+import { DeferredHomeFeaturedContent } from '@/components/DeferredHomeFeaturedContent';
 
 export default function Home() {
   return (
     <main>
       <Header />
       <CinematicHero />
-      <HomeFeaturedContent />
+      <DeferredHomeFeaturedContent />
     </main>
   );
 }
