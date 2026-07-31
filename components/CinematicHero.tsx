@@ -34,15 +34,10 @@ export function CinematicHero() {
   const overlayOpacity = Math.min(100, Math.max(0, Number(platform?.heroOverlayOpacity ?? 58))) / 100;
   const logoScale = Math.min(150, Math.max(60, Number(platform?.heroLogoScale ?? 100)));
 
-  useEffect(() => {
-    setVideoReady(false);
-  }, [videoUrl]);
+  useEffect(() => setVideoReady(false), [videoUrl]);
 
   return (
-    <section
-      className={`hero approved-hero ${styles.heroFix}`}
-      aria-label={data?.title || 'Aureon Music Group homepage'}
-    >
+    <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'}>
       <div className={styles.videoLoadingBackground} aria-hidden="true" />
 
       {!platformLoading && videoUrl ? (
@@ -54,7 +49,7 @@ export function CinematicHero() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           onCanPlay={() => setVideoReady(true)}
           onPlaying={() => setVideoReady(true)}
           aria-hidden="true"
@@ -63,8 +58,8 @@ export function CinematicHero() {
 
       <div className={styles.videoShade} style={{ opacity: overlayOpacity }} aria-hidden="true" />
       {platform?.heroLightEffects !== false && <div className="cinematic-fx light-fx" aria-hidden="true" />}
-      {platform?.heroDustEffects !== false && <div className="cinematic-fx dust-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>}
-      {platform?.heroLedEffects !== false && <div className="cinematic-fx led-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>}
+      {platform?.heroDustEffects !== false && <div className="cinematic-fx dust-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /></div>}
+      {platform?.heroLedEffects !== false && <div className="cinematic-fx led-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /></div>}
 
       <div className={styles.heroOverlay}>
         <img src="/images/branding/Aureon_Header_Logo.png" alt="Aureon Music Group" width="760" height="260" className={styles.heroLogo} style={{ width: `${logoScale}%`, maxWidth: 760, height: 'auto' }} decoding="async" fetchPriority="high" />
