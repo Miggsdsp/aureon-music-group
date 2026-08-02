@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { adminFirestore } from '@/lib/firebase-admin';
 import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
 
 export const runtime = 'nodejs';
@@ -12,15 +11,26 @@ function serialiseDate(value: any) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function billingCycleKey(member: Record<string, any>) {
+  const value = member.currentPeriodEnd;
+  const date = value?.toDate?.() || (value ? new Date(value) : null);
+  if (date && !Number.isNaN(date.getTime())) return `cycle-${date.toISOString().slice(0, 10)}`;
+  const now = new Date();
+  return `cycle-${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 export async function GET(request: Request) {
   try {
     const context = await requireMember(request);
     if (!hasActivePlan(context.member)) return NextResponse.json({ error: 'An active membership is required.' }, { status: 403 });
 
-    const [recentSnapshot, downloadsSnapshot] = await Promise.all([
+    const cycle = billingCycleKey(context.member);
+    const [recentSnapshot, downloadsSnapshot, usageSnapshot] = await Promise.all([
       context.memberRef.collection('recentlyPlayed').orderBy('playedAt', 'desc').limit(20).get(),
       context.memberRef.collection('downloadHistory').orderBy('createdAt', 'desc').limit(50).get(),
+      context.memberRef.collection('downloadUsage').doc(cycle).get(),
     ]);
+    const downloadsUsed = Number(usageSnapshot.data()?.count || 0);
 
     return NextResponse.json({
       favouriteSongIds: Array.isArray(context.member.favouriteSongIds) ? context.member.favouriteSongIds : [],
@@ -28,10 +38,11 @@ export async function GET(request: Request) {
       continueListening: context.member.continueListening || null,
       recentlyPlayed: recentSnapshot.docs.map(item => ({ id: item.id, ...item.data(), playedAt: serialiseDate(item.data().playedAt) })),
       downloadHistory: downloadsSnapshot.docs.map(item => ({ id: item.id, ...item.data(), createdAt: serialiseDate(item.data().createdAt) })),
-      downloadsUsed: Number(context.member.monthlyDownloadsUsed || 0),
-      downloadLimit: Number(context.member.monthlyDownloadLimit || 5),
+      downloadsUsed,
+      downloadLimit: 5,
+      downloadCycle: cycle,
       resetDate: serialiseDate(context.member.currentPeriodEnd),
-    });
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Member library read failed:', error);
     const result = memberError(error);
@@ -75,9 +86,7 @@ export async function POST(request: Request) {
         progressSeconds: Math.max(0, Number(body?.progressSeconds || 0)),
         durationSeconds: Math.max(0, Number(body?.durationSeconds || 0)),
       };
-      if (action === 'played') {
-        await context.memberRef.collection('recentlyPlayed').doc(songId).set({ ...song, playedAt: FieldValue.serverTimestamp() }, { merge: true });
-      }
+      if (action === 'played') await context.memberRef.collection('recentlyPlayed').doc(songId).set({ ...song, playedAt: FieldValue.serverTimestamp() }, { merge: true });
       await context.memberRef.set({ continueListening: { ...song, updatedAt: new Date().toISOString() }, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
       return NextResponse.json({ saved: true });
     }
