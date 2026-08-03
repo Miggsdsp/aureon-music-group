@@ -9,7 +9,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = text(song.title || song.name, 'Aureon song');
   const artist = text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');
   const description = text(song.seoDescription || song.description || details.description || details.story, `Listen to ${title} by ${artist} and discover similar music on Aureon Music Group.`).slice(0, 160);
-  return buildMetadata({ title: `${title} by ${artist}`, description, path: `/songs/${song.slug || slug}`, image: song.coverImageUrl || details.coverImageUrl || song.imageUrl, type: 'music.song' });
+  return buildMetadata({
+    title: `${title} by ${artist}`,
+    description,
+    path: `/songs/${song.slug || slug}`,
+    image: song.coverImageUrl || details.coverImageUrl || song.imageUrl,
+    type: 'website',
+  });
 }
 
 export default async function SongLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
