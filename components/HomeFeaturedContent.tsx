@@ -1,55 +1,19 @@
 'use client';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Play, Newspaper } from 'lucide-react';
+import { ArtworkImage } from './ArtworkImage';
 import { Footer } from './Footer';
 import { HomeArtistRotation } from './HomeArtistRotation';
 import { PreviewGatedVideo } from './video/PreviewGatedVideo';
+import { getArtwork } from '@/lib/get-artwork';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import styles from './HomeFeaturedContent.module.css';
 
-type News = PublicRecord & {title?:string;slug?:string;excerpt?:string;description?:string;featuredImageUrl?:string;imageUrl?:string;publishAt?:any;publishDate?:string;featured?:boolean};
-type Video = PublicRecord & {title?:string;slug?:string;artistName?:string;thumbnailUrl?:string;videoUrl?:string;externalUrl?:string;youtubeUrl?:string;vimeoUrl?:string;featured?:boolean;shortForm?:boolean;type?:string;details?:Record<string,any>};
+type News=PublicRecord&{title?:string;slug?:string;excerpt?:string;description?:string;featuredImageUrl?:string;imageUrl?:string;publishAt?:any;publishDate?:string;featured?:boolean;details?:Record<string,any>};
+type Video=PublicRecord&{title?:string;slug?:string;artistName?:string;thumbnailUrl?:string;videoUrl?:string;externalUrl?:string;youtubeUrl?:string;vimeoUrl?:string;featured?:boolean;shortForm?:boolean;type?:string;details?:Record<string,any>};
 
 export function HomeFeaturedContent(){
-  const {items:news}=usePublishedCollection<News>('newsArticles',[]);
-  const {items:videos}=usePublishedCollection<Video>('videos',[]);
-  const featuredNews=news.filter(x=>x.featured).slice(0,3);
-  const latestNews=(featuredNews.length?featuredNews:news).slice(0,3);
-  const featuredVideos=videos.filter(x=>x.featured).slice(0,3);
-  const latestVideos=(featuredVideos.length?featuredVideos:videos).slice(0,3);
-  return <>
-    <HomeArtistRotation />
-    <section className={`content-panel ${styles.deferredSection}`}>
-      <div className="section-heading"><div><p className="eyebrow">Latest stories</p><h2>News from Aureon</h2></div><Link href="/news" className="ghost-button">View all news →</Link></div>
-      {latestNews.length?<div className={styles.grid}>{latestNews.map(item=><article className={`news-card ${styles.card}`} key={item.id}>
-        {(item.featuredImageUrl||item.imageUrl)&&<Image src={item.featuredImageUrl||item.imageUrl||''} alt={item.title||'Aureon news'} width={900} height={600} loading="lazy" quality={78} sizes="(max-width: 760px) 100vw, (max-width: 1200px) 50vw, 33vw"/>}
-        <p className="eyebrow"><Newspaper size={14}/> {item.featured?'Featured news':'Latest news'}</p><h3>{item.title}</h3><p>{item.excerpt||item.description}</p><Link href={`/news/${item.slug||item.id}`}>Read story →</Link>
-      </article>)}</div>:<div className="store-empty"><p>Published news will appear here automatically.</p></div>}
-    </section>
-    <section className={`content-panel ${styles.deferredSection}`}>
-      <div className="section-heading"><div><p className="eyebrow">Watch now</p><h2>Featured videos</h2></div><Link href="/videos" className="ghost-button">View all videos →</Link></div>
-      {latestVideos.length?<div className={styles.grid}>{latestVideos.map(item=>{
-        const details=item.details||{};
-        const direct=String(item.videoUrl||details.videoUrl||'').trim();
-        const poster=String(item.thumbnailUrl||details.thumbnailUrl||'/images/branding/Aureon_Header_Logo.png');
-        return <article className={`news-card ${styles.card} ${styles.videoCard}`} key={item.id}>
-          <div className={styles.videoMedia}>
-            {direct
-              ? <PreviewGatedVideo src={direct} poster={poster} title={item.title||'Aureon video'} className={styles.inlineVideo}/>
-              : <Link href={`/videos/${item.slug||item.id}`} className={styles.videoPosterLink} aria-label={`Play ${item.title||'Aureon video'} on Aureon`}>
-                  <Image src={poster} alt={item.title||'Aureon video'} width={900} height={506} loading="lazy" quality={78} sizes="(max-width: 760px) 100vw, (max-width: 1200px) 50vw, 33vw"/>
-                  <span><Play size={26}/></span>
-                </Link>}
-          </div>
-          <div className={styles.videoCopy}>
-            <p className="eyebrow"><Play size={14}/> {item.shortForm?'Short-form clip':item.type||details.type||'Video'}</p>
-            <h3>{item.title}</h3>
-            <p className={styles.videoArtist}>{item.artistName||details.artistName}</p>
-            <Link className={styles.videoLink} href={`/videos/${item.slug||item.id}`}>View video page →</Link>
-          </div>
-        </article>})}</div>:<div className="store-empty"><p>Featured videos will appear here when published in the Control Center.</p></div>}
-    </section>
-    <Footer/>
-  </>;
+ const{items:news}=usePublishedCollection<News>('newsArticles',[]);const{items:videos}=usePublishedCollection<Video>('videos',[]);const featuredNews=news.filter(x=>x.featured).slice(0,3);const latestNews=(featuredNews.length?featuredNews:news).slice(0,3);const featuredVideos=videos.filter(x=>x.featured).slice(0,3);const latestVideos=(featuredVideos.length?featuredVideos:videos).slice(0,3);
+ return <><HomeArtistRotation/><section className={`content-panel ${styles.deferredSection}`}><div className="section-heading"><div><p className="eyebrow">Latest stories</p><h2>News from Aureon</h2></div><Link href="/news" className="ghost-button">View all news →</Link></div>{latestNews.length?<div className={styles.grid}>{latestNews.map(item=><article className={`news-card ${styles.card}`} key={item.id}><ArtworkImage src={getArtwork(item)} alt={item.title||'Aureon news'} width={900} height={600} loading="lazy" quality={78} sizes="(max-width:760px) 100vw, (max-width:1200px) 50vw, 33vw"/><p className="eyebrow"><Newspaper size={14}/> {item.featured?'Featured news':'Latest news'}</p><h3>{item.title}</h3><p>{item.excerpt||item.description}</p><Link href={`/news/${item.slug||item.id}`}>Read story →</Link></article>)}</div>:<div className="store-empty"><p>Published news will appear here automatically.</p></div>}</section>
+ <section className={`content-panel ${styles.deferredSection}`}><div className="section-heading"><div><p className="eyebrow">Watch now</p><h2>Featured videos</h2></div><Link href="/videos" className="ghost-button">View all videos →</Link></div>{latestVideos.length?<div className={styles.grid}>{latestVideos.map(item=>{const details=item.details||{};const direct=String(item.videoUrl||details.videoUrl||'').trim();const poster=getArtwork(item);return <article className={`news-card ${styles.card} ${styles.videoCard}`} key={item.id}><div className={styles.videoMedia}>{direct?<PreviewGatedVideo src={direct} poster={poster} title={item.title||'Aureon video'} className={styles.inlineVideo}/>:<Link href={`/videos/${item.slug||item.id}`} className={styles.videoPosterLink} aria-label={`Play ${item.title||'Aureon video'} on Aureon`}><ArtworkImage src={poster} alt={item.title||'Aureon video'} fill loading="lazy" quality={78} sizes="(max-width:760px) 100vw, (max-width:1200px) 50vw, 33vw"/><span><Play size={26}/></span></Link>}</div><div className={styles.videoCopy}><p className="eyebrow"><Play size={14}/> {item.shortForm?'Short-form clip':item.type||details.type||'Video'}</p><h3>{item.title}</h3><p className={styles.videoArtist}>{item.artistName||details.artistName}</p><Link className={styles.videoLink} href={`/videos/${item.slug||item.id}`}>View video page →</Link></div></article>})}</div>:<div className="store-empty"><p>Featured videos will appear here when published in the Control Center.</p></div>}</section><Footer/></>
 }
