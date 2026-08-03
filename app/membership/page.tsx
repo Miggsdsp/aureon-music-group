@@ -25,15 +25,20 @@ export default function MembershipPage() {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [accepted, setAccepted] = useState<Record<'listener' | 'creator', boolean>>({ listener: false, creator: false });
   useEffect(() => onAuthStateChanged(firebaseAuth, setUser), []);
 
   async function subscribe(plan: 'listener' | 'creator') {
+    if (!accepted[plan]) {
+      setMessage(`Please confirm that you have read and agree to the applicable ${plan === 'creator' ? 'Creator' : 'Listener'} terms before continuing.`);
+      return;
+    }
     setBusy(plan); setMessage('');
     const current = firebaseAuth.currentUser;
     if (!current) { window.location.href = `/account?plan=${plan}`; return; }
     try {
       const token = await current.getIdToken();
-      const response = await fetch('/api/subscriptions/checkout', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ plan }) });
+      const response = await fetch('/api/subscriptions/checkout', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ plan, legalAccepted: true }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to start subscription checkout.');
       if (!data.url) throw new Error('Stripe did not return a checkout link.');
@@ -42,10 +47,10 @@ export default function MembershipPage() {
   }
 
   return <main className="membership-page">
-    <div className="membership-navigation"><Link href="/">← Back to website</Link><Link href="/account">{user ? 'Open my dashboard' : 'Subscriber login'}</Link></div>
+    <div className="membership-navigation"><Link href="/">← Back to website</Link><Link href="/legal">Legal Centre</Link><Link href="/account">{user ? 'Open my dashboard' : 'Subscriber login'}</Link></div>
     <section className="membership-hero"><p className="membership-eyebrow">Aureon Membership</p><h1>Listen more.<br />Create more.</h1><p>Choose premium access for personal listening or professional music licensing for your content and business.</p></section>
     {message && <div className="membership-message" role="alert">{message}</div>}
-    <section className="membership-grid" aria-label="Membership plans">{plans.map(plan => <article className={`membership-card ${plan.id === 'creator' ? 'creator' : ''}`} key={plan.id}><p className="membership-plan">{plan.name}</p><h2>{plan.price}<small> / month</small></h2><p className="membership-description">{plan.description}</p><h3>Included</h3><ul>{plan.features.map(feature => <li key={feature}>✓ {feature}</li>)}</ul><h3>Not included / limits</h3><ul className="membership-exclusions">{plan.exclusions.map(feature => <li key={feature}>— {feature}</li>)}</ul><button className="primary-button membership-button" disabled={Boolean(busy)} onClick={() => subscribe(plan.id)}>{busy === plan.id ? 'Opening secure checkout…' : user ? `Choose ${plan.name}` : `Log in and choose ${plan.name}`}</button></article>)}</section>
-    <p className="membership-note">Subscriptions renew monthly until cancelled. Creator licence rights require an active Creator subscription. See the <Link href="/licensing">Digital Download and Licensing terms</Link>.</p>
+    <section className="membership-grid" aria-label="Membership plans">{plans.map(plan => <article className={`membership-card ${plan.id === 'creator' ? 'creator' : ''}`} key={plan.id}><p className="membership-plan">{plan.name}</p><h2>{plan.price}<small> / month</small></h2><p className="membership-description">{plan.description}</p><h3>Included</h3><ul>{plan.features.map(feature => <li key={feature}>✓ {feature}</li>)}</ul><h3>Not included / limits</h3><ul className="membership-exclusions">{plan.exclusions.map(feature => <li key={feature}>— {feature}</li>)}</ul><label className="membership-legal-consent"><input type="checkbox" checked={accepted[plan.id]} onChange={event => setAccepted(current => ({ ...current, [plan.id]: event.target.checked }))}/><span>I have read and agree to the <Link href="/legal/terms-of-use" target="_blank">Terms of Use</Link>, <Link href="/legal/privacy-policy" target="_blank">Privacy Policy</Link>, <Link href="/legal/refund-policy" target="_blank">Refund Policy</Link> and {plan.id === 'creator' ? <><Link href="/legal/creator-license" target="_blank">Creator License</Link> and <Link href="/legal/commercial-licensing" target="_blank">Commercial Licensing terms</Link></> : <Link href="/legal/listener-subscription-terms" target="_blank">Listener Subscription Terms</Link>}.</span></label><button className="primary-button membership-button" disabled={Boolean(busy) || !accepted[plan.id]} onClick={() => subscribe(plan.id)}>{busy === plan.id ? 'Opening secure checkout…' : user ? `Choose ${plan.name}` : `Log in and choose ${plan.name}`}</button></article>)}</section>
+    <p className="membership-note">Subscriptions renew monthly until cancelled. Creator licence rights require an active Creator subscription. All public terms are available in the <Link href="/legal">Aureon Legal Centre</Link>.</p>
   </main>;
 }
