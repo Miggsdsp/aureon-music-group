@@ -73,7 +73,7 @@ export function PreviewGatedVideo({ src, poster, title = 'Aureon video', classNa
         className={`${styles.video} ${className}`.trim()}
         src={src}
         controls
-        preload="metadata"
+        preload="none"
         poster={poster}
         playsInline
         aria-label={title}
