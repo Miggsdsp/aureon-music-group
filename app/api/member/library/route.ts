@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
     const cycle = billingCycleKey(context.member);
     const [recentSnapshot, downloadsSnapshot, usageSnapshot] = await Promise.all([
-      context.memberRef.collection('recentlyPlayed').orderBy('playedAt', 'desc').limit(20).get(),
+      context.memberRef.collection('recentlyPlayed').orderBy('playedAt', 'desc').limit(100).get(),
       context.memberRef.collection('downloadHistory').orderBy('createdAt', 'desc').limit(50).get(),
       context.memberRef.collection('downloadUsage').doc(cycle).get(),
     ]);
@@ -112,7 +112,13 @@ export async function POST(request: Request) {
         durationSeconds,
         progressPercent: Number(progressPercent.toFixed(2)),
       };
-      if (action === 'played') await context.memberRef.collection('recentlyPlayed').doc(songId).set({ ...song, playedAt: FieldValue.serverTimestamp() }, { merge: true });
+      const recentRecord: Record<string, unknown> = {
+        ...song,
+        playedAt: FieldValue.serverTimestamp(),
+      };
+      if (action === 'played') recentRecord.playCount = FieldValue.increment(1);
+      await context.memberRef.collection('recentlyPlayed').doc(songId).set(recentRecord, { merge: true });
+
       const completed = durationSeconds > 0 && (progressPercent >= 98 || durationSeconds - progressSeconds <= 5);
       await context.memberRef.set({
         continueListening: completed ? FieldValue.delete() : {
