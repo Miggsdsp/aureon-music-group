@@ -4,11 +4,30 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Headphones, Instagram, Mail, Music2, Radio, Scale, ShieldCheck, Youtube } from 'lucide-react';
+import { LatestPlayButton } from '@/components/LatestPlayButton';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import './footer-legal.css';
 
-type SongRecord = PublicRecord & { title?:string; slug?:string; artistName?:string; artist?:string; coverImageUrl?:string; imageUrl?:string; releaseDate?:string; createdAt?:unknown; featured?:boolean };
+type SongRecord = PublicRecord & {
+  title?: string;
+  slug?: string;
+  artistId?: string;
+  artistName?: string;
+  artist?: string;
+  artistSlug?: string;
+  albumId?: string;
+  albumTitle?: string;
+  coverImageUrl?: string;
+  imageUrl?: string;
+  previewUrl?: string;
+  price?: number;
+  promotional?: boolean;
+  releaseDate?: string;
+  createdAt?: unknown;
+  featured?: boolean;
+  details?: Record<string, any>;
+};
 type LegalRecord = { id:string; title?:string; slug?:string; order?:number };
 
 const defaults = {
@@ -46,14 +65,18 @@ export function Footer() {
     return String(b.releaseDate||'').localeCompare(String(a.releaseDate||''));
   })[0];
   const legalLinks = [...legalDocuments].sort((a,b)=>Number(a.order??999)-Number(b.order??999)||String(a.title).localeCompare(String(b.title)));
-  const latestImage = latest?.coverImageUrl || latest?.imageUrl || '/images/branding/Aureon_Header_Logo.png';
-  const latestArtist = latest?.artistName || latest?.artist || 'Aureon Music Group';
+  const latestDetails = latest?.details || {};
+  const latestImage = latest?.coverImageUrl || latestDetails.coverImageUrl || latest?.imageUrl || '/images/branding/Aureon_Header_Logo.png';
+  const latestArtist = latest?.artistName || latestDetails.artistName || latest?.artist || 'Aureon Music Group';
+  const latestPreview = latest?.previewUrl || latestDetails.previewUrl || '';
+  const latestPrice = Number(latest?.price ?? latestDetails.price ?? 0.99);
+  const latestPromotional = Boolean(latest?.promotional ?? latestDetails.promotional);
 
   return (
     <footer className="aureon-footer">
       <div className="aureon-footer-grid">
         <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Radio size={21}/></div><div><p className="aureon-footer-kicker">{value.missionTitle}</p><p>{value.missionText}</p><Link href={value.missionHref}>Learn more →</Link></div></section>
-        <section className="aureon-footer-panel aureon-release-panel"><div className="aureon-footer-icon"><Music2 size={21}/></div><div><p className="aureon-footer-kicker">{value.latestTitle}</p>{latest ? <div className="aureon-release-content"><Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} unoptimized/><div><strong>{latestArtist}</strong><span>{latest.title}</span><Link href={latest.slug ? `/music/${latest.slug}` : '/music'}>Listen now →</Link></div></div> : <p>No published release yet.</p>}</div></section>
+        <section className="aureon-footer-panel aureon-release-panel"><div className="aureon-footer-icon"><Music2 size={21}/></div><div><p className="aureon-footer-kicker">{value.latestTitle}</p>{latest ? <div className="aureon-release-content"><Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} unoptimized/><div><strong>{latestArtist}</strong><span>{latest.title}</span><LatestPlayButton title={latest.title || 'Latest release'} src={latestPreview} purchase={{id:latest.id,title:latest.title || 'Latest release',artist:latestArtist,image:latestImage,price:latestPrice,promotional:latestPromotional,slug:latest.slug,artistSlug:latest.artistSlug || latestDetails.artistSlug}} analytics={{id:latest.id,artistId:latest.artistId || latestDetails.artistId,artistName:latestArtist,albumId:latest.albumId || latestDetails.albumId,albumTitle:latest.albumTitle || latestDetails.albumTitle}}/></div></div> : <p>No published release yet.</p>}</div></section>
         <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Mail size={21}/></div><div><p className="aureon-footer-kicker">{value.journeyTitle}</p><p>{value.journeyText}</p><Link href={value.journeyHref}>Sign up →</Link></div></section>
         <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Headphones size={21}/></div><div><p className="aureon-footer-kicker">{value.followTitle}</p><div className="aureon-social-links" aria-label="Aureon social media"><a href={value.spotifyUrl} aria-label="Spotify">Spotify</a><a href={value.youtubeUrl} aria-label="YouTube"><Youtube size={18}/></a><a href={value.instagramUrl} aria-label="Instagram"><Instagram size={18}/></a><a href={value.tiktokUrl} aria-label="TikTok">TikTok</a><a href={value.appleMusicUrl} aria-label="Apple Music">Apple</a></div></div></section>
       </div>
