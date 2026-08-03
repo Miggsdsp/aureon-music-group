@@ -1,5 +1,5 @@
-.button{display:inline-flex!important;align-items:center;justify-content:center;gap:9px;max-width:100%;width:auto!important;min-width:0!important;margin:0!important;white-space:nowrap;line-height:1!important;text-align:center}
-.small{min-height:36px!important;padding:0 15px!important;font-size:10px!important;letter-spacing:.14em!important}
-.medium{min-height:42px!important;padding:0 20px!important;font-size:11px!important;letter-spacing:.16em!important}
-.large{min-height:46px!important;padding:0 24px!important;font-size:12px!important;letter-spacing:.17em!important}
-@media(max-width:520px){.medium,.large{min-height:40px!important;padding:0 16px!important;font-size:10px!important}}
+.button{display:inline-flex!important;align-items:center;justify-content:center;gap:7px;max-width:100%;width:auto!important;min-width:0!important;margin:0!important;white-space:nowrap;line-height:1!important;text-align:center;border-radius:0}
+.small{min-height:32px!important;padding:0 12px!important;font-size:9px!important;letter-spacing:.12em!important}
+.medium{min-height:36px!important;padding:0 14px!important;font-size:10px!important;letter-spacing:.13em!important}
+.large{min-height:42px!important;padding:0 20px!important;font-size:11px!important;letter-spacing:.15em!important}
+@media(max-width:520px){.small{min-height:30px!important;padding:0 10px!important}.medium,.large{min-height:34px!important;padding:0 12px!important;font-size:9px!important;letter-spacing:.11em!important}}
