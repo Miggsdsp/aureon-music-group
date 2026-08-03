@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { ListMusic, Pause, Play, Repeat1, Repeat2, Shuffle, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
 import { firebaseAuth } from '@/lib/firebase-client';
 import './music-player.css';
@@ -56,24 +57,60 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
   const [queueOpen, setQueueOpen] = useState(false);
   const [error, setError] = useState('');
+  const [authReady, setAuthReady] = useState(false);
   const currentSong = index >= 0 ? queue[index] || null : null;
 
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved) return;
-      if (Array.isArray(saved.queue)) setQueue(saved.queue);
-      if (Number.isInteger(saved.index)) setIndex(saved.index);
-      if (typeof saved.volume === 'number') setVolume(saved.volume);
-      if (typeof saved.muted === 'boolean') setMuted(saved.muted);
-      if (typeof saved.shuffle === 'boolean') setShuffle(saved.shuffle);
-      if (['off', 'one', 'all'].includes(saved.repeatMode)) setRepeatMode(saved.repeatMode);
-    } catch {}
+  const resetPlayer = useCallback((removeSavedState = false) => {
+    shouldAutoplay.current = false;
+    if (progressTimer.current) clearInterval(progressTimer.current);
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+    }
+    setQueue([]);
+    setIndex(-1);
+    setAudioUrl('');
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setQueueOpen(false);
+    setError('');
+    if (removeSavedState && typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  useEffect(() => onAuthStateChanged(firebaseAuth, user => {
+    if (!user) {
+      resetPlayer(true);
+      setAuthReady(true);
+      return;
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (saved) {
+        if (Array.isArray(saved.queue)) setQueue(saved.queue);
+        if (Number.isInteger(saved.index)) setIndex(saved.index);
+        if (typeof saved.volume === 'number') setVolume(saved.volume);
+        if (typeof saved.muted === 'boolean') setMuted(saved.muted);
+        if (typeof saved.shuffle === 'boolean') setShuffle(saved.shuffle);
+        if (['off', 'one', 'all'].includes(saved.repeatMode)) setRepeatMode(saved.repeatMode);
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    setAuthReady(true);
+  }), [resetPlayer]);
+
   useEffect(() => {
+    if (!authReady || !firebaseAuth.currentUser) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ queue, index, volume, muted, shuffle, repeatMode }));
-  }, [queue, index, volume, muted, shuffle, repeatMode]);
+  }, [authReady, queue, index, volume, muted, shuffle, repeatMode]);
+
+  useEffect(() => {
+    document.body.classList.toggle('aureon-player-visible', Boolean(currentSong));
+    return () => document.body.classList.remove('aureon-player-visible');
+  }, [currentSong]);
 
   const memberActivity = useCallback(async (action: 'played' | 'progress', song: PlayerSong, progressSeconds = 0, durationSeconds = 0) => {
     const user = firebaseAuth.currentUser;
@@ -200,14 +237,15 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const enqueue = (song: PlayerSong) => setQueue(current => current.some(item => item.id === song.id) ? current : [...current, song]);
   const enqueueMany = (songs: PlayerSong[]) => setQueue(current => [...current, ...songs.filter(song => !current.some(item => item.id === song.id))]);
   const removeFromQueue = (removeIndex: number) => setQueue(current => current.filter((_, itemIndex) => itemIndex !== removeIndex));
-  const clearQueue = () => { audioRef.current?.pause(); setQueue([]); setIndex(-1); setAudioUrl(''); setQueueOpen(false); };
+  const clearQueue = () => resetPlayer(true);
 
-  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, playQueue, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue]);
+  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, playQueue, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue, resetPlayer]);
 
   return <PlayerContext.Provider value={value}>
     {children}
     <audio ref={audioRef} preload="auto" playsInline onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(event.currentTarget.duration)} onEnded={next} />
     {currentSong && <aside className="aureon-global-player" aria-label="Music player">
+      <button className="aureon-player-close" type="button" onClick={() => resetPlayer(true)} aria-label="Close music player"><X /></button>
       {error && <div className="aureon-player-error">{error}</div>}
       <div className="aureon-player-track">
         {(currentSong.coverImageUrl || currentSong.imageUrl) ? <img src={currentSong.coverImageUrl || currentSong.imageUrl} alt="" /> : <div className="aureon-player-cover" />}
@@ -228,7 +266,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
         <button onClick={() => { const nextMuted = !muted; setMuted(nextMuted); if (audioRef.current) audioRef.current.muted = nextMuted; }} aria-label="Mute">{muted ? <VolumeX /> : <Volume2 />}</button>
         <input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={muted ? 0 : volume} onChange={event => { const nextVolume = Number(event.target.value); setVolume(nextVolume); setMuted(nextVolume === 0); if (audioRef.current) { audioRef.current.volume = nextVolume; audioRef.current.muted = nextVolume === 0; } }} />
       </div>
-      {queueOpen && <div className="aureon-queue-panel"><div className="aureon-queue-head"><strong>Up next</strong><button onClick={() => setQueueOpen(false)}><X /></button></div>{queue.map((song, itemIndex) => <button className={itemIndex === index ? 'current' : ''} key={`${song.id}-${itemIndex}`} onClick={() => loadAt(itemIndex)}><span>{itemIndex + 1}</span><div><strong>{song.title || 'Untitled track'}</strong><small>{song.artistName || song.artist || 'Aureon Music Group'}</small></div><span onClick={event => { event.stopPropagation(); removeFromQueue(itemIndex); }}>×</span></button>)}<button className="aureon-clear-queue" onClick={clearQueue}>Clear queue</button></div>}
+      {queueOpen && <div className="aureon-queue-panel"><div className="aureon-queue-head"><strong>Up next</strong><button onClick={() => setQueueOpen(false)} aria-label="Close queue"><X /></button></div>{queue.map((song, itemIndex) => <button className={itemIndex === index ? 'current' : ''} key={`${song.id}-${itemIndex}`} onClick={() => loadAt(itemIndex)}><span>{itemIndex + 1}</span><div><strong>{song.title || 'Untitled track'}</strong><small>{song.artistName || song.artist || 'Aureon Music Group'}</small></div><span onClick={event => { event.stopPropagation(); removeFromQueue(itemIndex); }}>×</span></button>)}<button className="aureon-clear-queue" onClick={clearQueue}>Clear queue</button></div>}
     </aside>}
   </PlayerContext.Provider>;
 }
