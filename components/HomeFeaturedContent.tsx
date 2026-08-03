@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { Play, Newspaper } from 'lucide-react';
 import { Footer } from './Footer';
 import { HomeArtistRotation } from './HomeArtistRotation';
+import { PreviewGatedVideo } from './video/PreviewGatedVideo';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import styles from './HomeFeaturedContent.module.css';
 
 type News = PublicRecord & {title?:string;slug?:string;excerpt?:string;description?:string;featuredImageUrl?:string;imageUrl?:string;publishAt?:any;publishDate?:string;featured?:boolean};
-type Video = PublicRecord & {title?:string;slug?:string;artistName?:string;thumbnailUrl?:string;videoUrl?:string;externalUrl?:string;youtubeUrl?:string;vimeoUrl?:string;featured?:boolean;shortForm?:boolean;type?:string};
+type Video = PublicRecord & {title?:string;slug?:string;artistName?:string;thumbnailUrl?:string;videoUrl?:string;externalUrl?:string;youtubeUrl?:string;vimeoUrl?:string;featured?:boolean;shortForm?:boolean;type?:string;details?:Record<string,any>};
 
 export function HomeFeaturedContent(){
   const {items:news}=usePublishedCollection<News>('newsArticles',[]);
@@ -26,7 +27,27 @@ export function HomeFeaturedContent(){
         <p className="eyebrow"><Newspaper size={14}/> {item.featured?'Featured news':'Latest news'}</p><h3>{item.title}</h3><p>{item.excerpt||item.description}</p><Link href={`/news/${item.slug||item.id}`}>Read story →</Link>
       </article>)}</div>:<div className="store-empty"><p>Published news will appear here automatically.</p></div>}
     </section>
-    <section className={`content-panel ${styles.deferredSection}`}><div className="section-heading"><div><p className="eyebrow">Watch now</p><h2>Featured videos</h2></div><Link href="/videos" className="ghost-button">View all videos →</Link></div>{latestVideos.length?<div className={styles.grid}>{latestVideos.map(item=>{const href=item.externalUrl||item.youtubeUrl||item.vimeoUrl||item.videoUrl||`/videos/${item.slug||item.id}`;return <article className={`news-card ${styles.card}`} key={item.id}>{item.thumbnailUrl&&<Image src={item.thumbnailUrl} alt={item.title||'Aureon video'} width={900} height={600} unoptimized loading="lazy" sizes="(max-width: 760px) 100vw, 33vw"/>}<p className="eyebrow"><Play size={14}/> {item.shortForm?'Short-form clip':item.type||'Video'}</p><h3>{item.title}</h3><p>{item.artistName}</p>{/^https?:/.test(href)?<a href={href} target="_blank" rel="noreferrer">Watch video →</a>:<Link href={href}>Watch video →</Link>}</article>})}</div>:<div className="store-empty"><p>Featured videos will appear here when published in the Control Center.</p></div>}</section>
+    <section className={`content-panel ${styles.deferredSection}`}>
+      <div className="section-heading"><div><p className="eyebrow">Watch now</p><h2>Featured videos</h2></div><Link href="/videos" className="ghost-button">View all videos →</Link></div>
+      {latestVideos.length?<div className={styles.grid}>{latestVideos.map(item=>{
+        const details=item.details||{};
+        const direct=String(item.videoUrl||details.videoUrl||'').trim();
+        const poster=String(item.thumbnailUrl||details.thumbnailUrl||'/images/branding/Aureon_Header_Logo.png');
+        return <article className={`news-card ${styles.card} ${styles.videoCard}`} key={item.id}>
+          <div className={styles.videoMedia}>
+            {direct
+              ? <PreviewGatedVideo src={direct} poster={poster} title={item.title||'Aureon video'} className={styles.inlineVideo}/>
+              : <Link href={`/videos/${item.slug||item.id}`} className={styles.videoPosterLink} aria-label={`Play ${item.title||'Aureon video'} on Aureon`}>
+                  <Image src={poster} alt={item.title||'Aureon video'} width={900} height={506} unoptimized loading="lazy" sizes="(max-width: 760px) 100vw, 33vw"/>
+                  <span><Play size={26}/></span>
+                </Link>}
+          </div>
+          <p className="eyebrow"><Play size={14}/> {item.shortForm?'Short-form clip':item.type||details.type||'Video'}</p>
+          <h3>{item.title}</h3>
+          <p>{item.artistName||details.artistName}</p>
+          <Link href={`/videos/${item.slug||item.id}`}>View video page →</Link>
+        </article>})}</div>:<div className="store-empty"><p>Featured videos will appear here when published in the Control Center.</p></div>}
+    </section>
     <Footer/>
   </>;
 }
