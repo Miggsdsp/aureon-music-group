@@ -1,9 +1,10 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import styles from './LegalDocument.module.css';
 
 type LegalDocument = {
@@ -30,10 +31,24 @@ function renderLine(line: string, index: number) {
 
 export default function LegalDocumentPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { data, loading } = usePublishedDocument<LegalDocument>('legalDocuments', slug, null);
+  const [data, setData] = useState<LegalDocument | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/legal?slug=${encodeURIComponent(slug)}`, { cache: 'no-store' })
+      .then(async response => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error('NOT_FOUND');
+        if (active) setData(payload.document || null);
+      })
+      .catch(() => active && setData(null))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [slug]);
 
   if (loading) return <main><Header /><section className={styles.shell}><p>Loading legal document…</p></section><Footer /></main>;
-  if (!data) return <main><Header /><section className={styles.shell}><p className={styles.kicker}>Legal Centre</p><h1>Document not found</h1><p>This document is not published or has been archived.</p></section><Footer /></main>;
+  if (!data) return <main><Header /><section className={styles.shell}><p className={styles.kicker}>Legal Centre</p><h1>Document not found</h1><p>This document is not published or has been archived.</p><Link className="ghost-button" href="/legal">View all legal documents →</Link></section><Footer /></main>;
 
   const lines = String(data.content || '').split(/\r?\n/);
   return <main>
@@ -47,6 +62,7 @@ export default function LegalDocumentPage() {
           {data.effectiveDate && <span>Effective {new Date(`${data.effectiveDate}T00:00:00`).toLocaleDateString('en-IE', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
           {data.lastUpdated && <span>Last updated {new Date(`${data.lastUpdated}T00:00:00`).toLocaleDateString('en-IE', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
         </div>
+        <Link className="ghost-button" href="/legal">← Back to Legal Centre</Link>
       </header>
       <section className={styles.content}>{lines.map(renderLine)}</section>
     </article>
