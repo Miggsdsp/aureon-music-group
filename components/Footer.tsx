@@ -95,7 +95,7 @@ export function Footer() {
             <p className="aureon-footer-kicker">{value.latestTitle}</p>
             {latest ? (
               <div className="aureon-release-content">
-                <Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} unoptimized/>
+                <Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} loading="lazy" quality={75} sizes="86px"/>
                 <div className="aureon-release-copy">
                   <strong>{latestArtist}</strong>
                   <span>{latest.title}</span>
