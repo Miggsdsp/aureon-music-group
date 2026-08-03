@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { NextResponse } from 'next/server';
 import { adminFirestore, adminStorage } from '@/lib/firebase-admin';
 import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
@@ -8,6 +9,15 @@ export const dynamic = 'force-dynamic';
 function privatePath(data: Record<string, any>) {
   const details = data.details && typeof data.details === 'object' ? data.details : {};
   return String(data.privateFilePath || details.privateFilePath || data.fullTrackPath || details.fullTrackPath || '').trim();
+}
+
+function parseRange(value: string | null, size: number) {
+  if (!value?.startsWith('bytes=')) return null;
+  const [startValue, endValue] = value.slice(6).split('-', 2);
+  const start = startValue ? Number(startValue) : 0;
+  const end = endValue ? Number(endValue) : size - 1;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= size) return null;
+  return { start, end: Math.min(end, size - 1) };
 }
 
 export async function GET(request: Request, context: { params: Promise<{ songId: string }> }) {
@@ -36,18 +46,24 @@ export async function GET(request: Request, context: { params: Promise<{ songId:
 
     const file = adminStorage.bucket().file(path);
     const [metadata] = await file.getMetadata();
-    const [buffer] = await file.download();
-    const contentType = String(metadata.contentType || 'audio/mpeg');
-    const body = buffer.buffer.slice(
-      buffer.byteOffset,
-      buffer.byteOffset + buffer.byteLength,
-    ) as ArrayBuffer;
+    const size = Number(metadata.size || 0);
+    if (!size) return NextResponse.json({ error: 'Full track is unavailable.' }, { status: 404 });
 
-    return new NextResponse(body, {
-      status: 200,
+    const contentType = String(metadata.contentType || 'audio/mpeg');
+    const range = parseRange(request.headers.get('range'), size);
+    const start = range?.start ?? 0;
+    const end = range?.end ?? size - 1;
+    const length = end - start + 1;
+    const nodeStream = file.createReadStream({ start, end, validation: false });
+    const stream = Readable.toWeb(nodeStream) as ReadableStream;
+
+    return new Response(stream, {
+      status: range ? 206 : 200,
       headers: {
         'Content-Type': contentType,
-        'Content-Length': String(buffer.length),
+        'Content-Length': String(length),
+        'Accept-Ranges': 'bytes',
+        ...(range ? { 'Content-Range': `bytes ${start}-${end}/${size}` } : {}),
         'Cache-Control': 'private, no-store, max-age=0',
         'Content-Disposition': `inline; filename="${encodeURIComponent(String(song.data()?.title || 'aureon-track'))}"`,
         'X-Content-Type-Options': 'nosniff',
