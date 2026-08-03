@@ -1,0 +1,87 @@
+'use client';
+
+import Image from 'next/image';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { CalendarDays } from 'lucide-react';
+import { LatestPlayButton } from '@/components/LatestPlayButton';
+import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
+import styles from './NewReleases.module.css';
+
+type RecordData = PublicRecord & { [key:string]: any; details?: Record<string, any> };
+type ReleaseKind = 'Single'|'Album'|'EP'|'Live'|'Remaster';
+type ReleaseItem = {
+  id:string; kind:ReleaseKind; title:string; slug:string; artist:string; artistSlug:string;
+  artistId:string; genre:string; year:string; date:Date; image:string; previewUrl:string;
+  songId?:string; albumId?:string; duration?:string;
+};
+
+const FALLBACK='/images/branding/Aureon_Header_Logo.png';
+const norm=(value:unknown)=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const text=(root:RecordData,keys:string[])=>{const d=root.details||{};for(const key of keys){const value=root[key]??d[key];if(value!==undefined&&value!==null&&value!=='')return String(value).trim();}return '';};
+const dateOf=(value:unknown)=>{const v:any=value;if(v?.toDate)return v.toDate() as Date;if(v?.seconds)return new Date(v.seconds*1000);const date=new Date(value as any);return Number.isNaN(date.getTime())?new Date(0):date;};
+function kindOf(record:RecordData,fallback:ReleaseKind):ReleaseKind{
+  const raw=norm(text(record,['releaseType','type','format','edition','albumType']));
+  if(raw.includes('remaster'))return'Remaster';
+  if(raw.includes('live'))return'Live';
+  if(raw==='ep'||raw.includes('extended-play'))return'EP';
+  if(raw.includes('single'))return'Single';
+  if(raw.includes('album')||raw.includes('lp'))return'Album';
+  return fallback;
+}
+
+export function NewReleases({artistId='',artistName='',genre='',compact=false,showFilters=true,limit=12}:{artistId?:string;artistName?:string;genre?:string;compact?:boolean;showFilters?:boolean;limit?:number}){
+  const{items:albums}=usePublishedCollection<RecordData>('albums',[]);
+  const{items:songs}=usePublishedCollection<RecordData>('songs',[]);
+  const[typeFilter,setTypeFilter]=useState('all');
+  const[genreFilter,setGenreFilter]=useState(genre||'all');
+  const[artistFilter,setArtistFilter]=useState(artistName||'all');
+  const[yearFilter,setYearFilter]=useState('all');
+
+  const releases=useMemo(()=>{
+    const albumItems:ReleaseItem[]=albums.map(album=>{
+      const releaseDate=dateOf(text(album,['releaseDate','publishedAt','publishDate','createdAt','year']));
+      const albumId=String(album.id||'');
+      const albumSlug=text(album,['slug'])||albumId;
+      const albumArtist=text(album,['artistName','artist']);
+      const albumArtistSlug=text(album,['artistSlug']);
+      const lead=songs.filter(song=>String(song.albumId||song.details?.albumId||'')===albumId||norm(song.albumSlug||song.details?.albumSlug)===norm(albumSlug)||norm(song.albumTitle||song.details?.albumTitle)===norm(album.title)).sort((a,b)=>Number(a.trackNumber??a.details?.trackNumber??999)-Number(b.trackNumber??b.details?.trackNumber??999)).find(song=>text(song,['previewUrl']));
+      return{id:albumId,kind:kindOf(album,'Album'),title:text(album,['title','name'])||'Untitled release',slug:`/music/${albumSlug}`,artist:albumArtist||'Aureon Music Group',artistSlug:albumArtistSlug,artistId:text(album,['artistId']),genre:text(album,['genre','primaryGenre']),year:releaseDate.getTime()?String(releaseDate.getFullYear()):text(album,['year']),date:releaseDate,image:text(album,['coverImageUrl','coverUrl','imageUrl'])||FALLBACK,previewUrl:lead?text(lead,['previewUrl']):'',songId:lead?.id,albumId,duration:lead?text(lead,['duration']):''};
+    });
+    const singleItems:ReleaseItem[]=songs.filter(song=>{
+      const assigned=Boolean(text(song,['albumId','albumSlug','albumTitle']));
+      const explicit=kindOf(song,'Single');
+      return !assigned||explicit==='Single'||explicit==='Live'||explicit==='Remaster';
+    }).map(song=>{
+      const releaseDate=dateOf(text(song,['releaseDate','publishedAt','publishDate','createdAt','year']));
+      const kind=kindOf(song,'Single');
+      const songSlug=text(song,['slug'])||String(song.id);
+      return{id:String(song.id),kind,title:text(song,['title','name'])||'Untitled release',slug:`/songs/${songSlug}`,artist:text(song,['artistName','artist'])||'Aureon Music Group',artistSlug:text(song,['artistSlug']),artistId:text(song,['artistId']),genre:text(song,['genre','primaryGenre']),year:releaseDate.getTime()?String(releaseDate.getFullYear()):text(song,['year']),date:releaseDate,image:text(song,['coverImageUrl','imageUrl'])||FALLBACK,previewUrl:text(song,['previewUrl']),songId:String(song.id),albumId:text(song,['albumId']),duration:text(song,['duration'])};
+    });
+    return[...albumItems,...singleItems].filter(item=>{
+      const matchesArtist=!artistId&&!artistName||norm(item.artistId)===norm(artistId)||norm(item.artist)===norm(artistName);
+      const matchesGenre=!genre||norm(item.genre)===norm(genre);
+      return matchesArtist&&matchesGenre;
+    }).sort((a,b)=>b.date.getTime()-a.date.getTime());
+  },[albums,songs,artistId,artistName,genre]);
+
+  const genres=useMemo(()=>Array.from(new Set(releases.map(item=>item.genre).filter(Boolean))).sort(),[releases]);
+  const artists=useMemo(()=>Array.from(new Set(releases.map(item=>item.artist).filter(Boolean))).sort(),[releases]);
+  const years=useMemo(()=>Array.from(new Set(releases.map(item=>item.year).filter(Boolean))).sort((a,b)=>Number(b)-Number(a)),[releases]);
+  const visible=releases.filter(item=>(typeFilter==='all'||item.kind===typeFilter)&&(genreFilter==='all'||item.genre===genreFilter)&&(artistFilter==='all'||item.artist===artistFilter)&&(yearFilter==='all'||item.year===yearFilter)).slice(0,limit);
+  if(!releases.length)return null;
+
+  return <section className={`${styles.section} ${compact?styles.compact:''}`} aria-labelledby={`new-releases-${norm(artistName||genre||'all')}`}>
+    <div className={styles.heading}><div><p>Fresh from Aureon</p><h2 id={`new-releases-${norm(artistName||genre||'all')}`}>New Releases</h2></div>{!compact&&<Link href="/genres/all">Browse all releases →</Link>}</div>
+    {showFilters&&<div className={styles.filters}>
+      <select aria-label="Release type" value={typeFilter} onChange={event=>setTypeFilter(event.target.value)}><option value="all">All formats</option>{['Single','Album','EP','Live','Remaster'].map(type=><option key={type}>{type}</option>)}</select>
+      {!genre&&<select aria-label="Genre" value={genreFilter} onChange={event=>setGenreFilter(event.target.value)}><option value="all">All genres</option>{genres.map(value=><option key={value}>{value}</option>)}</select>}
+      {!artistName&&<select aria-label="Artist" value={artistFilter} onChange={event=>setArtistFilter(event.target.value)}><option value="all">All artists</option>{artists.map(value=><option key={value}>{value}</option>)}</select>}
+      <select aria-label="Year" value={yearFilter} onChange={event=>setYearFilter(event.target.value)}><option value="all">All years</option>{years.map(value=><option key={value}>{value}</option>)}</select>
+    </div>}
+    {visible.length?<div className={styles.grid}>{visible.map(item=><article className={styles.card} key={`${item.kind}-${item.id}`}>
+      <Link href={item.slug} className={styles.artwork}><Image src={item.image} alt={`${item.title} artwork`} fill sizes={compact?'(max-width:700px) 50vw, 220px':'(max-width:700px) 100vw, (max-width:1100px) 50vw, 25vw'}/><span>{item.kind}</span></Link>
+      <div className={styles.copy}><p className={styles.date}><CalendarDays size={14}/>{item.date.getTime()?item.date.toLocaleDateString('en-IE',{day:'2-digit',month:'short',year:'numeric'}):item.year}</p><h3><Link href={item.slug}>{item.title}</Link></h3>{item.artistSlug?<Link className={styles.artist} href={`/artists/${item.artistSlug}`}>{item.artist}</Link>:<p className={styles.artist}>{item.artist}</p>}<p className={styles.meta}>{item.genre||'Original music'}{item.duration?` · ${item.duration}`:''}</p>{item.previewUrl&&item.songId?<LatestPlayButton title={item.title} src={item.previewUrl} buttonLabel="Play" showPurchase={false} analytics={{id:item.songId,artistId:item.artistId,artistName:item.artist,albumId:item.albumId,albumTitle:item.kind==='Album'||item.kind==='EP'?item.title:''}}/>:<Link className={styles.open} href={item.slug}>View release →</Link>}</div>
+    </article>)}</div>:<p className={styles.empty}>No releases match these filters.</p>}
+  </section>;
+}
