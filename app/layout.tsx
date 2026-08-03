@@ -3,6 +3,7 @@ import MusicPlayerProvider from '@/components/music/MusicPlayerProvider';
 import ListenerExperienceMount from '@/components/member/ListenerExperienceMount';
 import RoutePrefetcher from '@/components/RoutePrefetcher';
 import WebVitalsReporter from '@/components/WebVitalsReporter';
+import GrowthAnalyticsBridge from '@/components/GrowthAnalyticsBridge';
 import { DEFAULT_IMAGE, SITE_NAME, SITE_URL, safeJsonLd } from '@/lib/seo';
 import './globals.css';
 import './finish.css';
@@ -38,42 +39,18 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title, description, images: [DEFAULT_IMAGE] },
 };
 
-const organizationSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  '@id': `${SITE_URL}/#organization`,
-  name: SITE_NAME,
-  url: SITE_URL,
-  logo: `${SITE_URL}${DEFAULT_IMAGE}`,
-  description,
-};
-
-const websiteSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  '@id': `${SITE_URL}/#website`,
-  name: SITE_NAME,
-  url: SITE_URL,
-  publisher: { '@id': `${SITE_URL}/#organization` },
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: `${SITE_URL}/search?q={search_term_string}`,
-    'query-input': 'required name=search_term_string',
-  },
-};
+const organizationSchema = { '@context': 'https://schema.org', '@type': 'Organization', '@id': `${SITE_URL}/#organization`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}${DEFAULT_IMAGE}`, description };
+const websiteSchema = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${SITE_URL}/#website`, name: SITE_NAME, url: SITE_URL, publisher: { '@id': `${SITE_URL}/#organization` }, potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/search?q={search_term_string}`, 'query-input': 'required name=search_term_string' } };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en-IE">
-      <body>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([organizationSchema, websiteSchema]) }} />
-        <MusicPlayerProvider>
-          {children}
-          <ListenerExperienceMount />
-          <RoutePrefetcher />
-          <WebVitalsReporter />
-        </MusicPlayerProvider>
-      </body>
-    </html>
-  );
+  return <html lang="en-IE"><body>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([organizationSchema, websiteSchema]) }} />
+    <MusicPlayerProvider>
+      {children}
+      <ListenerExperienceMount />
+      <RoutePrefetcher />
+      <WebVitalsReporter />
+      <GrowthAnalyticsBridge />
+    </MusicPlayerProvider>
+  </body></html>;
 }
