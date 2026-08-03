@@ -24,6 +24,7 @@ type PlayerContextValue = {
   queue: PlayerSong[];
   isPlaying: boolean;
   playSong: (song: PlayerSong, queue?: PlayerSong[], index?: number) => Promise<void>;
+  resumeSong: (song: PlayerSong, positionSeconds: number, queue?: PlayerSong[], index?: number) => Promise<void>;
   playQueue: (songs: PlayerSong[], index?: number) => Promise<void>;
   enqueue: (song: PlayerSong) => void;
   enqueueMany: (songs: PlayerSong[]) => void;
@@ -44,6 +45,7 @@ export function useMusicPlayer() {
 export default function MusicPlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const shouldAutoplay = useRef(false);
+  const pendingSeek = useRef(0);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [queue, setQueue] = useState<PlayerSong[]>([]);
   const [index, setIndex] = useState(-1);
@@ -62,6 +64,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
 
   const resetPlayer = useCallback((removeSavedState = false) => {
     shouldAutoplay.current = false;
+    pendingSeek.current = 0;
     if (progressTimer.current) clearInterval(progressTimer.current);
     const audio = audioRef.current;
     if (audio) {
@@ -117,7 +120,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     if (!user) return;
     try {
       const token = await user.getIdToken();
-      await fetch('/api/member/library', {
+      const response = await fetch('/api/member/library', {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -130,6 +133,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
           durationSeconds,
         }),
       });
+      if (response.ok && typeof window !== 'undefined') window.dispatchEvent(new Event('aureon-continue-listening-updated'));
     } catch {}
   }, []);
 
@@ -143,19 +147,21 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     return String(data.url);
   }, []);
 
-  const loadAt = useCallback(async (nextIndex: number, nextQueue = queue) => {
+  const loadAt = useCallback(async (nextIndex: number, nextQueue = queue, startSeconds = 0) => {
     const song = nextQueue[nextIndex];
     if (!song) return;
     setError('');
     shouldAutoplay.current = true;
+    pendingSeek.current = Math.max(0, Number(startSeconds || 0));
     try {
       const url = await fetchStream(song);
       setQueue(nextQueue);
       setIndex(nextIndex);
       setAudioUrl(url);
-      void memberActivity('played', song);
+      void memberActivity('played', song, pendingSeek.current, Number(song.duration || 0));
     } catch (err) {
       shouldAutoplay.current = false;
+      pendingSeek.current = 0;
       setError(err instanceof Error ? err.message : 'Unable to play this track.');
     }
   }, [fetchStream, memberActivity, queue]);
@@ -163,12 +169,18 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const playSong = useCallback(async (song: PlayerSong, nextQueue?: PlayerSong[], nextIndex?: number) => {
     const targetQueue = nextQueue?.length ? nextQueue : [song];
     const targetIndex = nextIndex ?? Math.max(0, targetQueue.findIndex(item => item.id === song.id));
-    await loadAt(targetIndex, targetQueue);
+    await loadAt(targetIndex, targetQueue, 0);
+  }, [loadAt]);
+
+  const resumeSong = useCallback(async (song: PlayerSong, positionSeconds: number, nextQueue?: PlayerSong[], nextIndex?: number) => {
+    const targetQueue = nextQueue?.length ? nextQueue : [song];
+    const targetIndex = nextIndex ?? Math.max(0, targetQueue.findIndex(item => item.id === song.id));
+    await loadAt(targetIndex, targetQueue, positionSeconds);
   }, [loadAt]);
 
   const playQueue = useCallback(async (songs: PlayerSong[], startIndex = 0) => {
     if (!songs.length) return;
-    await loadAt(startIndex, songs);
+    await loadAt(startIndex, songs, 0);
   }, [loadAt]);
 
   const next = useCallback(async () => {
@@ -209,12 +221,17 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     setCurrentTime(0);
     setDuration(0);
     const start = async () => {
+      if (pendingSeek.current > 0 && Number.isFinite(audio.duration)) {
+        audio.currentTime = Math.min(pendingSeek.current, Math.max(0, audio.duration - 1));
+        setCurrentTime(audio.currentTime);
+      }
+      pendingSeek.current = 0;
       if (!shouldAutoplay.current) return;
       shouldAutoplay.current = false;
       try { await audio.play(); } catch { setError('Playback was blocked. Press Play to continue.'); }
     };
-    audio.addEventListener('canplay', start, { once: true });
-    return () => audio.removeEventListener('canplay', start);
+    audio.addEventListener('loadedmetadata', start, { once: true });
+    return () => audio.removeEventListener('loadedmetadata', start);
   }, [audioUrl, muted, volume]);
 
   useEffect(() => {
@@ -226,6 +243,15 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     }, 15000);
     return () => { if (progressTimer.current) clearInterval(progressTimer.current); };
   }, [currentSong, isPlaying, memberActivity]);
+
+  useEffect(() => {
+    const saveBeforeLeave = () => {
+      const audio = audioRef.current;
+      if (audio && currentSong && audio.currentTime > 0) void memberActivity('progress', currentSong, audio.currentTime, audio.duration || 0);
+    };
+    window.addEventListener('pagehide', saveBeforeLeave);
+    return () => window.removeEventListener('pagehide', saveBeforeLeave);
+  }, [currentSong, memberActivity]);
 
   const toggle = async () => {
     const audio = audioRef.current;
@@ -239,12 +265,12 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const removeFromQueue = (removeIndex: number) => setQueue(current => current.filter((_, itemIndex) => itemIndex !== removeIndex));
   const clearQueue = () => resetPlayer(true);
 
-  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, playQueue, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue, resetPlayer]);
+  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, resumeSong, playQueue, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue, resetPlayer, resumeSong]);
 
   return <PlayerContext.Provider value={value}>
     {children}
     {currentSong && <div className="aureon-player-spacer" aria-hidden="true" />}
-    <audio ref={audioRef} preload="auto" playsInline onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(event.currentTarget.duration)} onEnded={next} />
+    <audio ref={audioRef} preload="auto" playsInline onPlay={() => setIsPlaying(true)} onPause={event => { setIsPlaying(false); if (currentSong && event.currentTarget.currentTime > 0) void memberActivity('progress', currentSong, event.currentTarget.currentTime, event.currentTarget.duration || 0); }} onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(event.currentTarget.duration)} onEnded={next} />
     {currentSong && <aside className="aureon-global-player" aria-label="Music player">
       <button className="aureon-player-close" type="button" onClick={() => resetPlayer(true)} aria-label="Close music player"><X /></button>
       {error && <div className="aureon-player-error">{error}</div>}
