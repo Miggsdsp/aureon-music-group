@@ -89,7 +89,23 @@ export function Footer() {
     <footer className="aureon-footer">
       <div className="aureon-footer-grid">
         <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Radio size={21}/></div><div><p className="aureon-footer-kicker">{value.missionTitle}</p><p>{value.missionText}</p><Link href={value.missionHref}>Learn more →</Link></div></section>
-        <section className="aureon-footer-panel aureon-release-panel"><div className="aureon-footer-icon"><Music2 size={21}/></div><div><p className="aureon-footer-kicker">{value.latestTitle}</p>{latest ? <div className="aureon-release-content"><Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} unoptimized/><div><strong>{latestArtist}</strong><span>{latest.title}</span><LatestPlayButton title={latest.title || 'Latest release'} src={latestPreview} buttonLabel="Play it now" showPurchase={false} purchase={{id:latest.id,title:latest.title || 'Latest release',artist:latestArtist,image:latestImage,price:latestPrice,promotional:latestPromotional,slug:latest.slug,artistSlug:latest.artistSlug || latestDetails.artistSlug}} analytics={{id:latest.id,artistId:latest.artistId || latestDetails.artistId,artistName:latestArtist,albumId:latest.albumId || latestDetails.albumId,albumTitle:latest.albumTitle || latestDetails.albumTitle}}/></div></div> : <p>No published release yet.</p>}</div></section>
+        <section className="aureon-footer-panel aureon-release-panel">
+          <div className="aureon-footer-icon"><Music2 size={21}/></div>
+          <div className="aureon-release-panel-body">
+            <p className="aureon-footer-kicker">{value.latestTitle}</p>
+            {latest ? (
+              <div className="aureon-release-content">
+                <div className="aureon-release-summary">
+                  <Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} unoptimized/>
+                  <div className="aureon-release-copy"><strong>{latestArtist}</strong><span>{latest.title}</span></div>
+                </div>
+                <div className="aureon-release-action">
+                  <LatestPlayButton title={latest.title || 'Latest release'} src={latestPreview} buttonLabel="Play it now" showPurchase={false} purchase={{id:latest.id,title:latest.title || 'Latest release',artist:latestArtist,image:latestImage,price:latestPrice,promotional:latestPromotional,slug:latest.slug,artistSlug:latest.artistSlug || latestDetails.artistSlug}} analytics={{id:latest.id,artistId:latest.artistId || latestDetails.artistId,artistName:latestArtist,albumId:latest.albumId || latestDetails.albumId,albumTitle:latest.albumTitle || latestDetails.albumTitle}}/>
+                </div>
+              </div>
+            ) : <p>No published release yet.</p>}
+          </div>
+        </section>
         <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Mail size={21}/></div><div><p className="aureon-footer-kicker">{value.journeyTitle}</p><p>{value.journeyText}</p><Link href={value.journeyHref}>Sign up →</Link></div></section>
         <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Headphones size={21}/></div><div><p className="aureon-footer-kicker">{value.followTitle}</p>{socialLinks.length ? <div className="aureon-social-links" aria-label="Aureon social media">{socialLinks.map(item=><a key={item.label} href={item.href} target="_blank" rel="noopener noreferrer" aria-label={item.label}>{item.icon || item.label}</a>)}</div> : <p>Social channels coming soon.</p>}</div></section>
       </div>
