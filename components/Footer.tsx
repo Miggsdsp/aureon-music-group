@@ -1,126 +1,32 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { Headphones, Instagram, Mail, Music2, Radio, Scale, ShieldCheck, Youtube } from 'lucide-react';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import { LatestPlayButton } from '@/components/LatestPlayButton';
 import { firestore } from '@/lib/firebase-client';
+import { getArtwork } from '@/lib/get-artwork';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import './footer-legal.css';
 
-type SongRecord = PublicRecord & {
-  title?: string;
-  slug?: string;
-  artistId?: string;
-  artistName?: string;
-  artist?: string;
-  artistSlug?: string;
-  albumId?: string;
-  albumTitle?: string;
-  coverImageUrl?: string;
-  imageUrl?: string;
-  previewUrl?: string;
-  price?: number;
-  promotional?: boolean;
-  releaseDate?: string;
-  createdAt?: unknown;
-  featured?: boolean;
-  details?: Record<string, any>;
-};
+type SongRecord = PublicRecord & { title?:string; slug?:string; artistId?:string; artistName?:string; artist?:string; artistSlug?:string; albumId?:string; albumTitle?:string; coverImageUrl?:string; imageUrl?:string; previewUrl?:string; price?:number; promotional?:boolean; releaseDate?:string; createdAt?:unknown; featured?:boolean; details?:Record<string,any> };
+type SocialSettings = { spotifyUrl:string; youtubeUrl:string; instagramUrl:string; tiktokUrl:string; appleMusicUrl:string };
+const defaults={missionTitle:'Our Mission',missionText:'Elevating music. Empowering artists. Creating legacies that inspire generations.',missionHref:'/about',latestTitle:'Latest Release',journeyTitle:'Join The Journey',journeyText:'Be the first to hear about new music, artists and exclusive content.',journeyHref:'/contact',followTitle:'Follow Us',copyright:'© 2026 Aureon Music Group. All rights reserved.'};
+const socialDefaults:SocialSettings={spotifyUrl:'',youtubeUrl:'',instagramUrl:'',tiktokUrl:'',appleMusicUrl:''};
 
-type SocialSettings = {
-  spotifyUrl: string;
-  youtubeUrl: string;
-  instagramUrl: string;
-  tiktokUrl: string;
-  appleMusicUrl: string;
-};
-
-const defaults = {
-  missionTitle:'Our Mission', missionText:'Elevating music. Empowering artists. Creating legacies that inspire generations.', missionHref:'/about',
-  latestTitle:'Latest Release', journeyTitle:'Join The Journey', journeyText:'Be the first to hear about new music, artists and exclusive content.', journeyHref:'/contact',
-  followTitle:'Follow Us', copyright:'© 2026 Aureon Music Group. All rights reserved.'
-};
-
-const socialDefaults: SocialSettings = {
-  spotifyUrl:'', youtubeUrl:'', instagramUrl:'', tiktokUrl:'', appleMusicUrl:''
-};
-
-export function Footer() {
-  const { data } = usePublishedDocument<any>('sitePages','footer',defaults);
-  const { items:songs } = usePublishedCollection<SongRecord>('songs',[]);
-  const [socials, setSocials] = useState<SocialSettings>(socialDefaults);
-  const value = { ...defaults, ...(data || {}) };
-
-  useEffect(() => onSnapshot(doc(firestore, 'siteSettings', 'platform'), snapshot => {
-    const raw = snapshot.exists() ? snapshot.data() : {};
-    setSocials({
-      spotifyUrl: String(raw.spotifyUrl || ''),
-      youtubeUrl: String(raw.youtubeUrl || ''),
-      instagramUrl: String(raw.instagramUrl || ''),
-      tiktokUrl: String(raw.tiktokUrl || ''),
-      appleMusicUrl: String(raw.appleMusicUrl || ''),
-    });
-  }, () => setSocials(socialDefaults)), []);
-
-  const latest = [...songs].sort((a,b)=>{
-    const featured = Number(Boolean(b.featured))-Number(Boolean(a.featured));
-    if(featured) return featured;
-    return String(b.releaseDate||'').localeCompare(String(a.releaseDate||''));
-  })[0];
-  const latestDetails = latest?.details || {};
-  const latestImage = latest?.coverImageUrl || latestDetails.coverImageUrl || latest?.imageUrl || '/images/branding/Aureon_Header_Logo.png';
-  const latestArtist = latest?.artistName || latestDetails.artistName || latest?.artist || 'Aureon Music Group';
-  const latestPreview = latest?.previewUrl || latestDetails.previewUrl || '';
-  const latestPrice = Number(latest?.price ?? latestDetails.price ?? 0.99);
-  const latestPromotional = Boolean(latest?.promotional ?? latestDetails.promotional);
-  const socialLinks = [
-    socials.spotifyUrl && { label:'Spotify', href:socials.spotifyUrl, icon:null },
-    socials.youtubeUrl && { label:'YouTube', href:socials.youtubeUrl, icon:<Youtube size={18}/> },
-    socials.instagramUrl && { label:'Instagram', href:socials.instagramUrl, icon:<Instagram size={18}/> },
-    socials.tiktokUrl && { label:'TikTok', href:socials.tiktokUrl, icon:null },
-    socials.appleMusicUrl && { label:'Apple Music', href:socials.appleMusicUrl, icon:null },
-  ].filter(Boolean) as Array<{label:string;href:string;icon:React.ReactNode}>;
-
-  return (
-    <footer className="aureon-footer">
-      <div className="aureon-footer-grid">
-        <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Radio size={21}/></div><div><p className="aureon-footer-kicker">{value.missionTitle}</p><p>{value.missionText}</p><Link href={value.missionHref}>Learn more →</Link></div></section>
-        <section className="aureon-footer-panel aureon-release-panel">
-          <div className="aureon-footer-icon"><Music2 size={21}/></div>
-          <div className="aureon-release-panel-body">
-            <p className="aureon-footer-kicker">{value.latestTitle}</p>
-            {latest ? (
-              <div className="aureon-release-content">
-                <Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} loading="lazy" quality={75} sizes="86px"/>
-                <div className="aureon-release-copy">
-                  <strong>{latestArtist}</strong>
-                  <span>{latest.title}</span>
-                  <LatestPlayButton title={latest.title || 'Latest release'} src={latestPreview} buttonLabel="Play it now" showPurchase={false} purchase={{id:latest.id,title:latest.title || 'Latest release',artist:latestArtist,image:latestImage,price:latestPrice,promotional:latestPromotional,slug:latest.slug,artistSlug:latest.artistSlug || latestDetails.artistSlug}} analytics={{id:latest.id,artistId:latest.artistId || latestDetails.artistId,artistName:latestArtist,albumId:latest.albumId || latestDetails.albumId,albumTitle:latest.albumTitle || latestDetails.albumTitle}}/>
-                </div>
-              </div>
-            ) : <p>No published release yet.</p>}
-          </div>
-        </section>
-        <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Mail size={21}/></div><div><p className="aureon-footer-kicker">{value.journeyTitle}</p><p>{value.journeyText}</p><Link href={value.journeyHref}>Sign up →</Link></div></section>
-        <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Headphones size={21}/></div><div><p className="aureon-footer-kicker">{value.followTitle}</p>{socialLinks.length ? <div className="aureon-social-links" aria-label="Aureon social media">{socialLinks.map(item=><a key={item.label} href={item.href} target="_blank" rel="noopener noreferrer" aria-label={item.label}>{item.icon || item.label}</a>)}</div> : <p>Social channels coming soon.</p>}</div></section>
-      </div>
-
-      <section className="aureon-footer-legal" aria-labelledby="footer-legal-title">
-        <div className="aureon-footer-legal-intro">
-          <div className="aureon-footer-legal-icon" aria-hidden="true"><Scale size={25}/></div>
-          <div>
-            <p className="aureon-footer-kicker" id="footer-legal-title">Legal &amp; Policies</p>
-            <p>Read Aureon’s public terms, privacy information, subscription conditions, licensing rules and platform policies.</p>
-          </div>
-          <Link className="aureon-footer-legal-button" href="/legal"><ShieldCheck size={18}/> Open Legal Centre</Link>
-        </div>
-      </section>
-
-      <div className="aureon-footer-bottom"><p>{value.copyright}</p><nav aria-label="Footer links"><Link href="/artists">Artists</Link><Link href="/music">Music</Link><Link href="/videos">Videos</Link><Link href="/contact">Contact</Link></nav></div>
-    </footer>
-  );
+export function Footer(){
+ const{data}=usePublishedDocument<any>('sitePages','footer',defaults);const{items:songs}=usePublishedCollection<SongRecord>('songs',[]);const[socials,setSocials]=useState<SocialSettings>(socialDefaults);const value={...defaults,...(data||{})};
+ useEffect(()=>onSnapshot(doc(firestore,'siteSettings','platform'),snapshot=>{const raw=snapshot.exists()?snapshot.data():{};setSocials({spotifyUrl:String(raw.spotifyUrl||''),youtubeUrl:String(raw.youtubeUrl||''),instagramUrl:String(raw.instagramUrl||''),tiktokUrl:String(raw.tiktokUrl||''),appleMusicUrl:String(raw.appleMusicUrl||'')})},()=>setSocials(socialDefaults)),[]);
+ const latest=[...songs].sort((a,b)=>{const featured=Number(Boolean(b.featured))-Number(Boolean(a.featured));if(featured)return featured;return String(b.releaseDate||'').localeCompare(String(a.releaseDate||''))})[0];
+ const latestDetails=latest?.details||{};const latestImage=getArtwork(latest);const latestArtist=latest?.artistName||latestDetails.artistName||latest?.artist||'Aureon Music Group';const latestPreview=latest?.previewUrl||latestDetails.previewUrl||'';const latestPrice=Number(latest?.price??latestDetails.price??0.99);const latestPromotional=Boolean(latest?.promotional??latestDetails.promotional);
+ const socialLinks=[socials.spotifyUrl&&{label:'Spotify',href:socials.spotifyUrl,icon:null},socials.youtubeUrl&&{label:'YouTube',href:socials.youtubeUrl,icon:<Youtube size={18}/>},socials.instagramUrl&&{label:'Instagram',href:socials.instagramUrl,icon:<Instagram size={18}/>},socials.tiktokUrl&&{label:'TikTok',href:socials.tiktokUrl,icon:null},socials.appleMusicUrl&&{label:'Apple Music',href:socials.appleMusicUrl,icon:null}].filter(Boolean) as Array<{label:string;href:string;icon:React.ReactNode}>;
+ return <footer className="aureon-footer"><div className="aureon-footer-grid">
+  <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Radio size={21}/></div><div><p className="aureon-footer-kicker">{value.missionTitle}</p><p>{value.missionText}</p><Link href={value.missionHref}>Learn more →</Link></div></section>
+  <section className="aureon-footer-panel aureon-release-panel"><div className="aureon-footer-icon"><Music2 size={21}/></div><div className="aureon-release-panel-body"><p className="aureon-footer-kicker">{value.latestTitle}</p>{latest?<div className="aureon-release-content"><ArtworkImage src={latestImage} alt={latest.title||'Latest release'} width={86} height={86} loading="lazy" quality={75} sizes="86px"/><div className="aureon-release-copy"><strong>{latestArtist}</strong><span>{latest.title}</span><LatestPlayButton size="small" title={latest.title||'Latest release'} src={latestPreview} buttonLabel="Play it now" showPurchase={false} purchase={{id:latest.id,title:latest.title||'Latest release',artist:latestArtist,image:latestImage,price:latestPrice,promotional:latestPromotional,slug:latest.slug,artistSlug:latest.artistSlug||latestDetails.artistSlug}} analytics={{id:latest.id,artistId:latest.artistId||latestDetails.artistId,artistName:latestArtist,albumId:latest.albumId||latestDetails.albumId,albumTitle:latest.albumTitle||latestDetails.albumTitle}}/></div></div>:<p>No published release yet.</p>}</div></section>
+  <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Mail size={21}/></div><div><p className="aureon-footer-kicker">{value.journeyTitle}</p><p>{value.journeyText}</p><Link href={value.journeyHref}>Sign up →</Link></div></section>
+  <section className="aureon-footer-panel"><div className="aureon-footer-icon"><Headphones size={21}/></div><div><p className="aureon-footer-kicker">{value.followTitle}</p>{socialLinks.length?<div className="aureon-social-links" aria-label="Aureon social media">{socialLinks.map(item=><a key={item.label} href={item.href} target="_blank" rel="noopener noreferrer" aria-label={item.label}>{item.icon||item.label}</a>)}</div>:<p>Social channels coming soon.</p>}</div></section>
+ </div><section className="aureon-footer-legal" aria-labelledby="footer-legal-title"><div className="aureon-footer-legal-intro"><div className="aureon-footer-legal-icon" aria-hidden="true"><Scale size={25}/></div><div><p className="aureon-footer-kicker" id="footer-legal-title">Legal &amp; Policies</p><p>Read Aureon’s public terms, privacy information, subscription conditions, licensing rules and platform policies.</p></div><Link className="aureon-footer-legal-button" href="/legal"><ShieldCheck size={18}/> Open Legal Centre</Link></div></section><div className="aureon-footer-bottom"><p>{value.copyright}</p><nav aria-label="Footer links"><Link href="/artists">Artists</Link><Link href="/music">Music</Link><Link href="/videos">Videos</Link><Link href="/contact">Contact</Link></nav></div></footer>
 }
