@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import MusicPlayerProvider from '@/components/music/MusicPlayerProvider';
 import ListenerExperienceMount from '@/components/member/ListenerExperienceMount';
 import RoutePrefetcher from '@/components/RoutePrefetcher';
+import WebVitalsReporter from '@/components/WebVitalsReporter';
 import { DEFAULT_IMAGE, SITE_NAME, SITE_URL, safeJsonLd } from '@/lib/seo';
 import './globals.css';
 import './finish.css';
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <ListenerExperienceMount />
           <RoutePrefetcher />
+          <WebVitalsReporter />
         </MusicPlayerProvider>
       </body>
     </html>
