@@ -67,12 +67,82 @@ function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+function readUint16(view: DataView, offset: number) {
+  return view.getUint16(offset, true);
+}
+
+function readUint32(view: DataView, offset: number) {
+  return view.getUint32(offset, true);
+}
+
+async function inflateRaw(bytes: Uint8Array) {
+  if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot extract Word documents. Please use current Safari, Chrome or Edge.');
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function extractZipEntry(buffer: ArrayBuffer, wantedName: string) {
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  const decoder = new TextDecoder();
+  let offset = 0;
+
+  while (offset + 30 <= view.byteLength) {
+    const signature = readUint32(view, offset);
+    if (signature !== 0x04034b50) {
+      offset += 1;
+      continue;
+    }
+
+    const flags = readUint16(view, offset + 6);
+    const compression = readUint16(view, offset + 8);
+    const compressedSize = readUint32(view, offset + 18);
+    const fileNameLength = readUint16(view, offset + 26);
+    const extraLength = readUint16(view, offset + 28);
+    const nameStart = offset + 30;
+    const name = decoder.decode(bytes.slice(nameStart, nameStart + fileNameLength));
+    const dataStart = nameStart + fileNameLength + extraLength;
+
+    if ((flags & 0x08) !== 0) throw new Error('This Word document uses an unsupported ZIP layout. Save it again as .docx and retry.');
+    if (name === wantedName) {
+      const compressed = bytes.slice(dataStart, dataStart + compressedSize);
+      if (compression === 0) return compressed;
+      if (compression === 8) return inflateRaw(compressed);
+      throw new Error('The Word document uses unsupported compression.');
+    }
+    offset = dataStart + compressedSize;
+  }
+
+  throw new Error('The Word document content could not be found.');
+}
+
+function wordXmlToText(xml: string) {
+  const documentXml = new DOMParser().parseFromString(xml, 'application/xml');
+  if (documentXml.querySelector('parsererror')) throw new Error('The Word document content is invalid.');
+
+  const paragraphs = Array.from(documentXml.getElementsByTagNameNS('*', 'p'));
+  const lines = paragraphs.map(paragraph => {
+    const textNodes = Array.from(paragraph.getElementsByTagNameNS('*', 't'));
+    let text = textNodes.map(node => node.textContent || '').join('');
+    if (paragraph.getElementsByTagNameNS('*', 'tab').length) text = text.replace(/\s*$/, '') + '\t';
+    return text.trim();
+  }).filter(Boolean);
+
+  return lines.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+async function readDocx(file: File) {
+  const entry = await extractZipEntry(await file.arrayBuffer(), 'word/document.xml');
+  return wordXmlToText(new TextDecoder().decode(entry));
+}
+
 export function LegalManager() {
   const [items, setItems] = useState<LegalRow[]>([]);
   const [editing, setEditing] = useState<LegalRow | null>(null);
   const [form, setForm] = useState<LegalForm>(blank);
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => onSnapshot(collection(firestore, 'legalDocuments'), snapshot => {
     setItems(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() } as LegalRow)));
@@ -104,14 +174,25 @@ export function LegalManager() {
   }
 
   async function importFile(file: File) {
-    const allowed = /\.(txt|md|markdown|html|htm)$/i.test(file.name);
-    if (!allowed) {
-      setMessage('Please import a TXT, Markdown or HTML file. Word/PDF files should be copied into the editor to preserve accuracy.');
+    const isDocx = /\.docx$/i.test(file.name) || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const isText = /\.(txt|md|markdown|html|htm)$/i.test(file.name);
+    if (!isDocx && !isText) {
+      setMessage('Supported files are DOCX, TXT, Markdown and HTML. Legacy .doc and PDF files must be saved as .docx first.');
       return;
     }
-    const text = await file.text();
-    setForm(current => ({ ...current, content: text }));
-    setMessage(`${file.name} imported. Review the formatting before publishing.`);
+
+    setImporting(true);
+    setMessage(`Importing ${file.name}…`);
+    try {
+      const text = isDocx ? await readDocx(file) : await file.text();
+      if (!text.trim()) throw new Error('No readable wording was found in this document.');
+      setForm(current => ({ ...current, content: text }));
+      setMessage(`${file.name} imported successfully. Review the clause numbering and formatting before publishing.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'The document could not be imported.');
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function save(status: LegalForm['status']) {
@@ -178,11 +259,11 @@ export function LegalManager() {
           <label>Effective date<input type="date" value={form.effectiveDate} onChange={event => setForm({ ...form, effectiveDate: event.target.value })} /></label>
         </div>
         <label>Import document file
-          <input type="file" accept=".txt,.md,.markdown,.html,.htm,text/plain,text/markdown,text/html" onChange={event => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />
-          <small>Supported: TXT, Markdown and HTML. You can also paste the final approved wording below.</small>
+          <input disabled={importing} type="file" accept=".docx,.txt,.md,.markdown,.html,.htm,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/html" onChange={event => { const file = event.target.files?.[0]; if (file) void importFile(file); event.currentTarget.value = ''; }} />
+          <small>{importing ? 'Extracting document wording…' : 'Supported: Word DOCX, TXT, Markdown and HTML. Select one document at a time.'}</small>
         </label>
         <label>Document content
-          <textarea required style={{ minHeight: 520, fontFamily: 'Georgia, serif', lineHeight: 1.65 }} value={form.content} onChange={event => setForm({ ...form, content: event.target.value })} placeholder="Paste the complete approved legal document here..." />
+          <textarea required style={{ minHeight: 520, fontFamily: 'Georgia, serif', lineHeight: 1.65 }} value={form.content} onChange={event => setForm({ ...form, content: event.target.value })} placeholder="Import or paste the complete approved legal document here..." />
         </label>
         <div className="checkout-fields two-columns">
           <label>SEO title<input value={form.seoTitle} onChange={event => setForm({ ...form, seoTitle: event.target.value })} /></label>
@@ -190,9 +271,9 @@ export function LegalManager() {
         </div>
         <label>SEO description<textarea value={form.seoDescription} onChange={event => setForm({ ...form, seoDescription: event.target.value })} /></label>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <button type="button" disabled={saving} onClick={() => void save('draft')}>Save Draft</button>
-          <button className="primary-button" disabled={saving}>{saving ? 'Publishing…' : editing ? 'Update & Publish' : 'Publish Document'}</button>
-          {editing && <button type="button" disabled={saving} onClick={() => void save('archived')}>Archive</button>}
+          <button type="button" disabled={saving || importing} onClick={() => void save('draft')}>Save Draft</button>
+          <button className="primary-button" disabled={saving || importing}>{saving ? 'Publishing…' : editing ? 'Update & Publish' : 'Publish Document'}</button>
+          {editing && <button type="button" disabled={saving || importing} onClick={() => void save('archived')}>Archive</button>}
           {editing && <button type="button" onClick={() => { setEditing(null); setForm(blank); }}>Cancel</button>}
         </div>
       </form>
