@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"const fs=require('fs');const p='components/admin/LegalManager.tsx';let s=fs.readFileSync(p,'utf8');s=s.replace('new Blob([bytes])','new Blob([new Uint8Array(bytes).buffer])');fs.writeFileSync(p,s);\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
