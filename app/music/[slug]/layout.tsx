@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { buildMetadata, breadcrumbSchema, getPublishedRecord, safeJsonLd, SITE_URL, text } from '@/lib/seo';
+import { buildMetadata, breadcrumbSchema, getPublishedRecord, getPublishedRecords, safeJsonLd, SITE_URL, text } from '@/lib/seo';
+import { faqSchema, musicRecordingSchema } from '@/lib/schema';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -18,6 +19,9 @@ export default async function AlbumLayout({ children, params }: { children: Reac
   const title = text(album.title || album.name, 'Aureon Album');
   const artist = text(album.artistName || album.artist, 'Aureon Music Group');
   const path = `/music/${album.slug || slug}`;
+  const allSongs = await getPublishedRecords('songs');
+  const songs = allSongs.filter(song => song.albumId === album.id || text(song.albumTitle).toLowerCase() === title.toLowerCase());
+  const recordings = songs.map(song => musicRecordingSchema({ ...song, artistName: song.artistName || artist, albumTitle: title }));
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'MusicAlbum',
@@ -29,8 +33,10 @@ export default async function AlbumLayout({ children, params }: { children: Reac
     genre: album.genre,
     datePublished: album.releaseDate || album.year,
     byArtist: { '@type': 'MusicGroup', name: artist },
-    numTracks: album.trackCount || (Array.isArray(album.tracks) ? album.tracks.length : undefined),
+    numTracks: songs.length || album.trackCount || (Array.isArray(album.tracks) ? album.tracks.length : undefined),
+    track: recordings,
   };
   const breadcrumbs = breadcrumbSchema([{ name: 'Home', path: '/' }, { name: 'Music', path: '/music' }, { name: title, path }]);
-  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([schema, breadcrumbs]) }} />{children}</>;
+  const faq = faqSchema(Array.isArray(album.faqs) ? album.faqs : []);
+  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([schema, ...recordings, breadcrumbs, faq].filter(Boolean)) }} />{children}</>;
 }
