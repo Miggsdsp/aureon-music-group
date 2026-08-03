@@ -34,6 +34,9 @@ service cloud.firestore {
         allow read, create, delete: if owns(uid) || activeAdmin();
         allow update: if activeAdmin();
       }
+      match /followingArtists/{artistId} {
+        allow read, create, update, delete: if owns(uid) || activeAdmin();
+      }
     }
 
     match /licenses/{id} { allow read: if signedIn() && (resource.data.uid == request.auth.uid || activeAdmin()); allow write: if activeAdmin(); }
