@@ -42,10 +42,12 @@ export function HomeFeaturedContent(){
                   <span><Play size={26}/></span>
                 </Link>}
           </div>
-          <p className="eyebrow"><Play size={14}/> {item.shortForm?'Short-form clip':item.type||details.type||'Video'}</p>
-          <h3>{item.title}</h3>
-          <p>{item.artistName||details.artistName}</p>
-          <Link href={`/videos/${item.slug||item.id}`}>View video page →</Link>
+          <div className={styles.videoCopy}>
+            <p className="eyebrow"><Play size={14}/> {item.shortForm?'Short-form clip':item.type||details.type||'Video'}</p>
+            <h3>{item.title}</h3>
+            <p className={styles.videoArtist}>{item.artistName||details.artistName}</p>
+            <Link className={styles.videoLink} href={`/videos/${item.slug||item.id}`}>View video page →</Link>
+          </div>
         </article>})}</div>:<div className="store-empty"><p>Featured videos will appear here when published in the Control Center.</p></div>}
     </section>
     <Footer/>
