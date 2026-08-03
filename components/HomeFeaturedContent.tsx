@@ -23,7 +23,7 @@ export function HomeFeaturedContent(){
     <section className={`content-panel ${styles.deferredSection}`}>
       <div className="section-heading"><div><p className="eyebrow">Latest stories</p><h2>News from Aureon</h2></div><Link href="/news" className="ghost-button">View all news →</Link></div>
       {latestNews.length?<div className={styles.grid}>{latestNews.map(item=><article className={`news-card ${styles.card}`} key={item.id}>
-        {(item.featuredImageUrl||item.imageUrl)&&<Image src={item.featuredImageUrl||item.imageUrl||''} alt={item.title||'Aureon news'} width={900} height={600} unoptimized loading="lazy" sizes="(max-width: 760px) 100vw, 33vw"/>}
+        {(item.featuredImageUrl||item.imageUrl)&&<Image src={item.featuredImageUrl||item.imageUrl||''} alt={item.title||'Aureon news'} width={900} height={600} loading="lazy" quality={78} sizes="(max-width: 760px) 100vw, (max-width: 1200px) 50vw, 33vw"/>}
         <p className="eyebrow"><Newspaper size={14}/> {item.featured?'Featured news':'Latest news'}</p><h3>{item.title}</h3><p>{item.excerpt||item.description}</p><Link href={`/news/${item.slug||item.id}`}>Read story →</Link>
       </article>)}</div>:<div className="store-empty"><p>Published news will appear here automatically.</p></div>}
     </section>
@@ -38,7 +38,7 @@ export function HomeFeaturedContent(){
             {direct
               ? <PreviewGatedVideo src={direct} poster={poster} title={item.title||'Aureon video'} className={styles.inlineVideo}/>
               : <Link href={`/videos/${item.slug||item.id}`} className={styles.videoPosterLink} aria-label={`Play ${item.title||'Aureon video'} on Aureon`}>
-                  <Image src={poster} alt={item.title||'Aureon video'} width={900} height={506} unoptimized loading="lazy" sizes="(max-width: 760px) 100vw, 33vw"/>
+                  <Image src={poster} alt={item.title||'Aureon video'} width={900} height={506} loading="lazy" quality={78} sizes="(max-width: 760px) 100vw, (max-width: 1200px) 50vw, 33vw"/>
                   <span><Play size={26}/></span>
                 </Link>}
           </div>
