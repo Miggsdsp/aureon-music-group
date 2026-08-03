@@ -1,7 +1,7 @@
 'use client';
 
 export type AnalyticsEvent = {
-  eventType: 'song_play'|'song_pause'|'song_complete'|'preview_complete'|'song_cart_add'|'merch_view'|'merch_cart_add'|'album_view'|'artist_view'|'video_view';
+  eventType: 'song_play'|'song_pause'|'song_complete'|'preview_complete'|'song_cart_add'|'merch_view'|'merch_cart_add'|'album_view'|'artist_view'|'video_view'|'core_web_vital';
   entityType?: string;
   entityId?: string;
   title?: string;
@@ -15,6 +15,10 @@ export type AnalyticsEvent = {
   listenedSeconds?: number;
   progressPercent?: number;
   memberId?: string;
+  metricName?: string;
+  metricValue?: number;
+  metricRating?: string;
+  metricId?: string;
 };
 
 function sessionId() {
