@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminFirestore, adminStorage } from '@/lib/firebase-admin';
 import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
+import { recordAnalyticsEvent } from '@/lib/analytics-server';
 
 export const runtime = 'nodejs';
 
@@ -66,6 +67,13 @@ export async function POST(request: Request, context: { params: Promise<{ songId
         createdAt: FieldValue.serverTimestamp(),
       });
     });
+
+    await recordAnalyticsEvent({
+      eventType: 'song_download', entityType: 'song', entityId: songId,
+      title: String(song.data()?.title || ''), artistId: String(song.data()?.artistId || ''),
+      artistName: String(song.data()?.artistName || song.data()?.artist || ''), memberId: memberContext.uid,
+      metadata: { reDownload },
+    }).catch(error => console.error('Download analytics failed:', error));
 
     const filename = `${String(song.data()?.title || 'aureon-track').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.mp3`;
     const [url] = await adminStorage.bucket().file(path).getSignedUrl({ action: 'read', expires: Date.now() + 5 * 60 * 1000, responseDisposition: `attachment; filename="${filename}"` });
