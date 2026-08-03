@@ -95,11 +95,10 @@ export function Footer() {
             <p className="aureon-footer-kicker">{value.latestTitle}</p>
             {latest ? (
               <div className="aureon-release-content">
-                <div className="aureon-release-summary">
-                  <Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} unoptimized/>
-                  <div className="aureon-release-copy"><strong>{latestArtist}</strong><span>{latest.title}</span></div>
-                </div>
-                <div className="aureon-release-action">
+                <Image src={latestImage} alt={latest.title || 'Latest release'} width={86} height={86} unoptimized/>
+                <div className="aureon-release-copy">
+                  <strong>{latestArtist}</strong>
+                  <span>{latest.title}</span>
                   <LatestPlayButton title={latest.title || 'Latest release'} src={latestPreview} buttonLabel="Play it now" showPurchase={false} purchase={{id:latest.id,title:latest.title || 'Latest release',artist:latestArtist,image:latestImage,price:latestPrice,promotional:latestPromotional,slug:latest.slug,artistSlug:latest.artistSlug || latestDetails.artistSlug}} analytics={{id:latest.id,artistId:latest.artistId || latestDetails.artistId,artistName:latestArtist,albumId:latest.albumId || latestDetails.albumId,albumTitle:latest.albumTitle || latestDetails.albumTitle}}/>
                 </div>
               </div>
