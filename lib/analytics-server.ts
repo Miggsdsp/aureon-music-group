@@ -8,7 +8,7 @@ export const ANALYTICS_EVENTS = [
   'search_used','search_result_clicked',
   'playlist_created','playlist_renamed','playlist_deleted','playlist_song_added','playlist_song_removed','playlist_played',
   'artist_followed','artist_unfollowed','referral_shared','referral_signup','referral_converted',
-  'merch_view','merch_cart_add','album_view','artist_view','web_vital'
+  'merch_view','merch_cart_add','album_view','artist_view','web_vital','core_web_vital'
 ] as const;
 
 export type AnalyticsEventType = typeof ANALYTICS_EVENTS[number];
@@ -22,6 +22,7 @@ export type ServerAnalyticsEvent = {
   durationSeconds?: number; listenedSeconds?: number; progressPercent?: number;
   sessionId?: string; country?: string; region?: string; city?: string;
   locale?: string; timezone?: string; deviceType?: string; pathname?: string; referrer?: string; userAgent?: string;
+  metricName?: string; metricValue?: number; metricRating?: string; metricId?: string;
   metadata?: Record<string, string | number | boolean | null | undefined>;
 };
 
@@ -43,6 +44,7 @@ export async function recordAnalyticsEvent(input: ServerAnalyticsEvent) {
     durationSeconds: number(input.durationSeconds, 86400), listenedSeconds: number(input.listenedSeconds, 86400), progressPercent: number(input.progressPercent, 100),
     sessionId: clean(input.sessionId, 120), country: clean(input.country || 'Unknown', 8), region: clean(input.region || 'Unknown', 80), city: clean(input.city || 'Unknown', 100),
     locale: clean(input.locale, 40), timezone: clean(input.timezone, 80), deviceType: clean(input.deviceType, 30), pathname: clean(input.pathname, 300), referrer: clean(input.referrer, 500), userAgent: clean(input.userAgent, 500),
+    metricName: clean(input.metricName, 30), metricValue: number(input.metricValue, 1000000), metricRating: clean(input.metricRating, 30), metricId: clean(input.metricId, 120),
     metadata: input.metadata || {}, createdAt: FieldValue.serverTimestamp(), receivedAt: now.toISOString(), day
   };
 
@@ -50,7 +52,7 @@ export async function recordAnalyticsEvent(input: ServerAnalyticsEvent) {
   const dayRef = adminFirestore.collection('analyticsDaily').doc(day);
   const totalRef = adminFirestore.collection('analyticsTotals').doc('platform');
   const eventKey = keyPart(input.eventType);
-  const increments: Record<string, FirebaseFirestore.FieldValue> = {
+  const increments: Record<string, any> = {
     [`events.${eventKey}`]: FieldValue.increment(1),
     totalEvents: FieldValue.increment(1),
     updatedAt: FieldValue.serverTimestamp(),
