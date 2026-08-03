@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import MusicPlayerProvider from '@/components/music/MusicPlayerProvider';
 import ListenerExperienceMount from '@/components/member/ListenerExperienceMount';
-import { PublicLegalAccess } from '@/components/PublicLegalAccess';
 import './globals.css';
 import './finish.css';
 import './sprint2.css';
@@ -22,7 +20,6 @@ import './phase1-polish.css';
 import './admin.css';
 import './admin-phase2-final.css';
 import './admin-dashboard-polish.css';
-import '@/components/public-legal-access.css';
 
 export const metadata: Metadata = {
   title: "Aureon Music Group | Creating Tomorrow's Classics",
@@ -42,15 +39,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <MusicPlayerProvider>
-          {children}
-          <ListenerExperienceMount />
-          <Suspense fallback={null}>
-            <PublicLegalAccess />
-          </Suspense>
-        </MusicPlayerProvider>
-      </body>
+      <body><MusicPlayerProvider>{children}<ListenerExperienceMount /></MusicPlayerProvider></body>
     </html>
   );
 }
