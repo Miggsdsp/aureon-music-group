@@ -243,6 +243,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
 
   return <PlayerContext.Provider value={value}>
     {children}
+    {currentSong && <div className="aureon-player-spacer" aria-hidden="true" />}
     <audio ref={audioRef} preload="auto" playsInline onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(event.currentTarget.duration)} onEnded={next} />
     {currentSong && <aside className="aureon-global-player" aria-label="Music player">
       <button className="aureon-player-close" type="button" onClick={() => resetPlayer(true)} aria-label="Close music player"><X /></button>
