@@ -30,7 +30,7 @@ export async function getPublishedRecords(collectionName: string): Promise<SeoRe
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
-export function buildMetadata({ title, description, path, image, type = 'website' }: { title: string; description: string; path: string; image?: string; type?: 'website' | 'article' | 'music.song' | 'music.album' }) : Metadata {
+export function buildMetadata({ title, description, path, image, type = 'website' }: { title: string; description: string; path: string; image?: string; type?: 'website' | 'article' }) : Metadata {
   const canonical = `${SITE_URL}${path}`;
   const socialImage = absoluteUrl(image);
   return {
