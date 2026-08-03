@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import MusicPlayerProvider from '@/components/music/MusicPlayerProvider';
 import ListenerExperienceMount from '@/components/member/ListenerExperienceMount';
+import RoutePrefetcher from '@/components/RoutePrefetcher';
 import { DEFAULT_IMAGE, SITE_NAME, SITE_URL, safeJsonLd } from '@/lib/seo';
 import './globals.css';
 import './finish.css';
@@ -65,7 +66,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en-IE">
       <body>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([organizationSchema, websiteSchema]) }} />
-        <MusicPlayerProvider>{children}<ListenerExperienceMount /></MusicPlayerProvider>
+        <MusicPlayerProvider>
+          {children}
+          <ListenerExperienceMount />
+          <RoutePrefetcher />
+        </MusicPlayerProvider>
       </body>
     </html>
   );
