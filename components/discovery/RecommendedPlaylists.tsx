@@ -77,7 +77,9 @@ const TEMPLATES: PlaylistTemplate[] = [
 
 const MOODS = ['Automatic', 'Energetic', 'Relaxed', 'Focused', 'Romantic', 'Reflective'];
 const normalise = (value: unknown) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-const list = (value: unknown) => Array.isArray(value) ? value.flatMap(list) : String(value || '').split(/[,/|;]+/).map(normalise).filter(Boolean);
+const list = (input: unknown): string[] => Array.isArray(input)
+  ? input.flatMap((item): string[] => list(item))
+  : String(input || '').split(/[,/|;]+/).map(normalise).filter(Boolean);
 const value = (song: SongRecord, keys: string[]) => { const details = song.details || {}; for (const key of keys) { const result = song[key] ?? details[key]; if (result !== undefined && result !== null && result !== '') return result; } return ''; };
 const intersects = (a: string[], b: string[]) => a.some(item => b.some(target => item.includes(target) || target.includes(item)));
 
