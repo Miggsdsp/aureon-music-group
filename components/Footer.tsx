@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Headphones, Instagram, Mail, Music2, Radio, Youtube } from 'lucide-react';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
+import './footer-legal.css';
 
 type SongRecord = PublicRecord & { title?:string; slug?:string; artistName?:string; artist?:string; coverImageUrl?:string; imageUrl?:string; releaseDate?:string; createdAt?:unknown; featured?:boolean };
 type LegalRecord = PublicRecord & { title?:string; slug?:string; order?:number };
