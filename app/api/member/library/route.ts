@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
 
 export const runtime = 'nodejs';
+const CONTINUE_LISTENING_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 function serialiseDate(value: any) {
   if (!value) return null;
@@ -19,6 +20,22 @@ function billingCycleKey(member: Record<string, any>) {
   return `cycle-${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function activeContinueListening(member: Record<string, any>) {
+  const item = member.continueListening;
+  if (!item?.songId) return null;
+  const updated = new Date(item.updatedAt || 0);
+  const expires = new Date(item.expiresAt || (updated.getTime() + CONTINUE_LISTENING_TTL_MS));
+  if (Number.isNaN(expires.getTime()) || expires.getTime() <= Date.now()) return null;
+  return {
+    ...item,
+    progressSeconds: Math.max(0, Number(item.progressSeconds || 0)),
+    durationSeconds: Math.max(0, Number(item.durationSeconds || 0)),
+    progressPercent: Math.max(0, Math.min(100, Number(item.progressPercent || 0))),
+    updatedAt: serialiseDate(item.updatedAt),
+    expiresAt: serialiseDate(item.expiresAt || expires),
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const context = await requireMember(request);
@@ -31,11 +48,15 @@ export async function GET(request: Request) {
       context.memberRef.collection('downloadUsage').doc(cycle).get(),
     ]);
     const downloadsUsed = Number(usageSnapshot.data()?.count || 0);
+    const continueListening = activeContinueListening(context.member);
+    if (!continueListening && context.member.continueListening) {
+      await context.memberRef.set({ continueListening: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
 
     return NextResponse.json({
       favouriteSongIds: Array.isArray(context.member.favouriteSongIds) ? context.member.favouriteSongIds : [],
       favouriteArtists: Array.isArray(context.member.favouriteArtists) ? context.member.favouriteArtists : [],
-      continueListening: context.member.continueListening || null,
+      continueListening,
       recentlyPlayed: recentSnapshot.docs.map(item => ({ id: item.id, ...item.data(), playedAt: serialiseDate(item.data().playedAt) })),
       downloadHistory: downloadsSnapshot.docs.map(item => ({ id: item.id, ...item.data(), createdAt: serialiseDate(item.data().createdAt) })),
       downloadsUsed,
@@ -78,17 +99,35 @@ export async function POST(request: Request) {
     if (action === 'played' || action === 'progress') {
       const songId = String(body?.songId || '').trim();
       if (!songId) return NextResponse.json({ error: 'Song is required.' }, { status: 400 });
+      const progressSeconds = Math.max(0, Number(body?.progressSeconds || 0));
+      const durationSeconds = Math.max(0, Number(body?.durationSeconds || 0));
+      const progressPercent = durationSeconds > 0 ? Math.max(0, Math.min(100, progressSeconds / durationSeconds * 100)) : 0;
+      const now = new Date();
       const song = {
         songId,
         title: String(body?.title || ''),
         artist: String(body?.artist || ''),
         coverImageUrl: String(body?.coverImageUrl || ''),
-        progressSeconds: Math.max(0, Number(body?.progressSeconds || 0)),
-        durationSeconds: Math.max(0, Number(body?.durationSeconds || 0)),
+        progressSeconds,
+        durationSeconds,
+        progressPercent: Number(progressPercent.toFixed(2)),
       };
       if (action === 'played') await context.memberRef.collection('recentlyPlayed').doc(songId).set({ ...song, playedAt: FieldValue.serverTimestamp() }, { merge: true });
-      await context.memberRef.set({ continueListening: { ...song, updatedAt: new Date().toISOString() }, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-      return NextResponse.json({ saved: true });
+      const completed = durationSeconds > 0 && (progressPercent >= 98 || durationSeconds - progressSeconds <= 5);
+      await context.memberRef.set({
+        continueListening: completed ? FieldValue.delete() : {
+          ...song,
+          updatedAt: now.toISOString(),
+          expiresAt: new Date(now.getTime() + CONTINUE_LISTENING_TTL_MS).toISOString(),
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return NextResponse.json({ saved: true, completed, progressPercent });
+    }
+
+    if (action === 'clear-progress') {
+      await context.memberRef.set({ continueListening: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      return NextResponse.json({ cleared: true });
     }
 
     return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
