@@ -37,6 +37,7 @@ export default function MembershipPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to start subscription checkout.');
       if (!data.url) throw new Error('Stripe did not return a checkout link.');
+      await fetch('/api/member/lifecycle', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'subscription_checkout_started', plan }), keepalive: true }).catch(() => undefined);
       window.location.assign(data.url);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to start subscription checkout.'); setBusy(''); }
   }
