@@ -39,12 +39,13 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title, description, images: [DEFAULT_IMAGE] },
 };
 
-const organizationSchema = { '@context': 'https://schema.org', '@type': 'Organization', '@id': `${SITE_URL}/#organization`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}${DEFAULT_IMAGE}`, description };
-const websiteSchema = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${SITE_URL}/#website`, name: SITE_NAME, url: SITE_URL, publisher: { '@id': `${SITE_URL}/#organization` }, potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/search?q={search_term_string}`, 'query-input': 'required name=search_term_string' } };
+const organizationSchema = { '@type': 'Organization', '@id': `${SITE_URL}/#organization`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}${DEFAULT_IMAGE}`, description };
+const websiteSchema = { '@type': 'WebSite', '@id': `${SITE_URL}/#website`, name: SITE_NAME, url: SITE_URL, publisher: { '@id': `${SITE_URL}/#organization` }, potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/search?q={search_term_string}`, 'query-input': 'required name=search_term_string' } };
+const rootSchema = { '@context': 'https://schema.org', '@graph': [organizationSchema, websiteSchema] };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return <html lang="en-IE"><body>
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([organizationSchema, websiteSchema]) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(rootSchema) }} />
     <MusicPlayerProvider>
       {children}
       <ListenerExperienceMount />
