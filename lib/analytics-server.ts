@@ -8,6 +8,7 @@ export const ANALYTICS_EVENTS = [
   'search_used','search_result_clicked',
   'playlist_created','playlist_renamed','playlist_deleted','playlist_song_added','playlist_song_removed','playlist_played',
   'artist_followed','artist_unfollowed','referral_shared','referral_signup','referral_converted',
+  'recommendation_impression','recommendation_click','recommendation_play','recommendation_complete','recommendation_playlist_add','recommendation_conversion',
   'merch_view','merch_cart_add','album_view','artist_view','web_vital','core_web_vital'
 ] as const;
 
@@ -34,6 +35,7 @@ export async function recordAnalyticsEvent(input: ServerAnalyticsEvent) {
   if (!ANALYTICS_EVENTS.includes(input.eventType)) throw new Error(`Unsupported analytics event: ${input.eventType}`);
   const now = new Date();
   const day = now.toISOString().slice(0, 10);
+  const metadata = input.metadata || {};
   const event = {
     eventType: input.eventType,
     entityType: clean(input.entityType, 30), entityId: clean(input.entityId, 160), title: clean(input.title),
@@ -45,7 +47,7 @@ export async function recordAnalyticsEvent(input: ServerAnalyticsEvent) {
     sessionId: clean(input.sessionId, 120), country: clean(input.country || 'Unknown', 8), region: clean(input.region || 'Unknown', 80), city: clean(input.city || 'Unknown', 100),
     locale: clean(input.locale, 40), timezone: clean(input.timezone, 80), deviceType: clean(input.deviceType, 30), pathname: clean(input.pathname, 300), referrer: clean(input.referrer, 500), userAgent: clean(input.userAgent, 500),
     metricName: clean(input.metricName, 30), metricValue: number(input.metricValue, 1000000), metricRating: clean(input.metricRating, 30), metricId: clean(input.metricId, 120),
-    metadata: input.metadata || {}, createdAt: FieldValue.serverTimestamp(), receivedAt: now.toISOString(), day
+    metadata, createdAt: FieldValue.serverTimestamp(), receivedAt: now.toISOString(), day
   };
 
   const eventRef = adminFirestore.collection('analyticsEvents').doc();
@@ -61,6 +63,19 @@ export async function recordAnalyticsEvent(input: ServerAnalyticsEvent) {
   if (event.listenedSeconds) increments.listenedSeconds = FieldValue.increment(event.listenedSeconds);
   if (event.country && event.country !== 'Unknown') increments[`countries.${keyPart(event.country)}`] = FieldValue.increment(1);
   if (event.entityType) increments[`entityTypes.${keyPart(event.entityType)}`] = FieldValue.increment(1);
+
+  if (input.eventType.startsWith('recommendation_')) {
+    const action = input.eventType.replace('recommendation_', '');
+    const source = keyPart(clean(metadata.recommendationSource || 'unknown', 100));
+    const algorithm = keyPart(clean(metadata.recommendationAlgorithm || 'unknown', 100));
+    increments[`discovery.actions.${keyPart(action)}`] = FieldValue.increment(1);
+    increments[`discovery.sources.${source}.${keyPart(action)}`] = FieldValue.increment(1);
+    increments[`discovery.algorithms.${algorithm}.${keyPart(action)}`] = FieldValue.increment(1);
+    if (metadata.recommendationPosition !== undefined) {
+      const position = Math.max(1, Math.min(100, Number(metadata.recommendationPosition) || 1));
+      increments[`discovery.positions.${position}.${keyPart(action)}`] = FieldValue.increment(1);
+    }
+  }
 
   const batch = adminFirestore.batch();
   batch.set(eventRef, event);
