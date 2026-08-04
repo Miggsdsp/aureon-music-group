@@ -44,7 +44,8 @@ const websiteSchema = { '@context': 'https://schema.org', '@type': 'WebSite', '@
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return <html lang="en-IE"><body>
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([organizationSchema, websiteSchema]) }} />
+    <script id="organization-schema" type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationSchema) }} />
+    <script id="website-schema" type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(websiteSchema) }} />
     <MusicPlayerProvider>
       {children}
       <ListenerExperienceMount />
