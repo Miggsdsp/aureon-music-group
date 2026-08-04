@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import type { CollectionReference } from 'firebase-admin/firestore';
 import { adminFirestore } from '@/lib/firebase-admin';
 import { communityHandle, computeCommunityAchievements } from '@/lib/community';
 import styles from '../community.module.css';
@@ -6,7 +7,7 @@ import styles from '../community.module.css';
 export const dynamic = 'force-dynamic';
 
 type Row = { id: string; [key: string]: any };
-async function rows(reference: FirebaseFirestore.CollectionReference, limit = 100): Promise<Row[]> { const snapshot = await reference.limit(limit).get(); return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); }
+async function rows(reference: CollectionReference, limit = 100): Promise<Row[]> { const snapshot = await reference.limit(limit).get(); return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); }
 
 export default async function CommunityProfilePage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle: rawHandle } = await params;
