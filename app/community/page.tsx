@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { DocumentData, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { adminFirestore } from '@/lib/firebase-admin';
 import styles from './community.module.css';
 
@@ -6,14 +7,15 @@ export const dynamic = 'force-dynamic';
 
 type Row = { id: string; [key: string]: any };
 function dateValue(value: any) { if (!value) return 0; if (typeof value.toMillis === 'function') return value.toMillis(); if (typeof value.toDate === 'function') return value.toDate().getTime(); if (typeof value.seconds === 'number') return value.seconds * 1000; const date = new Date(value); return Number.isNaN(date.getTime()) ? 0 : date.getTime(); }
+function toRow(doc: QueryDocumentSnapshot<DocumentData>): Row { return { id: doc.id, ...doc.data() }; }
 
 export default async function CommunityPage() {
   const [profilesSnapshot, activitySnapshot] = await Promise.all([
     adminFirestore.collection('communityProfiles').where('public', '==', true).limit(24).get(),
     adminFirestore.collection('communityActivities').where('public', '==', true).limit(50).get(),
   ]);
-  const profiles: Row[] = profilesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => dateValue(b.updatedAt) - dateValue(a.updatedAt));
-  const activities: Row[] = activitySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)).slice(0, 20);
+  const profiles = profilesSnapshot.docs.map(toRow).sort((a, b) => dateValue(b.updatedAt) - dateValue(a.updatedAt));
+  const activities = activitySnapshot.docs.map(toRow).sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)).slice(0, 20);
 
   return <main className={styles.page}>
     <section className={styles.hero}>
