@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Pause, Play, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { FavouriteSongButton } from '@/components/community/FavouriteSongButton';
 import { recommendSongs, type RecommendationEntity } from '@/lib/recommendations';
 import { trackDiscovery, useDiscoveryImpressions, type DiscoveryEntity } from '@/lib/discovery-analytics';
 import styles from './SimilarSongs.module.css';
@@ -40,7 +41,8 @@ function SimilarSongCard({ song, confidence, position }: { song: SongRecord; con
   const artwork = String(value(song, 'coverImageUrl') || value(song, 'imageUrl') || '/images/branding/Aureon_Header_Logo.png');
   const duration = String(value(song, 'duration') || 'Preview');
   const href = `/songs/${song.slug || song.id}`;
-  const entity: DiscoveryEntity = { id: song.id, type: 'song', title, artistId: String(song.artistId || value(song, 'artistId') || ''), artistName: artist };
+  const artistId = String(song.artistId || value(song, 'artistId') || '');
+  const entity: DiscoveryEntity = { id: song.id, type: 'song', title, artistId, artistName: artist };
   const context = { source: SOURCE, algorithm: ALGORITHM, position, confidence };
 
   useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); audioRef.current?.pause(); }, []);
@@ -77,9 +79,12 @@ function SimilarSongCard({ song, confidence, position }: { song: SongRecord; con
       <Link className={styles.title} href={href} onClick={() => click('title')}>{title}</Link>
       {artistSlug ? <Link className={styles.artist} href={`/artists/${artistSlug}`} onClick={() => click('artist')}>{artist}</Link> : <span className={styles.artist}>{artist}</span>}
       <div className={styles.meta}><span>{duration}</span><span className={styles.confidence}>{Math.round(confidence * 100)}% match</span></div>
-      <button className={styles.play} type="button" disabled={!preview} onClick={() => playing ? stop() : void start('button')}>
-        {playing ? <Pause size={15}/> : <Play size={15}/>} {playing ? 'Pause preview' : preview ? 'Play preview' : 'Preview coming soon'}
-      </button>
+      <div className={styles.actions}>
+        <button className={styles.play} type="button" disabled={!preview} onClick={() => playing ? stop() : void start('button')}>
+          {playing ? <Pause size={15}/> : <Play size={15}/>} {playing ? 'Pause preview' : preview ? 'Play preview' : 'Preview coming soon'}
+        </button>
+        <FavouriteSongButton songId={song.id} title={title} artistName={artist} artistId={artistId} artwork={artwork} slug={String(song.slug || song.id)}/>
+      </div>
       {preview && <audio ref={audioRef} className={styles.audio} src={preview} preload="none" onTimeUpdate={timeUpdate} onEnded={() => { setPlaying(false); trackDiscovery('complete', entity, context); }} />}
     </div>
   </article>;
