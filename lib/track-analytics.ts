@@ -1,7 +1,7 @@
 'use client';
 
 export type AnalyticsEventName =
-  | 'song_play'|'song_pause'|'song_complete'|'preview_complete'|'song_cart_add'|'song_purchase'
+  | 'song_play'|'song_pause'|'song_complete'|'preview_complete'|'song_cart_add'|'song_purchase'|'song_like'|'song_unlike'
   | 'video_play'|'video_pause'|'video_complete'|'video_preview_complete'|'video_view'
   | 'membership_checkout_started'|'membership_started'|'membership_renewed'|'membership_cancelled'|'membership_payment_failed'
   | 'search_used'|'search_result_clicked'
