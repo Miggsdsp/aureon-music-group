@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminFirestore } from '@/lib/firebase-admin';
 import { recordAnalyticsEvent } from '@/lib/analytics-server';
+import { rewardReferralConversion } from '@/lib/referrals';
 
 export type AureonPlan = 'listener' | 'creator';
 
@@ -38,6 +39,7 @@ export async function syncStripeSubscription(subscription: Stripe.Subscription, 
   await adminFirestore.collection('subscriptionEvents').add({ uid, plan, status, active, source, stripeSubscriptionId: subscription.id, stripeCustomerId: customerId, createdAt: FieldValue.serverTimestamp() });
 
   if (source === 'checkout.session.completed') await recordAnalyticsEvent({ eventType: 'membership_started', entityType: 'subscription', entityId: subscription.id, memberId: uid, plan, metadata: { status } });
+  if (active) await rewardReferralConversion(uid);
   if (source === 'customer.subscription.deleted' || status === 'canceled') await recordAnalyticsEvent({ eventType: 'membership_cancelled', entityType: 'subscription', entityId: subscription.id, memberId: uid, plan, metadata: { status, cancelAtPeriodEnd: subscription.cancel_at_period_end } });
   return { uid, plan, status, active, customerId };
 }
