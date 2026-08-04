@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, type CollectionReference } from 'firebase-admin/firestore';
 import { adminFirestore } from '@/lib/firebase-admin';
 import { memberError, requireMember } from '@/lib/member-server';
 import { communityHandle, computeCommunityAchievements, publicName, recordCommunityActivity } from '@/lib/community';
@@ -17,7 +17,7 @@ function millis(value: any) {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
-async function rows(path: FirebaseFirestore.CollectionReference, limit = 100): Promise<Row[]> {
+async function rows(path: CollectionReference, limit = 100): Promise<Row[]> {
   const snapshot = await path.limit(limit).get();
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
