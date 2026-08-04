@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/lifecycle-emails",
+      "schedule": "15 8 * * *"
+    },
+    {
       "path": "/api/cron/referral-rewards",
       "schedule": "0 8 1 * *"
     }
