@@ -1,0 +1,1 @@
+.button{width:34px;height:34px;display:inline-grid;place-items:center;border:1px solid rgba(216,173,82,.32);background:#080808;color:#d8ad52;cursor:pointer;transition:.2s ease}.button:hover{background:rgba(216,173,82,.08);border-color:#d8ad52}.button.saved{background:#d8ad52;color:#080808}.button:disabled{opacity:.55;cursor:wait}
