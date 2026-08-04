@@ -7,6 +7,7 @@ export type AnalyticsEventName =
   | 'search_used'|'search_result_clicked'
   | 'playlist_created'|'playlist_renamed'|'playlist_deleted'|'playlist_song_added'|'playlist_song_removed'|'playlist_played'
   | 'artist_followed'|'artist_unfollowed'|'referral_shared'|'referral_signup'|'referral_converted'
+  | 'recommendation_impression'|'recommendation_click'|'recommendation_play'|'recommendation_complete'|'recommendation_playlist_add'|'recommendation_conversion'
   | 'merch_view'|'merch_cart_add'|'album_view'|'artist_view'|'web_vital'|'core_web_vital';
 
 export type AnalyticsEvent = {
