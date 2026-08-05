@@ -1,0 +1,5 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {defaultLocale,isLocale} from '@/lib/i18n/config';
+const PUBLIC_FILE=/\.[^/]+$/;
+export function middleware(request:NextRequest){const {pathname}=request.nextUrl;if(pathname.startsWith('/api')||pathname.startsWith('/admin')||pathname.startsWith('/_next')||PUBLIC_FILE.test(pathname))return NextResponse.next();const first=pathname.split('/')[1]||'';const cookie=request.cookies.get('aureon_locale')?.value||'';const locale=isLocale(first)?first:isLocale(cookie)?cookie:defaultLocale;const headers=new Headers(request.headers);headers.set('x-aureon-locale',locale);if(isLocale(first)){const url=request.nextUrl.clone();url.pathname=`/${pathname.split('/').slice(2).join('/')}`.replace(/\/$/,'')||'/';const response=NextResponse.rewrite(url,{request:{headers}});response.cookies.set('aureon_locale',locale,{path:'/',maxAge:31536000,sameSite:'lax'});return response;}const response=NextResponse.next({request:{headers}});response.cookies.set('aureon_locale',locale,{path:'/',maxAge:31536000,sameSite:'lax'});return response;}
+export const config={matcher:['/((?!_next/static|_next/image|favicon.ico).*)']};
