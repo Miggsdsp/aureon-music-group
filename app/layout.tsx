@@ -25,6 +25,7 @@ import './admin.css';
 import './admin-phase2-final.css';
 import './admin-dashboard-polish.css';
 import './trust-phase-a.css';
+import './product-trust-phase-b.css';
 
 const title = "Aureon Music Group | Creating Tomorrow's Classics";
 const description = 'A premium independent music company for original artists, streaming, music discovery, memberships and commercial licensing.';
