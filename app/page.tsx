@@ -6,6 +6,7 @@ import { PersonalisedHome } from '@/components/discovery/PersonalisedHome';
 import { TrendingSongs } from '@/components/discovery/TrendingSongs';
 import { NewReleases } from '@/components/discovery/NewReleases';
 import { RecommendedPlaylists } from '@/components/discovery/RecommendedPlaylists';
+import { CatalogueTrustSections } from '@/components/trust/CatalogueTrustSections';
 
 export default function Home() {
   return (
@@ -18,6 +19,7 @@ export default function Home() {
       <NewReleases compact showFilters={false} limit={8} />
       <RecommendedPlaylists compact />
       <DeferredHomeFeaturedContent />
+      <CatalogueTrustSections />
     </main>
   );
 }
