@@ -1,0 +1,1 @@
+.wrap{max-width:1180px;margin:22px auto 0;padding:0 5vw;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.wrap>article:first-child{grid-column:1/-1}@media(max-width:850px){.wrap{grid-template-columns:1fr;padding:0 20px}.wrap>*{grid-column:1!important}}
