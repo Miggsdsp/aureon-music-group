@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Briefcase, Search, UserRound } from 'lucide-react';
 import { Logo } from './Logo';
+import { TrustBar } from './TrustBar';
 import { useSiteFeatures } from '@/lib/useSiteFeatures';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { firebaseAuth } from '@/lib/firebase-client';
@@ -61,30 +62,20 @@ export function Header() {
     [value.contactLabel, value.contactHref]
   ];
 
-  return (
+  return <>
     <header className="site-header premium-label-header">
       <Logo />
       <nav className="desktop-nav" aria-label="Main navigation">
         {links.map(([label, href]) => (
-          <Link key={href} href={href} className={isActive(pathname, href) ? 'active' : ''}>
-            {label}
-          </Link>
+          <Link key={href} href={href} className={isActive(pathname, href) ? 'active' : ''}>{label}</Link>
         ))}
       </nav>
       <div className="header-actions">
-        <Link href={value.musicHref} className="header-icon" aria-label="Search music">
-          <Search size={20} />
-        </Link>
-        {features.merchandiseEnabled && (
-          <Link href={value.merchHref} className="header-icon" aria-label="Store">
-            <Briefcase size={20} />
-          </Link>
-        )}
-        <Link href={value.accountHref} className="member-login-link" aria-label={signedIn ? 'Open member account' : 'Login'}>
-          <UserRound size={18} />
-          <span>{signedIn ? 'My Account' : 'Login'}</span>
-        </Link>
+        <Link href={value.musicHref} className="header-icon" aria-label="Search music"><Search size={20} /></Link>
+        {features.merchandiseEnabled && <Link href={value.merchHref} className="header-icon" aria-label="Store"><Briefcase size={20} /></Link>}
+        <Link href={value.accountHref} className="member-login-link" aria-label={signedIn ? 'Open member account' : 'Login'}><UserRound size={18} /><span>{signedIn ? 'My Account' : 'Login'}</span></Link>
       </div>
     </header>
-  );
+    <TrustBar />
+  </>;
 }
