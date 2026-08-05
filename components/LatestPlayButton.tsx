@@ -18,6 +18,7 @@ type LatestPlayButtonProps = { title:string; src?:string; purchase?:SongPurchase
 export function LatestPlayButton({ title, src, purchase, analytics, discovery, buttonLabel, showPurchase = true, size = 'medium' }: LatestPlayButtonProps) {
   const audioRef=useRef<HTMLAudioElement|null>(null);
   const completionTracked=useRef(false);
+  const metadataRequested=useRef(false);
   const [isPlaying,setIsPlaying]=useState(false);
   const [hasError,setHasError]=useState(false);
   const [previewFinished,setPreviewFinished]=useState(false);
@@ -35,6 +36,15 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   const songPath=purchase?.slug?`/songs/${purchase.slug}`:entityId?`/songs/${entityId}`:'/music';
 
   useEffect(()=>onAuthStateChanged(firebaseAuth,user=>setSignedIn(Boolean(user))),[]);
+  useEffect(()=>{metadataRequested.current=false;},[src]);
+
+  function requestMetadata(){
+    const audio=audioRef.current;
+    if(!audio||metadataRequested.current)return;
+    metadataRequested.current=true;
+    audio.preload='metadata';
+    audio.load();
+  }
 
   function trackConversion(conversionType:string){
     if(discovery)trackDiscovery('conversion',discoveryEntity,{...discovery,conversionType});
@@ -55,6 +65,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   async function togglePlay(){
     const audio=audioRef.current;
     if(!audio||!hasPreview)return;
+    requestMetadata();
     if(isPlaying){
       audio.pause();
       setIsPlaying(false);
@@ -111,9 +122,9 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
 
   const defaultLabel=promotional?`Play: ${title}`:`40s Preview: ${title}`;
   return <div className="song-commerce-control">
-    {hasPreview?<button className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
+    {hasPreview?<button className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onPointerEnter={requestMetadata} onFocus={requestMetadata} onTouchStart={requestMetadata} onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
     {showPurchase&&!promotional&&purchase&&<div className="song-buy-row"><button type="button" className="song-buy-button" onClick={addSongToCart}><ShoppingCart size={14}/> {added?'Added to cart':`Buy full song €${price.toFixed(2)}`}</button>{added&&<Link href="/checkout">Checkout →</Link>}</div>}
-    {src?<audio ref={audioRef} src={src} preload="none" onTimeUpdate={enforcePreviewLimit} onEnded={ended} onError={()=>setHasError(true)}/>:null}
+    {src?<audio ref={audioRef} src={src} preload="none" crossOrigin="anonymous" onTimeUpdate={enforcePreviewLimit} onEnded={ended} onError={()=>setHasError(true)}/>:null}
 
     {nearEnd&&!previewFinished&&!promotional&&<div className={styles.benefitCue} role="status"><Sparkles size={15}/><div><strong>Keep the music going</strong><span>Premium unlocks the complete Aureon catalogue.</span></div></div>}
 
