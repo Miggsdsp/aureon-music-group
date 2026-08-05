@@ -8,6 +8,8 @@ import { NewReleases } from '@/components/discovery/NewReleases';
 import { RecommendedPlaylists } from '@/components/discovery/RecommendedPlaylists';
 import { CatalogueTrustSections } from '@/components/trust/CatalogueTrustSections';
 
+export const revalidate = 300;
+
 export default function Home() {
   return (
     <main>
