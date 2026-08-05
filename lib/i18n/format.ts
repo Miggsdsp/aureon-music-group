@@ -1,0 +1,5 @@
+import {localeMeta,type Locale} from './config';
+export function formatCurrency(amount:number,locale:Locale,currency=localeMeta[locale].currency){return new Intl.NumberFormat(localeMeta[locale].html,{style:'currency',currency,maximumFractionDigits:2}).format(amount);}
+export function formatDate(value:Date|string|number,locale:Locale,options:Intl.DateTimeFormatOptions={day:'2-digit',month:'short',year:'numeric'}){return new Intl.DateTimeFormat(localeMeta[locale].html,options).format(new Date(value));}
+export function formatDateTime(value:Date|string|number,locale:Locale,timeZone?:string){return new Intl.DateTimeFormat(localeMeta[locale].html,{dateStyle:'medium',timeStyle:'short',...(timeZone?{timeZone}:{})}).format(new Date(value));}
+export function regionalPrice(eurAmount:number,locale:Locale,rates:Partial<Record<string,number>>={}){const currency=localeMeta[locale].currency;const rate=currency==='EUR'?1:Number(rates[currency]||1);return {amount:eurAmount*rate,currency,display:formatCurrency(eurAmount*rate,locale,currency),baseCurrency:'EUR'};}
