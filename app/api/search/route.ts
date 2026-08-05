@@ -1,0 +1,5 @@
+import { NextResponse } from 'next/server';
+import { searchProvider } from '@/lib/search/engine';
+import type { SearchContentType } from '@/lib/search/types';
+export const runtime='nodejs';export const revalidate=30;
+export async function GET(request:Request){const url=new URL(request.url);const query=(url.searchParams.get('q')||'').slice(0,120);const types=(url.searchParams.get('types')||'').split(',').filter(Boolean) as SearchContentType[];const limit=Math.min(50,Math.max(1,Number(url.searchParams.get('limit')||30)));const year=Number(url.searchParams.get('year')||0)||undefined;const result=await searchProvider.search({query,limit,autocomplete:url.searchParams.get('autocomplete')==='1',filters:{types:types.length?types:undefined,genre:url.searchParams.get('genre')||undefined,artistId:url.searchParams.get('artistId')||undefined,mood:url.searchParams.get('mood')||undefined,year}});return NextResponse.json(result,{headers:{'Cache-Control':'public, s-maxage=30, stale-while-revalidate=300'}})}
