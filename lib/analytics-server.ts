@@ -9,6 +9,7 @@ export const ANALYTICS_EVENTS = [
   'playlist_created','playlist_renamed','playlist_deleted','playlist_song_added','playlist_song_removed','playlist_played',
   'artist_followed','artist_unfollowed','referral_shared','referral_signup','referral_converted',
   'recommendation_impression','recommendation_click','recommendation_play','recommendation_complete','recommendation_playlist_add','recommendation_conversion',
+  'trust_impression','trust_click','trust_conversion',
   'merch_view','merch_cart_add','album_view','artist_view','web_vital','core_web_vital'
 ] as const;
 
@@ -49,21 +50,15 @@ export async function recordAnalyticsEvent(input: ServerAnalyticsEvent) {
     metricName: clean(input.metricName, 30), metricValue: number(input.metricValue, 1000000), metricRating: clean(input.metricRating, 30), metricId: clean(input.metricId, 120),
     metadata, createdAt: FieldValue.serverTimestamp(), receivedAt: now.toISOString(), day
   };
-
   const eventRef = adminFirestore.collection('analyticsEvents').doc();
   const dayRef = adminFirestore.collection('analyticsDaily').doc(day);
   const totalRef = adminFirestore.collection('analyticsTotals').doc('platform');
   const eventKey = keyPart(input.eventType);
-  const increments: Record<string, any> = {
-    [`events.${eventKey}`]: FieldValue.increment(1),
-    totalEvents: FieldValue.increment(1),
-    updatedAt: FieldValue.serverTimestamp(),
-  };
+  const increments: Record<string, any> = { [`events.${eventKey}`]: FieldValue.increment(1), totalEvents: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp() };
   if (event.revenueCents) increments.revenueCents = FieldValue.increment(event.revenueCents);
   if (event.listenedSeconds) increments.listenedSeconds = FieldValue.increment(event.listenedSeconds);
   if (event.country && event.country !== 'Unknown') increments[`countries.${keyPart(event.country)}`] = FieldValue.increment(1);
   if (event.entityType) increments[`entityTypes.${keyPart(event.entityType)}`] = FieldValue.increment(1);
-
   if (input.eventType.startsWith('recommendation_')) {
     const action = input.eventType.replace('recommendation_', '');
     const source = keyPart(clean(metadata.recommendationSource || 'unknown', 100));
@@ -76,7 +71,15 @@ export async function recordAnalyticsEvent(input: ServerAnalyticsEvent) {
       increments[`discovery.positions.${position}.${keyPart(action)}`] = FieldValue.increment(1);
     }
   }
-
+  if (input.eventType.startsWith('trust_')) {
+    const action = keyPart(input.eventType.replace('trust_', ''));
+    const placement = keyPart(clean(metadata.trustPlacement || input.entityId || 'unknown', 100));
+    const category = keyPart(clean(metadata.trustCategory || input.entityType || 'general', 100));
+    increments[`trust.actions.${action}`] = FieldValue.increment(1);
+    increments[`trust.placements.${placement}.${action}`] = FieldValue.increment(1);
+    increments[`trust.categories.${category}.${action}`] = FieldValue.increment(1);
+    if (metadata.conversionType) increments[`trust.conversions.${keyPart(clean(metadata.conversionType, 100))}`] = FieldValue.increment(1);
+  }
   const batch = adminFirestore.batch();
   batch.set(eventRef, event);
   batch.set(dayRef, { day, ...increments, createdAt: FieldValue.serverTimestamp() }, { merge: true });
