@@ -4,6 +4,7 @@ import ListenerExperienceMount from '@/components/member/ListenerExperienceMount
 import RoutePrefetcher from '@/components/RoutePrefetcher';
 import WebVitalsReporter from '@/components/WebVitalsReporter';
 import GrowthAnalyticsBridge from '@/components/GrowthAnalyticsBridge';
+import { TrustAnalyticsBridge } from '@/components/trust/TrustAnalyticsBridge';
 import { DEFAULT_IMAGE, SITE_NAME, SITE_URL, safeJsonLd } from '@/lib/seo';
 import './globals.css';
 import './finish.css';
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <RoutePrefetcher />
       <WebVitalsReporter />
       <GrowthAnalyticsBridge />
+      <TrustAnalyticsBridge />
     </MusicPlayerProvider>
   </body></html>;
 }
