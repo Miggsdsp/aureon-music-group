@@ -31,11 +31,17 @@ async function recentArtistCount(uid: string) {
   return new Set(snapshot.docs.map(doc => String(doc.data().artistId || doc.data().artistName || '')).filter(Boolean)).size;
 }
 
+type ScheduledJourney = {
+  journey: LifecycleJourney;
+  key?: string;
+  extra?: Record<string, string>;
+};
+
 async function runMember(member: Record<string, unknown> & { id: string }, release: Record<string, unknown> | null) {
   const now = Date.now();
   const createdDays = lifecycleRules.daysSince(member.createdAt || member.joinedAt, now);
   const lastActiveDays = lifecycleRules.daysSince(member.lastActivityAt || member.lastPlayedAt || member.updatedAt || member.createdAt, now);
-  const journeys: Array<{ journey: LifecycleJourney; key?: string; extra?: Record<string, string> }> = [];
+  const journeys: ScheduledJourney[] = [];
 
   if (createdDays <= 1) journeys.push({ journey: 'welcome_1' });
   if (createdDays >= 2 && createdDays <= 3) journeys.push({ journey: 'welcome_2' });
@@ -84,12 +90,15 @@ async function runMember(member: Record<string, unknown> & { id: string }, relea
     }
   }
 
-  const outcomes = [];
+  const outcomes: Array<Record<string, unknown>> = [];
   for (const item of journeys.slice(0, 2)) {
+    const journey: LifecycleJourney = item.journey;
+    const content = journeyContent(journey, member, item.extra ?? {});
     try {
-      outcomes.push({ journey: item.journey, ...(await sendLifecycleEmail(member, item.journey, journeyContent(item.journey, member, item.extra), item.key)) });
+      const delivery = await sendLifecycleEmail(member, journey, content, item.key ?? journey);
+      outcomes.push({ journey, ...delivery });
     } catch (error) {
-      outcomes.push({ journey: item.journey, sent: false, reason: error instanceof Error ? error.message : 'send_failed' });
+      outcomes.push({ journey, sent: false, reason: error instanceof Error ? error.message : 'send_failed' });
     }
   }
   return outcomes;
@@ -102,7 +111,7 @@ export async function GET(request: Request) {
   let sent = 0;
   for (const member of members) {
     const outcomes = await runMember(member, release);
-    sent += outcomes.filter(item => (item as { sent?: boolean }).sent).length;
+    sent += outcomes.filter(item => item.sent === true).length;
     if (outcomes.length) results.push({ uid: member.id, outcomes });
   }
   await adminFirestore.collection('lifecycleRuns').add({ processed: members.length, matched: results.length, sent, releaseId: release?.id || null, completedAt: new Date() });
