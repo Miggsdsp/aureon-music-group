@@ -1,7 +1,7 @@
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;align-items:stretch}
 .card{display:flex;flex-direction:column;align-items:center;text-align:center;overflow:hidden}
-.newsImage{position:relative;width:100%;height:clamp(190px,18vw,260px);overflow:hidden;background:#050505;isolation:isolate}
-.newsImage img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;object-fit:cover!important;object-position:center!important}
+.newsImage{position:relative;width:100%;height:clamp(280px,30vw,420px);overflow:hidden;background:#050505;isolation:isolate;display:grid;place-items:center}
+.newsImage img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:100%!important;object-fit:contain!important;object-position:center!important;background:#050505}
 .card p,.card h3,.card a{max-width:680px}
 .card h3{margin-left:auto;margin-right:auto}
 .card>a{margin-top:auto}
@@ -25,5 +25,5 @@
 .videoPrev{left:14px}
 .videoNext{right:14px}
 .deferredSection{content-visibility:auto;contain-intrinsic-size:900px}
-@media(max-width:900px){.newsImage{height:220px}.videoMedia{height:clamp(280px,50vw,420px)}}
-@media(max-width:700px){.grid{grid-template-columns:1fr}.newsImage{height:180px}.videoSection{width:calc(100% - 24px);margin-bottom:42px}.videoHeading{align-items:flex-start;flex-direction:column}.videoMedia{height:260px}.videoOverlay{padding:64px 18px 18px}.videoArrow{width:36px;height:36px}.videoPrev{left:8px}.videoNext{right:8px}.deferredSection{contain-intrinsic-size:1200px}}
+@media(max-width:900px){.newsImage{height:clamp(260px,46vw,360px)}.videoMedia{height:clamp(280px,50vw,420px)}}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.newsImage{height:260px}.videoSection{width:calc(100% - 24px);margin-bottom:42px}.videoHeading{align-items:flex-start;flex-direction:column}.videoMedia{height:260px}.videoOverlay{padding:64px 18px 18px}.videoArrow{width:36px;height:36px}.videoPrev{left:8px}.videoNext{right:8px}.deferredSection{contain-intrinsic-size:1200px}}
