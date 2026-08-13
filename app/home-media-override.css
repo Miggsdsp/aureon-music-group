@@ -1,0 +1,20 @@
+/* Homepage media presentation safeguards.
+   CMS images are allowed to keep their source proportions while the layout
+   controls the frame. Featured video uses contain so the complete poster/video
+   is visible instead of being cropped. */
+
+[class*="HomeFeaturedContent_videoMedia"] video,
+[class*="HomeFeaturedContent_videoPosterLink"] img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  background: #000 !important;
+}
+
+[class*="HomeFeaturedContent_newsImage"] img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+}
