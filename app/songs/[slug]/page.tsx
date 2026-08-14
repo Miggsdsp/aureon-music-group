@@ -1,12 +1,14 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Clock3, Disc3, Music2 } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import { LatestPlayButton } from '@/components/LatestPlayButton';
 import { SimilarSongs } from '@/components/discovery/SimilarSongs';
+import { getArtwork } from '@/lib/get-artwork';
+import { getPreviewUrl } from '@/lib/get-preview-url';
 import { useParams } from 'next/navigation';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
@@ -53,8 +55,8 @@ export default function SongPage() {
   const artistSlug = song.artistSlug || details.artistSlug || '';
   const albumTitle = song.albumTitle || details.albumTitle || '';
   const albumSlug = song.albumSlug || details.albumSlug || '';
-  const artwork = song.coverImageUrl || details.coverImageUrl || song.imageUrl || details.imageUrl || '/images/branding/Aureon_Header_Logo.png';
-  const preview = song.previewUrl || details.previewUrl || '';
+  const artwork = getArtwork(song);
+  const preview = getPreviewUrl(song);
   const duration = song.duration || details.duration || '';
   const genre = song.genre || details.genre || '';
   const mood = song.mood || details.mood || '';
@@ -68,7 +70,7 @@ export default function SongPage() {
     <main className="page-shell song-detail-page">
       <Header/>
       <section className="album-hero-detail">
-        <div className="album-detail-cover"><Image src={artwork} alt={`${title} artwork`} width={1000} height={1000} sizes="(max-width: 760px) 100vw, 46vw" priority/></div>
+        <div className="album-detail-cover"><ArtworkImage src={artwork} alt={`${title} artwork`} width={1000} height={1000} sizes="(max-width: 760px) 100vw, 46vw" priority/></div>
         <div className="album-detail-copy">
           <Link href="/music" className="back-link"><ArrowLeft size={16}/> Back to music</Link>
           <p className="eyebrow">Single · {genre || 'Aureon release'}</p>
