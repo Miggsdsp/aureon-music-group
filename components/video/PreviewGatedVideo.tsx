@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import { firebaseAuth } from '@/lib/firebase-client';
 import { trackAnalytics } from '@/lib/track-analytics';
 import styles from './PreviewGatedVideo.module.css';
@@ -43,7 +44,8 @@ export function PreviewGatedVideo({ src, poster, title = 'Aureon video', classNa
   }
 
   return <div className={styles.wrap}>
-    <video ref={videoRef} className={`${styles.video} ${className}`.trim()} src={src} controls preload="none" poster={poster} playsInline aria-label={title}
+    {poster && <div className={styles.posterFallback} aria-hidden="true"><ArtworkImage src={poster} alt="" fill sizes="100vw" /></div>}
+    <video ref={videoRef} className={`${styles.video} ${className}`.trim()} src={src} controls preload="metadata" poster={poster} playsInline aria-label={title}
       onPlay={() => trackAnalytics({ ...eventBase, eventType: 'video_play', listenedSeconds: videoRef.current?.currentTime || 0, durationSeconds: videoRef.current?.duration || 0 })}
       onPause={() => { const video = videoRef.current; if (video && !video.ended) trackAnalytics({ ...eventBase, eventType: 'video_pause', listenedSeconds: video.currentTime, durationSeconds: video.duration || 0 }); }}
       onEnded={() => trackAnalytics({ ...eventBase, eventType: 'video_complete', listenedSeconds: videoRef.current?.duration || 0, durationSeconds: videoRef.current?.duration || 0, progressPercent: 100 })}
