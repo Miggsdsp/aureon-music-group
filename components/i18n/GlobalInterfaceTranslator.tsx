@@ -23,20 +23,29 @@ function preserveCase(source: string, translated: string) {
   return translated;
 }
 
+function normaliseVisibleText(value: string) {
+  return value
+    .replace(/([.!?])(?=[A-ZÀ-ÖØ-Þ])/g, '$1 ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function findPhrase(source: string, phrases: Record<string, string>, lower: Map<string, string>) {
-  const exact = phrases[source];
+  const normalised = normaliseVisibleText(source);
+  const exact = phrases[normalised];
   if (exact) return exact;
-  const insensitive = lower.get(source.toLocaleLowerCase());
-  return insensitive ? preserveCase(source, insensitive) : null;
+  const insensitive = lower.get(normalised.toLocaleLowerCase());
+  return insensitive ? preserveCase(normalised, insensitive) : null;
 }
 
 function translateCore(source: string, phrases: Record<string, string>, lower: Map<string, string>) {
-  const direct = findPhrase(source, phrases, lower);
+  const normalised = normaliseVisibleText(source);
+  const direct = findPhrase(normalised, phrases, lower);
   if (direct) return direct;
 
-  const arrow = source.match(ARROW_RE);
+  const arrow = normalised.match(ARROW_RE);
   if (arrow) {
-    const base = source.slice(0, arrow.index).trim();
+    const base = normalised.slice(0, arrow.index).trim();
     const translated = findPhrase(base, phrases, lower);
     if (translated) return `${translated} ${arrow[1]}`;
   }
@@ -51,7 +60,7 @@ function translateCore(source: string, phrases: Record<string, string>, lower: M
   ];
 
   for (const pattern of patterns) {
-    const match = source.match(pattern.re);
+    const match = normalised.match(pattern.re);
     if (!match) continue;
     if (pattern.countFirst) {
       const translated = findPhrase(pattern.key, phrases, lower) || pattern.key;
@@ -65,14 +74,14 @@ function translateCore(source: string, phrases: Record<string, string>, lower: M
     return `${first}${pattern.join}${match[2]}`;
   }
 
-  return source;
+  return normalised;
 }
 
 function translateText(value: string, phrases: Record<string, string>, lower: Map<string, string>) {
   const trimmed = value.trim();
   if (!trimmed) return value;
   const translated = translateCore(trimmed, phrases, lower);
-  if (translated === trimmed) return value;
+  if (translated === normaliseVisibleText(trimmed)) return value;
   const leading = value.match(/^\s*/)?.[0] || '';
   const trailing = value.match(/\s*$/)?.[0] || '';
   return `${leading}${translated}${trailing}`;
@@ -89,7 +98,7 @@ function translateWholeElement(element: HTMLElement, phrases: Record<string, str
   if (element.closest('[data-i18n-skip="true"]')) return;
   const children = Array.from(element.childNodes);
   if (children.length < 2 || !children.some(node => node.nodeType === Node.ELEMENT_NODE)) return;
-  const source = (element.textContent || '').replace(/\s+/g, ' ').trim();
+  const source = normaliseVisibleText(element.innerText || element.textContent || '');
   if (!source) return;
   const translated = translateCore(source, phrases, lower);
   if (translated === source) return;
@@ -99,7 +108,7 @@ function translateWholeElement(element: HTMLElement, phrases: Record<string, str
 function translateElement(root: ParentNode, phrases: Record<string, string>, lower: Map<string, string>) {
   if (root instanceof HTMLElement) translateWholeElement(root, phrases, lower);
   if ('querySelectorAll' in root) {
-    const compoundElements = (root as ParentNode).querySelectorAll<HTMLElement>('h1,h2,h3,p,span,strong,button,a,label');
+    const compoundElements = (root as ParentNode).querySelectorAll<HTMLElement>('h1,h2,h3,h4,p,span,strong,button,a,label,li,small');
     for (const element of compoundElements) translateWholeElement(element, phrases, lower);
   }
 
@@ -118,7 +127,7 @@ function translateElement(root: ParentNode, phrases: Record<string, string>, low
         const value = element.getAttribute(attr);
         if (!value) continue;
         const translated = translateCore(value.trim(), phrases, lower);
-        if (translated !== value.trim()) element.setAttribute(attr, translated);
+        if (translated !== normaliseVisibleText(value)) element.setAttribute(attr, translated);
       }
     }
   }
@@ -143,8 +152,9 @@ export function GlobalInterfaceTranslator() {
     apply();
 
     const frame = requestAnimationFrame(apply);
-    const delayed = window.setTimeout(apply, 250);
-    const delayed2 = window.setTimeout(apply, 1000);
+    const delayed = window.setTimeout(apply, 150);
+    const delayed2 = window.setTimeout(apply, 500);
+    const delayed3 = window.setTimeout(apply, 1500);
 
     let queued = false;
     const observer = new MutationObserver(mutations => {
@@ -186,6 +196,7 @@ export function GlobalInterfaceTranslator() {
       cancelAnimationFrame(frame);
       window.clearTimeout(delayed);
       window.clearTimeout(delayed2);
+      window.clearTimeout(delayed3);
       observer.disconnect();
     };
   }, [locale]);
