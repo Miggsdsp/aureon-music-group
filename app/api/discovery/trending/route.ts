@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getTrendingSongs, type TrendingWindow } from '@/lib/trending';
 
 export const runtime = 'nodejs';
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 const WINDOWS = new Set<TrendingWindow>(['1h', '24h', '7d', '30d']);
 
