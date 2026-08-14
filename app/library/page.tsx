@@ -7,6 +7,7 @@ import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp,
 import { Clock3, GripVertical, ListPlus, Play, Search, Trash2 } from 'lucide-react';
 import { firebaseAuth, firestore } from '@/lib/firebase-client';
 import { type PlayerSong, useMusicPlayer } from '@/components/music/MusicPlayerProvider';
+import { getArtwork } from '@/lib/get-artwork';
 import styles from './library.module.css';
 
 type Song = PlayerSong & {
@@ -14,6 +15,7 @@ type Song = PlayerSong & {
   artistImageUrl?: string;
   publishedAt?: unknown;
   releaseDate?: unknown;
+  details?: Record<string, any>;
 };
 type Playlist = { id: string; name?: string; songIds?: string[] };
 type Member = { subscriptionStatus?: string; plan?: string };
@@ -21,10 +23,30 @@ type Member = { subscriptionStatus?: string; plan?: string };
 const durationLabel = (seconds?: number) => seconds && Number.isFinite(seconds) ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '—';
 const yearLabel = (song: Song) => {
   if (song.releaseYear) return String(song.releaseYear);
-  const source: any = song.releaseDate || song.publishedAt;
+  const source: any = song.releaseDate || song.details?.releaseDate || song.publishedAt || song.details?.publishedAt;
   const date = source?.toDate?.() || (source ? new Date(source) : null);
   return date && !Number.isNaN(date.getTime()) ? String(date.getFullYear()) : '—';
 };
+
+function normalizeSong(id: string, data: Record<string, any>): Song {
+  const details = data.details && typeof data.details === 'object' ? data.details : {};
+  return {
+    id,
+    ...data,
+    details,
+    title: data.title || details.title || data.name || details.name,
+    artistName: data.artistName || details.artistName || data.artist || details.artist,
+    artist: data.artist || details.artist,
+    genre: data.genre || details.genre,
+    albumTitle: data.albumTitle || details.albumTitle,
+    artistImageUrl: data.artistImageUrl || details.artistImageUrl || data.profileImageUrl || details.profileImageUrl,
+    duration: Number(data.duration || details.duration || data.durationSeconds || details.durationSeconds || 0) || undefined,
+    releaseYear: data.releaseYear || details.releaseYear || data.year || details.year,
+    releaseDate: data.releaseDate || details.releaseDate,
+    coverImageUrl: getArtwork(data),
+    imageUrl: getArtwork(data),
+  };
+}
 
 export default function LibraryPage() {
   const { currentSong, playSong, playQueue, enqueue, enqueueMany } = useMusicPlayer();
@@ -67,7 +89,7 @@ export default function LibraryPage() {
     setSongsLoading(true);
     const publishedSongs = query(collection(firestore, 'songs'), where('status', '==', 'published'));
     return onSnapshot(publishedSongs, snapshot => {
-      setSongs(snapshot.docs.map(item => ({ id: item.id, ...item.data() } as Song)));
+      setSongs(snapshot.docs.map(item => normalizeSong(item.id, item.data())));
       setSongsLoading(false);
     }, error => {
       console.error('Member catalogue listener failed', error);
@@ -192,7 +214,7 @@ export default function LibraryPage() {
         <div className={styles.sectionHeader}><div><p className={styles.kicker}>Full catalogue</p><h2>Published releases</h2></div><p>{filteredSongs.length} of {songs.length} tracks</p></div>
         <div className={styles.libraryTools}><label className={styles.searchBox}><Search size={18} /><input value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Search song, artist or genre" /></label><select value={artistFilter} onChange={event => setArtistFilter(event.target.value)}><option value="all">All artists</option>{artists.map(artist => <option key={artist} value={artist}>{artist}</option>)}</select><select value={genreFilter} onChange={event => setGenreFilter(event.target.value)}><option value="all">All genres</option>{genres.map(genre => <option key={genre} value={genre}>{genre}</option>)}</select></div>
         {songsLoading ? <div className={styles.catalogue}>{[1,2,3].map(item => <div className={styles.skeletonCard} key={item}><div /><span /><span /></div>)}</div> : filteredSongs.length ? <div className={styles.catalogue}>{filteredSongs.map(song => <article className={styles.songCard} key={song.id}>
-          <div className={styles.artworkWrap}>{(song.coverImageUrl || song.imageUrl) ? <img src={song.coverImageUrl || song.imageUrl} alt={`${song.title || 'Song'} cover`} /> : <div className={styles.artworkFallback}>AUREON</div>}{song.artistImageUrl && <img className={styles.artistAvatar} src={song.artistImageUrl} alt={`${song.artistName || song.artist || 'Artist'} portrait`} />}</div>
+          <div className={styles.artworkWrap}><img src={song.coverImageUrl || song.imageUrl || '/images/branding/Aureon_Header_Logo.png'} alt={`${song.title || 'Song'} cover`} />{song.artistImageUrl && <img className={styles.artistAvatar} src={song.artistImageUrl} alt={`${song.artistName || song.artist || 'Artist'} portrait`} />}</div>
           <div className={styles.songBody}><h3>{song.title || 'Untitled track'}</h3><p>{song.artistName || song.artist || 'Aureon Music Group'}{song.genre ? ` · ${song.genre}` : ''}</p><div className={styles.metadata}><span><Clock3 size={14} /> {durationLabel(song.duration)}</span><span>{yearLabel(song)}</span>{song.albumTitle && <span>{song.albumTitle}</span>}</div><div className={styles.actions}><button className={`${styles.button} ${styles.buttonPrimary}`} onClick={() => playSong(song, filteredSongs, filteredSongs.findIndex(item => item.id === song.id))}><Play size={15} /> Play</button><button className={styles.button} onClick={() => enqueue(song)}><ListPlus size={15} /> Queue</button><button className={styles.button} disabled={busy === `download-${song.id}`} onClick={() => download(song)}>{busy === `download-${song.id}` ? 'Preparing…' : 'Download'}</button></div>{playlists.length > 0 && <div className={styles.addRow}><select value={selectedPlaylists[song.id] || ''} onChange={event => setSelectedPlaylists(current => ({ ...current, [song.id]: event.target.value }))}><option value="">Choose playlist</option>{playlists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name || 'Untitled playlist'}</option>)}</select><button onClick={() => addToPlaylist(song)}>Add</button></div>}</div>
         </article>)}</div> : <div className={styles.emptyState}><h3>No matching releases</h3><p>Try removing a filter or searching for another title, artist or genre.</p><button className={styles.button} onClick={() => { setSearchText(''); setArtistFilter('all'); setGenreFilter('all'); }}>Clear filters</button></div>}
       </section>
