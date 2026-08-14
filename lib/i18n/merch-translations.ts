@@ -98,7 +98,11 @@ const es: PhraseMap = {
   'Worldwide delivery': 'Entrega mundial',
   'Secure checkout': 'Pago seguro',
   'Black': 'Negro', 'White': 'Blanco', 'Navy': 'Azul marino', 'Midnight Navy': 'Azul marino oscuro', 'Washed Charcoal': 'Carbón lavado', 'Heather Grey': 'Gris jaspeado',
-  'Your discounted prices are shown below and will be verified again at secure checkout.': 'Tus precios con descuento se muestran a continuación y se verificarán de nuevo en el pago seguro.'
+  '10% member discount active': 'Descuento de miembro del 10% activo',
+  '20% member discount active': 'Descuento de miembro del 20% activo',
+  'Your discounted prices are shown below and will be verified again at secure checkout.': 'Tus precios con descuento se muestran a continuación y se verificarán de nuevo en el pago seguro.',
+  '10% active-member discount included. Stripe will verify your membership before charging.': 'Descuento del 10% para miembros activos incluido. Stripe verificará tu membresía antes de cobrar.',
+  '20% active-member discount included. Stripe will verify your membership before charging.': 'Descuento del 20% para miembros activos incluido. Stripe verificará tu membresía antes de cobrar.'
 };
 
 const fr: PhraseMap = {
@@ -143,7 +147,11 @@ const fr: PhraseMap = {
   'Worldwide delivery': 'Livraison mondiale',
   'Secure checkout': 'Paiement sécurisé',
   'Black': 'Noir', 'White': 'Blanc', 'Navy': 'Bleu marine', 'Midnight Navy': 'Bleu marine nuit', 'Washed Charcoal': 'Anthracite délavé', 'Heather Grey': 'Gris chiné',
-  'Your discounted prices are shown below and will be verified again at secure checkout.': 'Vos prix remisés sont affichés ci-dessous et seront vérifiés à nouveau lors du paiement sécurisé.'
+  '10% member discount active': 'Remise membre de 10 % active',
+  '20% member discount active': 'Remise membre de 20 % active',
+  'Your discounted prices are shown below and will be verified again at secure checkout.': 'Vos prix remisés sont affichés ci-dessous et seront vérifiés à nouveau lors du paiement sécurisé.',
+  '10% active-member discount included. Stripe will verify your membership before charging.': 'Remise de 10 % pour membre actif incluse. Stripe vérifiera votre abonnement avant le prélèvement.',
+  '20% active-member discount included. Stripe will verify your membership before charging.': 'Remise de 20 % pour membre actif incluse. Stripe vérifiera votre abonnement avant le prélèvement.'
 };
 
 const de: PhraseMap = {
@@ -188,7 +196,11 @@ const de: PhraseMap = {
   'Worldwide delivery': 'Weltweite Lieferung',
   'Secure checkout': 'Sicherer Checkout',
   'Black': 'Schwarz', 'White': 'Weiß', 'Navy': 'Marineblau', 'Midnight Navy': 'Dunkles Marineblau', 'Washed Charcoal': 'Verwaschenes Anthrazit', 'Heather Grey': 'Meliertes Grau',
-  'Your discounted prices are shown below and will be verified again at secure checkout.': 'Deine reduzierten Preise werden unten angezeigt und beim sicheren Checkout erneut überprüft.'
+  '10% member discount active': '10 % Mitgliederrabatt aktiv',
+  '20% member discount active': '20 % Mitgliederrabatt aktiv',
+  'Your discounted prices are shown below and will be verified again at secure checkout.': 'Deine reduzierten Preise werden unten angezeigt und beim sicheren Checkout erneut überprüft.',
+  '10% active-member discount included. Stripe will verify your membership before charging.': '10 % Rabatt für aktive Mitglieder enthalten. Stripe überprüft deine Mitgliedschaft vor der Belastung.',
+  '20% active-member discount included. Stripe will verify your membership before charging.': '20 % Rabatt für aktive Mitglieder enthalten. Stripe überprüft deine Mitgliedschaft vor der Belastung.'
 };
 
 export const merchTranslations: Record<Locale, PhraseMap> = { en: {}, pt, es, fr, de };
