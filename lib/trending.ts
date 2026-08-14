@@ -1,4 +1,6 @@
 import { adminFirestore } from '@/lib/firebase-admin';
+import { getArtwork } from '@/lib/get-artwork';
+import { getPreviewUrl } from '@/lib/get-preview-url';
 
 export type TrendingWindow = '1h' | '24h' | '7d' | '30d';
 export type TrendingSong = {
@@ -92,15 +94,16 @@ export async function getTrendingSongs(window: TrendingWindow = '24h', limit = 2
     if (song.status && song.status !== 'published') return [];
     const scored = scores.get(doc.id);
     if (!scored) return [];
+    const details = song.details && typeof song.details === 'object' ? song.details : {};
     return [{
       id: doc.id,
       slug: text(song.slug, doc.id),
       title: text(song.title, 'Untitled track'),
-      artist: text(song.artistName || song.artist, 'Aureon Music Group'),
-      artistSlug: text(song.artistSlug),
-      artwork: text(song.coverImageUrl || song.imageUrl || song.artworkUrl),
-      previewUrl: text(song.previewUrl || song.previewAudioUrl || song.audioPreviewUrl),
-      duration: number(song.duration || song.durationSeconds),
+      artist: text(song.artistName || details.artistName || song.artist || details.artist, 'Aureon Music Group'),
+      artistSlug: text(song.artistSlug || details.artistSlug),
+      artwork: getArtwork(song),
+      previewUrl: getPreviewUrl(song),
+      duration: number(song.duration || details.duration || song.durationSeconds || details.durationSeconds),
       score: Number(scored.score.toFixed(4)),
       rank: 0,
       signals: scored.signals,
