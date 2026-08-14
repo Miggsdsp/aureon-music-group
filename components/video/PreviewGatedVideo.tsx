@@ -43,13 +43,26 @@ export function PreviewGatedVideo({ src, poster, title = 'Aureon video', classNa
     }
   }
 
-  return <div className={styles.wrap}>
+  return <div className={styles.wrap} onContextMenu={event=>event.preventDefault()}>
     {poster && <div className={styles.posterFallback} aria-hidden="true"><ArtworkImage src={poster} alt="" fill sizes="100vw" /></div>}
-    <video ref={videoRef} className={`${styles.video} ${className}`.trim()} src={src} controls preload="metadata" poster={poster} playsInline aria-label={title}
+    <video
+      ref={videoRef}
+      className={`${styles.video} ${className}`.trim()}
+      src={src}
+      controls
+      controlsList="nodownload noremoteplayback"
+      disablePictureInPicture
+      preload="metadata"
+      poster={poster}
+      playsInline
+      aria-label={title}
       onPlay={() => trackAnalytics({ ...eventBase, eventType: 'video_play', listenedSeconds: videoRef.current?.currentTime || 0, durationSeconds: videoRef.current?.duration || 0 })}
       onPause={() => { const video = videoRef.current; if (video && !video.ended) trackAnalytics({ ...eventBase, eventType: 'video_pause', listenedSeconds: video.currentTime, durationSeconds: video.duration || 0 }); }}
       onEnded={() => trackAnalytics({ ...eventBase, eventType: 'video_complete', listenedSeconds: videoRef.current?.duration || 0, durationSeconds: videoRef.current?.duration || 0, progressPercent: 100 })}
-      onTimeUpdate={enforceAudioPreview} onSeeking={enforceAudioPreview} onVolumeChange={enforceAudioPreview}/>
+      onTimeUpdate={enforceAudioPreview}
+      onSeeking={enforceAudioPreview}
+      onVolumeChange={enforceAudioPreview}
+    />
     {accessChecked && !hasFullAudio && !audioPreviewEnded && <div className={styles.previewLabel}>40-second audio preview</div>}
     {audioPreviewEnded && !hasFullAudio && <div className={styles.notice} role="status"><p><strong>Audio preview finished</strong>The video will continue playing without sound. Subscribe to hear the complete soundtrack.</p><Link href="/membership">Unlock full audio →</Link></div>}
   </div>;
