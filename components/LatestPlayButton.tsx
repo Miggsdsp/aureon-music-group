@@ -36,7 +36,14 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   const songPath=purchase?.slug?`/songs/${purchase.slug}`:entityId?`/songs/${entityId}`:'/music';
 
   useEffect(()=>onAuthStateChanged(firebaseAuth,user=>setSignedIn(Boolean(user))),[]);
-  useEffect(()=>{metadataRequested.current=false;},[src]);
+  useEffect(()=>{
+    metadataRequested.current=false;
+    completionTracked.current=false;
+    setHasError(false);
+    setIsPlaying(false);
+    setNearEnd(false);
+    setPreviewFinished(false);
+  },[src]);
 
   function requestMetadata(){
     const audio=audioRef.current;
@@ -83,7 +90,8 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
       setIsPlaying(true);
       trackAnalytics({...eventBase,eventType:'song_play',listenedSeconds:audio.currentTime,durationSeconds:audio.duration||0});
       if(discovery)trackDiscovery('play',discoveryEntity,{...discovery,interaction:'button'});
-    }catch{
+    }catch(error){
+      console.error('Aureon preview playback failed',error);
       setHasError(true);
       setIsPlaying(false);
     }
@@ -124,7 +132,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   return <div className="song-commerce-control">
     {hasPreview?<button className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onPointerEnter={requestMetadata} onFocus={requestMetadata} onTouchStart={requestMetadata} onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
     {showPurchase&&!promotional&&purchase&&<div className="song-buy-row"><button type="button" className="song-buy-button" onClick={addSongToCart}><ShoppingCart size={14}/> {added?'Added to cart':`Buy full song €${price.toFixed(2)}`}</button>{added&&<Link href="/checkout">Checkout →</Link>}</div>}
-    {src?<audio ref={audioRef} src={src} preload="none" crossOrigin="anonymous" onTimeUpdate={enforcePreviewLimit} onEnded={ended} onError={()=>setHasError(true)}/>:null}
+    {src?<audio ref={audioRef} src={src} preload="none" playsInline onCanPlay={()=>setHasError(false)} onTimeUpdate={enforcePreviewLimit} onEnded={ended} onError={()=>setHasError(true)}/>:null}
 
     {nearEnd&&!previewFinished&&!promotional&&<div className={styles.benefitCue} role="status"><Sparkles size={15}/><div><strong>Keep the music going</strong><span>Premium unlocks the complete Aureon catalogue.</span></div></div>}
 
