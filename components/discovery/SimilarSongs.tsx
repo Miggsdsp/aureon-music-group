@@ -1,10 +1,12 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Pause, Play, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import { FavouriteSongButton } from '@/components/community/FavouriteSongButton';
+import { getArtwork } from '@/lib/get-artwork';
+import { getPreviewUrl } from '@/lib/get-preview-url';
 import { recommendSongs, type RecommendationEntity } from '@/lib/recommendations';
 import { trackDiscovery, useDiscoveryImpressions, type DiscoveryEntity } from '@/lib/discovery-analytics';
 import styles from './SimilarSongs.module.css';
@@ -34,11 +36,11 @@ function SimilarSongCard({ song, confidence, position }: { song: SongRecord; con
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [playing, setPlaying] = useState(false);
-  const preview = String(value(song, 'previewUrl') || '');
+  const preview = getPreviewUrl(song);
   const title = String(song.title || song.name || 'Untitled track');
   const artist = String(value(song, 'artistName') || value(song, 'artist') || 'Aureon Music Group');
   const artistSlug = String(value(song, 'artistSlug') || '');
-  const artwork = String(value(song, 'coverImageUrl') || value(song, 'imageUrl') || '/images/branding/Aureon_Header_Logo.png');
+  const artwork = getArtwork(song);
   const duration = String(value(song, 'duration') || 'Preview');
   const href = `/songs/${song.slug || song.id}`;
   const artistId = String(song.artistId || value(song, 'artistId') || '');
@@ -72,7 +74,7 @@ function SimilarSongCard({ song, confidence, position }: { song: SongRecord; con
 
   return <article className={styles.card} onMouseEnter={enter} onMouseLeave={leave}>
     <Link className={styles.artworkLink} href={href} aria-label={`Open ${title}`} onClick={() => click('artwork')}>
-      <Image src={artwork} alt={`${title} artwork`} fill sizes="(max-width: 760px) 50vw, (max-width: 1100px) 33vw, 25vw" loading="lazy" />
+      <ArtworkImage src={artwork} alt={`${title} artwork`} fill sizes="(max-width: 760px) 50vw, (max-width: 1100px) 33vw, 25vw" loading="lazy" />
       {preview && <span className={styles.hoverState}><Sparkles size={13}/>{playing ? 'Preview playing' : 'Hover to preview'}</span>}
     </Link>
     <div className={styles.body}>
