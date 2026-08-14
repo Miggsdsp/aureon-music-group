@@ -1,0 +1,16 @@
+.trackSection{padding:72px 5vw 88px}
+.trackHeading{display:flex;align-items:center;gap:16px;margin-bottom:28px}
+.trackHeading>svg{flex:0 0 auto;color:#d9b45f;width:28px;height:28px}
+.trackHeading h2{margin:6px 0 0;font-size:clamp(34px,4vw,58px);line-height:1}
+.trackList{display:grid;gap:12px}
+.trackRow{display:grid;grid-template-columns:54px minmax(0,1fr) minmax(230px,330px);align-items:center;gap:24px;min-height:142px;padding:22px 24px;border:1px solid rgba(217,180,95,.24);background:rgba(0,0,0,.36)}
+.trackNumber{font-size:13px;font-weight:800;letter-spacing:.12em;color:#d9b45f;text-align:center}
+.trackCopy{min-width:0}
+.trackCopy h3{margin:0 0 8px;font-size:20px;line-height:1.2}
+.trackCopy p{margin:0;color:rgba(255,255,255,.68);line-height:1.45}
+.trackActions{width:100%;min-width:0;justify-self:end}
+.trackActions :global(.song-commerce-control){width:100%;max-width:330px;margin-left:auto;display:grid;gap:8px}
+.trackActions :global(.latest-release-button),.trackActions :global(.song-buy-button){width:100%;max-width:100%;justify-content:center;white-space:normal;text-align:center;line-height:1.2;min-height:38px}
+.trackActions :global(.song-buy-row){width:100%;display:grid;gap:8px}
+@media(max-width:920px){.trackRow{grid-template-columns:44px minmax(0,1fr);align-items:start}.trackActions{grid-column:2;width:min(100%,360px);justify-self:start}.trackActions :global(.song-commerce-control){margin-left:0}}
+@media(max-width:620px){.trackSection{padding:52px 20px 70px}.trackRow{grid-template-columns:1fr;gap:12px;padding:20px}.trackNumber{text-align:left}.trackActions{grid-column:1;width:100%}.trackActions :global(.song-commerce-control){max-width:none}.trackHeading{align-items:flex-start}.trackHeading h2{font-size:34px}}
