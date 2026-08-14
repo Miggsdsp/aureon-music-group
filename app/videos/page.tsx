@@ -1,10 +1,12 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Clapperboard, Film, Play } from 'lucide-react';
 import { PageShell } from '@/components/PageShell';
+import { ArtworkImage } from '@/components/ArtworkImage';
+import { getArtwork } from '@/lib/get-artwork';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
+import styles from './VideosPage.module.css';
 
 type VideoAlbumRecord = PublicRecord & {
   title: string;
@@ -19,6 +21,7 @@ type VideoAlbumRecord = PublicRecord & {
   thumbnailUrl?: string;
   videoCount?: number;
   videos?: unknown[];
+  details?: Record<string, any>;
 };
 
 type VideoRecord = PublicRecord & {
@@ -34,13 +37,12 @@ type VideoRecord = PublicRecord & {
   youtubeUrl?: string;
   vimeoUrl?: string;
   shortForm?: boolean;
+  details?: Record<string, any>;
 };
 
 export default function VideosPage() {
-  const { items: videoAlbums, loading: albumsLoading } =
-    usePublishedCollection<VideoAlbumRecord>('videoAlbums', []);
-  const { items: videos, loading: videosLoading } =
-    usePublishedCollection<VideoRecord>('videos', []);
+  const { items: videoAlbums, loading: albumsLoading } = usePublishedCollection<VideoAlbumRecord>('videoAlbums', []);
+  const { items: videos, loading: videosLoading } = usePublishedCollection<VideoRecord>('videos', []);
   const loading = albumsLoading || videosLoading;
 
   return (
@@ -50,10 +52,7 @@ export default function VideosPage() {
           <p className="eyebrow">Aureon Visual Catalogue</p>
           <h2>Music videos and visual releases</h2>
         </div>
-        <p>
-          Every published video uploaded through the Aureon Control Center appears here
-          automatically.
-        </p>
+        <p>Every published video uploaded through the Aureon Control Center appears here automatically.</p>
       </section>
 
       {loading ? (
@@ -61,65 +60,64 @@ export default function VideosPage() {
       ) : (
         <>
           {videos.length > 0 && (
-            <section className="content-panel video-catalogue-section">
-              <div className="section-heading">
-                <div><p className="eyebrow">Watch now</p><h2>Latest videos</h2></div>
+            <section className={styles.section}>
+              <div className={styles.heading}>
+                <div><p className={styles.eyebrow}>Watch now</p><h2>Latest videos</h2></div>
               </div>
-              <div className="news-grid video-release-grid">
-                {videos.map(video => (
-                  <Link
-                    key={video.id}
-                    href={`/videos/${video.slug || video.id}`}
-                    className="video-release-link"
-                  >
-                    <article className="news-card video-release-card">
-                      <div className="video-release-thumb">
-                        <Image
-                          src={video.thumbnailUrl || '/images/branding/Aureon_Header_Logo.png'}
-                          alt={`${video.title || 'Aureon video'} thumbnail`}
-                          width={900}
-                          height={600}
-                          unoptimized
-                        />
-                        <span><Play size={24} /></span>
-                      </div>
-                      <div className="video-release-copy">
-                        <p className="eyebrow">
-                          {video.shortForm ? 'Short-form clip' : video.type || 'Music video'}
-                        </p>
-                        <h3>{video.title || 'Untitled video'}</h3>
-                        <p>{video.artistName || 'Aureon Music Group'}{video.duration ? ` · ${video.duration}` : ''}</p>
-                        <strong>Play on Aureon →</strong>
-                      </div>
-                    </article>
-                  </Link>
-                ))}
+              <div className={styles.grid}>
+                {videos.map(video => {
+                  const details = video.details || {};
+                  const title = video.title || details.title || 'Untitled video';
+                  const artist = video.artistName || details.artistName || 'Aureon Music Group';
+                  const duration = video.duration || details.duration || '';
+                  const type = video.shortForm || details.shortForm ? 'Short-form clip' : video.type || details.type || 'Music video';
+                  return (
+                    <Link key={video.id} href={`/videos/${video.slug || video.id}`} className={styles.cardLink}>
+                      <article className={styles.card}>
+                        <div className={styles.thumb}>
+                          <ArtworkImage src={getArtwork(video)} alt={`${title} thumbnail`} fill sizes="(max-width:620px) 100vw, (max-width:900px) 38vw, 21vw" />
+                          <span className={styles.playMark}><Play size={24} /></span>
+                        </div>
+                        <div className={styles.copy}>
+                          <span className={styles.official}>Official Aureon Video</span>
+                          <p className={styles.eyebrow}>{type}</p>
+                          <h3>{title}</h3>
+                          <p className={styles.meta}>{artist}{duration ? ` · ${duration}` : ''}</p>
+                          <strong className={styles.cta}>Play on Aureon →</strong>
+                        </div>
+                      </article>
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           )}
 
           {videoAlbums.length > 0 && (
-            <section className="content-panel video-catalogue-section">
-              <div className="section-heading">
-                <div><p className="eyebrow">Collections</p><h2>Video albums</h2></div>
+            <section className={styles.section}>
+              <div className={styles.heading}>
+                <div><p className={styles.eyebrow}>Collections</p><h2>Video albums</h2></div>
               </div>
-              <div className="album-grid video-album-grid">
+              <div className={styles.albumGrid}>
                 {videoAlbums.map(album => {
-                  const cover = album.coverImageUrl || album.coverUrl || album.thumbnailUrl || '/images/branding/Aureon_Header_Logo.png';
-                  const count = album.videoCount ?? album.videos?.length ?? videos.filter(video => (video as any).videoAlbumId === album.id).length;
+                  const details = album.details || {};
+                  const title = album.title || details.title || 'Untitled collection';
+                  const artist = album.artistName || details.artistName || album.artist || details.artist || '';
+                  const genre = album.genre || details.genre || '';
+                  const count = album.videoCount ?? details.videoCount ?? album.videos?.length ?? videos.filter(video => (video as any).videoAlbumId === album.id || video.details?.videoAlbumId === album.id).length;
                   return (
-                    <Link href={`/videos/${album.slug || album.id}`} className="album-card video-album-card" key={album.id}>
-                      <div className="album-cover video-cover">
-                        <Image src={cover} alt={`${album.title} video album artwork`} width={900} height={900} unoptimized />
-                        <div className="video-play-mark"><Film size={28} /></div>
+                    <Link href={`/videos/${album.slug || album.id}`} className={styles.albumCard} key={album.id}>
+                      <div className={styles.albumArt}>
+                        <ArtworkImage src={getArtwork(album)} alt={`${title} video album artwork`} fill sizes="(max-width:620px) 100vw, (max-width:1000px) 50vw, 25vw" />
+                        <span className={styles.playMark}><Film size={28} /></span>
                       </div>
-                      <div className="album-card-copy">
-                        <p>{album.releaseDate || album.year || ''}</p>
-                        <h3>{album.title}</h3>
-                        <strong>{album.artistName || album.artist || ''}</strong>
-                        <span>{album.genre || ''}</span>
-                        <div className="album-meta"><Clapperboard size={15} />{count} videos</div>
-                        <em>Open video album →</em>
+                      <div className={styles.albumBody}>
+                        <p>{album.releaseDate || details.releaseDate || album.year || details.year || ''}</p>
+                        <h3>{title}</h3>
+                        <strong>{artist}</strong>
+                        <span>{genre}</span>
+                        <div className={styles.albumMeta}><Clapperboard size={15} />{count} videos</div>
+                        <em className={styles.albumCta}>Open video album →</em>
                       </div>
                     </Link>
                   );
