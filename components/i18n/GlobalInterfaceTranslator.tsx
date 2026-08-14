@@ -5,6 +5,7 @@ import { useI18n } from './I18nProvider';
 import { interfaceTranslations } from '@/lib/i18n/interface-translations';
 import { commonUiTranslations } from '@/lib/i18n/common-ui-translations';
 import { pageUiTranslations } from '@/lib/i18n/page-ui-translations';
+import { memberAreaTranslations } from '@/lib/i18n/member-area-translations';
 
 const ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'OPTION', 'CODE', 'PRE']);
@@ -45,6 +46,7 @@ function translateCore(source: string, phrases: Record<string, string>, lower: M
     { re: /^(digital download)\s+(.+)$/i, key: 'Digital download', join: ' ' },
     { re: /^(secure payment)\s*[·•|-]\s*(instant ownership)$/i, key: 'Secure payment', second: 'Instant ownership', join: ' · ' },
     { re: /^(\d+)\s+tracks$/i, key: 'tracks', countFirst: true },
+    { re: /^(\d+)\s+songs$/i, key: 'songs', countFirst: true },
   ];
 
   for (const pattern of patterns) {
@@ -113,6 +115,7 @@ export function GlobalInterfaceTranslator() {
       ...(interfaceTranslations[locale] || {}),
       ...(commonUiTranslations[locale] || {}),
       ...(pageUiTranslations[locale] || {}),
+      ...(memberAreaTranslations[locale] || {}),
     };
     if (!Object.keys(phrases).length) return;
     const lower = buildLookup(phrases);
