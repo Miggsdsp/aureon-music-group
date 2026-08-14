@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useI18n } from './I18nProvider';
 import { interfaceTranslations } from '@/lib/i18n/interface-translations';
 import { commonUiTranslations } from '@/lib/i18n/common-ui-translations';
+import { pageUiTranslations } from '@/lib/i18n/page-ui-translations';
 
 const ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'OPTION', 'CODE', 'PRE']);
@@ -43,11 +44,16 @@ function translateCore(source: string, phrases: Record<string, string>, lower: M
     { re: /^(buy full song)\s+(.+)$/i, key: 'Buy full song', join: ' ' },
     { re: /^(digital download)\s+(.+)$/i, key: 'Digital download', join: ' ' },
     { re: /^(secure payment)\s*[·•|-]\s*(instant ownership)$/i, key: 'Secure payment', second: 'Instant ownership', join: ' · ' },
+    { re: /^(\d+)\s+tracks$/i, key: 'tracks', countFirst: true },
   ];
 
   for (const pattern of patterns) {
     const match = source.match(pattern.re);
     if (!match) continue;
+    if (pattern.countFirst) {
+      const translated = findPhrase(pattern.key, phrases, lower) || pattern.key;
+      return `${match[1]} ${translated}`;
+    }
     const first = findPhrase(pattern.key, phrases, lower) || pattern.key;
     if (pattern.second) {
       const second = findPhrase(pattern.second, phrases, lower) || pattern.second;
@@ -106,6 +112,7 @@ export function GlobalInterfaceTranslator() {
     const phrases = {
       ...(interfaceTranslations[locale] || {}),
       ...(commonUiTranslations[locale] || {}),
+      ...(pageUiTranslations[locale] || {}),
     };
     if (!Object.keys(phrases).length) return;
     const lower = buildLookup(phrases);
