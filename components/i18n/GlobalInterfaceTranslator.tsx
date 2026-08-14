@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useI18n } from './I18nProvider';
 import { interfaceTranslations } from '@/lib/i18n/interface-translations';
+import { commonUiTranslations } from '@/lib/i18n/common-ui-translations';
 
 const ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'OPTION', 'CODE', 'PRE']);
@@ -102,15 +103,16 @@ export function GlobalInterfaceTranslator() {
 
   useEffect(() => {
     if (locale === 'en') return;
-    const phrases = interfaceTranslations[locale];
-    if (!phrases || !Object.keys(phrases).length) return;
+    const phrases = {
+      ...(interfaceTranslations[locale] || {}),
+      ...(commonUiTranslations[locale] || {}),
+    };
+    if (!Object.keys(phrases).length) return;
     const lower = buildLookup(phrases);
 
     const apply = () => translateElement(document.body, phrases, lower);
     apply();
 
-    // React hydration and Firestore-driven client components can rewrite existing text nodes.
-    // Re-apply after hydration frames and keep observing characterData as well as new nodes.
     const frame = requestAnimationFrame(apply);
     const delayed = window.setTimeout(apply, 250);
     const delayed2 = window.setTimeout(apply, 1000);
