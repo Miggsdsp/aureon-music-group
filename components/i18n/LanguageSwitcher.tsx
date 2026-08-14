@@ -19,14 +19,15 @@ export function LanguageSwitcher() {
     const query = search.toString();
     const target = `${localePath(base, locale)}${query ? `?${query}` : ''}`;
 
-    window.location.href = target;
+    window.location.assign(target);
   }
 
   return (
-    <label className={styles.wrap}>
-      <Globe2 size={15} />
+    <label className={styles.wrap} data-i18n-skip="true">
+      <Globe2 size={15} aria-hidden="true" />
       <span className="sr-only">Language</span>
       <select
+        className={styles.select}
         aria-label="Language"
         value={current}
         onChange={event => change(event.target.value as Locale)}
