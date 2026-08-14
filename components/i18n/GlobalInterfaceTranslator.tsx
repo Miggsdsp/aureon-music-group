@@ -9,6 +9,7 @@ import { memberAreaTranslations } from '@/lib/i18n/member-area-translations';
 import { memberAreaExtraTranslations } from '@/lib/i18n/member-area-extra-translations';
 import { fullSiteExtraTranslations } from '@/lib/i18n/full-site-extra-translations';
 import { aboutLibraryTranslations } from '@/lib/i18n/about-library-translations';
+import { merchTranslations } from '@/lib/i18n/merch-translations';
 
 const ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'OPTION', 'CODE', 'PRE']);
@@ -148,6 +149,7 @@ export function GlobalInterfaceTranslator() {
       ...(memberAreaExtraTranslations[locale] || {}),
       ...(fullSiteExtraTranslations[locale] || {}),
       ...(aboutLibraryTranslations[locale] || {}),
+      ...(merchTranslations[locale] || {}),
     };
     if (!Object.keys(phrases).length) return;
     const lower = buildLookup(phrases);
