@@ -85,7 +85,24 @@ function translateTextNode(node: Text, phrases: Record<string, string>, lower: M
   if (next !== node.nodeValue) node.nodeValue = next;
 }
 
+function translateWholeElement(element: HTMLElement, phrases: Record<string, string>, lower: Map<string, string>) {
+  if (element.closest('[data-i18n-skip="true"]')) return;
+  const children = Array.from(element.childNodes);
+  if (children.length < 2 || !children.some(node => node.nodeType === Node.ELEMENT_NODE)) return;
+  const source = (element.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!source) return;
+  const translated = translateCore(source, phrases, lower);
+  if (translated === source) return;
+  element.textContent = translated;
+}
+
 function translateElement(root: ParentNode, phrases: Record<string, string>, lower: Map<string, string>) {
+  if (root instanceof HTMLElement) translateWholeElement(root, phrases, lower);
+  if ('querySelectorAll' in root) {
+    const compoundElements = (root as ParentNode).querySelectorAll<HTMLElement>('h1,h2,h3,p,span,strong,button,a,label');
+    for (const element of compoundElements) translateWholeElement(element, phrases, lower);
+  }
+
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let current = walker.nextNode();
   while (current) {
@@ -138,6 +155,8 @@ export function GlobalInterfaceTranslator() {
         for (const mutation of mutations) {
           if (mutation.type === 'characterData' && mutation.target.nodeType === Node.TEXT_NODE) {
             translateTextNode(mutation.target as Text, phrases, lower);
+            const parent = (mutation.target as Text).parentElement;
+            if (parent) translateWholeElement(parent, phrases, lower);
             continue;
           }
           if (mutation.type === 'attributes' && mutation.target.nodeType === Node.ELEMENT_NODE) {
@@ -145,8 +164,11 @@ export function GlobalInterfaceTranslator() {
             continue;
           }
           for (const node of Array.from(mutation.addedNodes)) {
-            if (node.nodeType === Node.TEXT_NODE) translateTextNode(node as Text, phrases, lower);
-            else if (node.nodeType === Node.ELEMENT_NODE) translateElement(node as Element, phrases, lower);
+            if (node.nodeType === Node.TEXT_NODE) {
+              translateTextNode(node as Text, phrases, lower);
+              const parent = (node as Text).parentElement;
+              if (parent) translateWholeElement(parent, phrases, lower);
+            } else if (node.nodeType === Node.ELEMENT_NODE) translateElement(node as Element, phrases, lower);
           }
         }
       });
