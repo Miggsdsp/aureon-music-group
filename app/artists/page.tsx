@@ -43,7 +43,6 @@ export default function ArtistsPage() {
                   />
                 </div>
                 <div className={styles.cardBody}>
-                  <p>{artist.id}</p>
                   <h3>{artist.name}</h3>
                   <strong>{artist.genre || 'Aureon Artist'}</strong>
                   <span>{artist.description || ''}</span>
