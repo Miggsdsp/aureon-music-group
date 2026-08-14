@@ -9,6 +9,7 @@ import { ArtworkImage } from '@/components/ArtworkImage';
 import { LatestPlayButton } from '@/components/LatestPlayButton';
 import { firebaseAuth } from '@/lib/firebase-client';
 import { getArtwork } from '@/lib/get-artwork';
+import { getPreviewUrl } from '@/lib/get-preview-url';
 import { recommendAlbums, recommendArtists, recommendSongs } from '@/lib/recommendations';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import styles from './InfiniteDiscovery.module.css';
@@ -106,7 +107,7 @@ export function InfiniteDiscovery() {
     const title = text(item, ['title', 'name']) || 'Untitled track';
     const artist = text(item, ['artistName', 'artist']) || 'Aureon Music Group';
     const slug = text(item, ['slug']) || id;
-    const preview = text(item, ['previewUrl']);
+    const preview = getPreviewUrl(item);
     return <article className={styles.miniCard} key={`${keyPrefix}-${id}`}>
       <Link className={styles.artwork} href={`/songs/${slug}`}><ArtworkImage src={getArtwork(item)} alt={`${title} artwork`} fill sizes="72px" /></Link>
       <div className={styles.copy}><strong><Link href={`/songs/${slug}`}>{title}</Link></strong><span>{artist}</span></div>
