@@ -36,12 +36,36 @@ async function memberDiscount(request: Request) {
   } catch { return { percent: 0, uid: '' }; }
 }
 
-async function resolveSong(reference: string) {
+async function firstSongByField(field: string, value: string) {
+  if (!value) return null;
+  const result = await adminFirestore.collection('songs').where(field, '==', value).limit(1).get();
+  return result.empty ? null : result.docs[0];
+}
+
+async function resolveSong(reference: string, suppliedName?: string) {
   const songs = adminFirestore.collection('songs');
   const direct = await songs.doc(reference).get();
   if (direct.exists) return direct;
-  const bySlug = await songs.where('slug', '==', reference).limit(1).get();
-  return bySlug.empty ? null : bySlug.docs[0];
+
+  // Current catalogue uses slugs, while older carts/releases may contain a
+  // legacy song ID. Support both without trusting any client-supplied price.
+  for (const field of ['slug', 'songId', 'aureonId', 'id']) {
+    const match = await firstSongByField(field, reference);
+    if (match) return match;
+  }
+
+  // Some pre-launch carts stored a display/title-derived identifier. Use the
+  // supplied display name only to locate the canonical Firestore song record;
+  // price, publication state and availability are still read server-side.
+  const name = cleanText(suppliedName, 180);
+  if (name) {
+    for (const field of ['title', 'name']) {
+      const match = await firstSongByField(field, name);
+      if (match) return match;
+    }
+  }
+
+  return null;
 }
 
 async function resolveProduct(reference: string) {
@@ -66,7 +90,7 @@ export async function POST(request: Request) {
     const validated: ValidatedItem[] = await Promise.all(supplied.map(async item => {
       const reference = cleanReference(item.id);
       if (item.digital === true) {
-        const snapshot = await resolveSong(reference);
+        const snapshot = await resolveSong(reference, item.name);
         if (!snapshot) throw new Error('ITEM_NOT_FOUND');
         const data = snapshot.data() || {};
         if (String(data.status || '').toLowerCase() !== 'published' || data.purchasable === false || data.promotional === true) throw new Error('ITEM_NOT_AVAILABLE');
