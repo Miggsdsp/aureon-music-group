@@ -1,2 +1,2 @@
-import { AdminSection } from '@/components/admin/AdminSection';
-export default function Page(){return <AdminSection title="Merchandise" description="Manage products, prices, variants, stock and visibility."/>;}
+import { MerchandiseAdmin } from '@/components/admin/MerchandiseAdmin';
+export default function Page(){return <MerchandiseAdmin/>;}
