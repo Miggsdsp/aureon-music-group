@@ -1,8 +1,4 @@
 import { NextResponse } from 'next/server';
 import { adminFirestore } from '@/lib/firebase-admin';
-
-export const runtime = 'nodejs';
-
-export async function GET(_request:Request,{params}:{params:Promise<{digestId:string}>}){
- const {digestId}=await params;const snapshot=await adminFirestore.collection('fulfilmentDigests').doc(digestId).get();if(!snapshot.exists)return NextResponse.json({error:'Report not found.'},{status:404});const data=snapshot.data()||{};const csv=String(data.csv||'');if(!csv)return NextResponse.json({error:'Report is unavailable.'},{status:404});const reportDate=data.createdAt?.toDate?.() || new Date();const date=reportDate.toISOString().slice(0,10);return new NextResponse('\ufeff'+csv,{status:200,headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="Aureon-Merchandise-Orders-${date}.csv"`,'Cache-Control':'private, no-store'}});
-}
+export const runtime='nodejs';
+export async function GET(_request:Request,{params}:{params:Promise<{digestId:string}>}){const {digestId}=await params;const snapshot=await adminFirestore.collection('fulfilmentDigests').doc(digestId).get();if(!snapshot.exists)return NextResponse.json({error:'Report not found.'},{status:404});const data=snapshot.data()||{};const csv=String(data.csv||'');if(!csv)return NextResponse.json({error:'Report is unavailable.'},{status:404});const reportDate=data.createdAt?.toDate?.()||new Date();const date=reportDate.toISOString().slice(0,10);const filename=String(data.fileName||`Aureon-Report-${date}.csv`).replace(/["\r\n]/g,'');return new NextResponse('\ufeff'+csv,{status:200,headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="${filename}"`,'Cache-Control':'private, no-store'}});}
