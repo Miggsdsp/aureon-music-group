@@ -23,6 +23,7 @@ export async function POST(request: Request, context: { params: Promise<{ songId
   try {
     const memberContext = await requireMember(request);
     if (!hasActivePlan(memberContext.member)) return NextResponse.json({ error: 'An active membership is required.' }, { status: 403 });
+    if (String(memberContext.member.plan || '').toLowerCase() !== 'creator') return NextResponse.json({ error: 'Downloads are available with an active Aureon Creator membership. Listener members can stream the full catalogue or purchase individual songs to own permanently.' }, { status: 403 });
     const { songId } = await context.params;
     const songRef = adminFirestore.collection('songs').doc(songId);
     const song = await songRef.get();
@@ -44,42 +45,18 @@ export async function POST(request: Request, context: { params: Promise<{ songId
       const nextCount = reDownload ? count : count + 1;
       remaining = Math.max(0, 5 - nextCount);
 
-      transaction.set(usageRef, {
-        cycle: key,
-        count: nextCount,
-        downloadedSongIds: reDownload ? downloadedSongIds : FieldValue.arrayUnion(songId),
-        resetAt: memberContext.member.currentPeriodEnd || null,
-        updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-      transaction.set(memberContext.memberRef, {
-        monthlyDownloadsUsed: nextCount,
-        monthlyDownloadCycle: key,
-        monthlyDownloadLimit: 5,
-        updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-      transaction.set(memberContext.memberRef.collection('downloadHistory').doc(), {
-        songId,
-        songTitle: song.data()?.title || '',
-        artist: song.data()?.artistName || song.data()?.artist || '',
-        coverImageUrl: song.data()?.coverImageUrl || song.data()?.imageUrl || '',
-        cycle: key,
-        reDownload,
-        createdAt: FieldValue.serverTimestamp(),
-      });
+      transaction.set(usageRef, { cycle: key, count: nextCount, downloadedSongIds: reDownload ? downloadedSongIds : FieldValue.arrayUnion(songId), resetAt: memberContext.member.currentPeriodEnd || null, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      transaction.set(memberContext.memberRef, { monthlyDownloadsUsed: nextCount, monthlyDownloadCycle: key, monthlyDownloadLimit: 5, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      transaction.set(memberContext.memberRef.collection('downloadHistory').doc(), { songId, songTitle: song.data()?.title || '', artist: song.data()?.artistName || song.data()?.artist || '', coverImageUrl: song.data()?.coverImageUrl || song.data()?.imageUrl || '', cycle: key, reDownload, createdAt: FieldValue.serverTimestamp() });
     });
 
-    await recordAnalyticsEvent({
-      eventType: 'song_download', entityType: 'song', entityId: songId,
-      title: String(song.data()?.title || ''), artistId: String(song.data()?.artistId || ''),
-      artistName: String(song.data()?.artistName || song.data()?.artist || ''), memberId: memberContext.uid,
-      metadata: { reDownload },
-    }).catch(error => console.error('Download analytics failed:', error));
+    await recordAnalyticsEvent({ eventType: 'song_download', entityType: 'song', entityId: songId, title: String(song.data()?.title || ''), artistId: String(song.data()?.artistId || ''), artistName: String(song.data()?.artistName || song.data()?.artist || ''), memberId: memberContext.uid, metadata: { reDownload, plan: 'creator' } }).catch(error => console.error('Download analytics failed:', error));
 
     const filename = `${String(song.data()?.title || 'aureon-track').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.mp3`;
-    const [url] = await adminStorage.bucket().file(path).getSignedUrl({ action: 'read', expires: Date.now() + 5 * 60 * 1000, responseDisposition: `attachment; filename="${filename}"` });
+    const [url] = await adminStorage.bucket().file(path).getSignedUrl({ action: 'read', expires: Date.now() + 5 * 60 * 1000, responseDisposition: `attachment; filename=\"${filename}\"` });
     return NextResponse.json({ url, remaining, reDownload, resetAt: memberContext.member.currentPeriodEnd || null });
   } catch (error) {
-    if (error instanceof Error && error.message === 'QUOTA_EXCEEDED') return NextResponse.json({ error: 'Your five downloads for this billing period have been used. Your allowance resets on your next billing date.' }, { status: 429 });
+    if (error instanceof Error && error.message === 'QUOTA_EXCEEDED') return NextResponse.json({ error: 'Your five Creator downloads for this billing period have been used. Your allowance resets on your next billing date.' }, { status: 429 });
     console.error('Member download failed:', error);
     const result = memberError(error);
     return NextResponse.json({ error: result.error }, { status: result.status });
