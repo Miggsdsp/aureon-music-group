@@ -34,8 +34,9 @@ export async function syncStripeSubscription(subscription: Stripe.Subscription, 
   const status = subscription.status;
   const active = status === 'active' || status === 'trialing';
   const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
+  const monthlyDownloadLimit = active && plan === 'creator' ? 5 : 0;
 
-  await adminFirestore.collection('members').doc(uid).set({ uid, plan, subscriptionStatus: status, subscriptionActive: active, stripeCustomerId: customerId, stripeSubscriptionId: subscription.id, currentPeriodEnd: getSubscriptionPeriodEnd(subscription), cancelAtPeriodEnd: subscription.cancel_at_period_end, creatorLicenseActive: plan === 'creator' && active, monthlyDownloadLimit: active ? 5 : 0, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await adminFirestore.collection('members').doc(uid).set({ uid, plan, subscriptionStatus: status, subscriptionActive: active, stripeCustomerId: customerId, stripeSubscriptionId: subscription.id, currentPeriodEnd: getSubscriptionPeriodEnd(subscription), cancelAtPeriodEnd: subscription.cancel_at_period_end, creatorLicenseActive: plan === 'creator' && active, monthlyDownloadLimit, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   await adminFirestore.collection('subscriptionEvents').add({ uid, plan, status, active, source, stripeSubscriptionId: subscription.id, stripeCustomerId: customerId, createdAt: FieldValue.serverTimestamp() });
 
   if (source === 'checkout.session.completed') await recordAnalyticsEvent({ eventType: 'membership_started', entityType: 'subscription', entityId: subscription.id, memberId: uid, plan, metadata: { status } });
