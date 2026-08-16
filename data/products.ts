@@ -1,4 +1,4 @@
-export type Product={id:string;name:string;slug:string;category:string;artist:string;artistSlug:string;price:number;image:string;description:string;sizes?:string[];colours?:string[];badge?:string};
+export type Product={id:string;name:string;slug:string;category:string;artist:string;artistSlug:string;price:number;image:string;description:string;sizes?:string[];colours?:string[];badge?:string;stock?:number;sizeStock?:Record<string,number>;available?:boolean;digital?:boolean;imageUrl?:string};
 
 export const products:Product[]=[
 {id:'MERCH001',name:'Aureon Signature Hoodie',slug:'aureon-signature-hoodie',category:'Hoodies',artist:'Aureon Music Group',artistSlug:'aureon',price:64.99,image:'/images/branding/Aureon_Header_Logo.png',description:'Premium heavyweight black hoodie with the official Aureon gold identity.',sizes:['S','M','L','XL','XXL'],colours:['Black'],badge:'Best Seller'},
