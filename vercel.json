@@ -1,16 +1,9 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/lifecycle-emails",
-      "schedule": "15 8 * * *"
-    },
-    {
-      "path": "/api/cron/merchandise-digest",
-      "schedule": "30 8 * * *"
-    },
-    {
-      "path": "/api/cron/referral-rewards",
-      "schedule": "0 8 1 * *"
-    }
+    { "path": "/api/cron/lifecycle-emails", "schedule": "15 8 * * *" },
+    { "path": "/api/cron/merchandise-digest", "schedule": "30 8 * * *" },
+    { "path": "/api/cron/music-sales-digest", "schedule": "35 8 * * *" },
+    { "path": "/api/cron/subscribers-digest", "schedule": "40 8 * * *" },
+    { "path": "/api/cron/referral-rewards", "schedule": "0 8 1 * *" }
   ]
 }
