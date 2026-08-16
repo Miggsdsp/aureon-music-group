@@ -26,9 +26,10 @@ export default function ProductPage() {
   const [colour,setColour]=useState('');
   const [quantity,setQuantity]=useState(1);
   const [message,setMessage]=useState('');
+  const [cartHasItem,setCartHasItem]=useState(false);
 
   useEffect(() => { if (!featuresLoading && !features.merchandiseEnabled) router.replace('/music'); }, [features.merchandiseEnabled, featuresLoading, router]);
-  useEffect(()=>{if(!product)return;const firstAvailable=(product.sizes||[]).find(option=>availableQuantity(product,option)>0)||product.sizes?.[0]||'';setSize(firstAvailable);setColour(product.colours?.[0]||'');setQuantity(1);},[product?.id]);
+  useEffect(()=>{if(!product)return;const firstAvailable=(product.sizes||[]).find(option=>availableQuantity(product,option)>0)||product.sizes?.[0]||'';setSize(firstAvailable);setColour(product.colours?.[0]||'');setQuantity(1);setCartHasItem(false);},[product?.id]);
 
   const soldOut=product?isSoldOut(product):false;
   const selectedAvailable=useMemo(()=>product?availableQuantity(product,size||undefined):0,[product,size]);
@@ -41,7 +42,7 @@ export default function ProductPage() {
     let cart:CartItem[]=[];try{cart=JSON.parse(localStorage.getItem('aureon-cart')||'[]');}catch{}
     const key=cartKey(nextItem);const existing=cart.find(item=>cartKey(item)===key);
     const next=existing?cart.map(item=>cartKey(item)===key?{...item,quantity:Math.min(maxQuantity,item.quantity+nextItem.quantity)}:item):[...cart,nextItem];
-    localStorage.setItem('aureon-cart',JSON.stringify(next));window.dispatchEvent(new Event('aureon-cart-updated'));setMessage('Added to your cart.');
+    localStorage.setItem('aureon-cart',JSON.stringify(next));window.dispatchEvent(new Event('aureon-cart-updated'));setMessage('Added to your cart.');setCartHasItem(true);
   }
 
   if (featuresLoading || !features.merchandiseEnabled) return null;
@@ -51,11 +52,13 @@ export default function ProductPage() {
   return <main className="page-shell product-detail-page"><Header /><section className="product-detail-hero">
     <div className="product-detail-image" style={{position:'relative'}}>{soldOut&&<span style={{position:'absolute',left:0,right:0,top:'44%',zIndex:5,background:'#b00020',color:'#fff',padding:'14px 10px',fontWeight:900,textAlign:'center',letterSpacing:'.14em'}}>SOLD OUT</span>}<Image src={product.image} alt={product.name} width={1000} height={1000} unoptimized /></div>
     <div className="product-detail-copy"><Link href="/merchandise" className="back-link"><ArrowLeft size={16} /> Back to store</Link><p className="eyebrow">{product.category} · {product.artist || 'Aureon Music Group'}</p><h1>{product.name}</h1><div className="detail-price">€{Number(product.price || 0).toFixed(2)}</div><p>{product.description}</p>
-      {product.sizes?.length ? <label>Size<select value={size} onChange={event=>{setSize(event.target.value);setQuantity(1);}}>{product.sizes.map(option=>{const qty=availableQuantity(product,option);return <option key={option} value={option} disabled={qty<=0}>{option}{qty<=0?' — Sold out':Number.isFinite(qty)?` — ${qty} available`:''}</option>})}</select></label> : null}
-      {product.colours?.length ? <label>Colour<select value={colour} onChange={event=>setColour(event.target.value)}>{product.colours.map(option=><option key={option}>{option}</option>)}</select></label> : null}
+      {product.sizes?.length ? <label>Size<select value={size} onChange={event=>{setSize(event.target.value);setQuantity(1);setCartHasItem(false);}}>{product.sizes.map(option=>{const qty=availableQuantity(product,option);return <option key={option} value={option} disabled={qty<=0}>{option}{qty<=0?' — Sold out':Number.isFinite(qty)?` — ${qty} available`:''}</option>})}</select></label> : null}
+      {product.colours?.length ? <label>Colour<select value={colour} onChange={event=>{setColour(event.target.value);setCartHasItem(false);}}>{product.colours.map(option=><option key={option}>{option}</option>)}</select></label> : null}
       <label>Quantity<div className="quantity-control" style={{maxWidth:150}}><button type="button" disabled={quantity<=1} onClick={()=>setQuantity(value=>Math.max(1,value-1))}><Minus size={14}/></button><span>{quantity}</span><button type="button" disabled={quantity>=maxQuantity} onClick={()=>setQuantity(value=>Math.min(maxQuantity,value+1))}><Plus size={14}/></button></div></label>
       {Number.isFinite(selectedAvailable)&&!soldOut&&<p>{selectedAvailable} currently available{size?` in ${size}`:''}.</p>}
       {message&&<p className="admin-cms-message" role="status">{message}</p>}
-      <button type="button" className="primary-button" disabled={soldOut||maxQuantity<=0} onClick={addToCart}><ShoppingBag size={17}/> {soldOut?'Sold out':'Add to cart'}</button><div className="product-benefits"><span><Truck />Worldwide delivery</span><span><ShieldCheck />Secure checkout</span></div></div>
+      <button type="button" className="primary-button" disabled={soldOut||maxQuantity<=0} onClick={addToCart}><ShoppingBag size={17}/> {soldOut?'Sold out':'Add to cart'}</button>
+      {cartHasItem&&<Link href="/checkout" className="primary-button" style={{marginTop:12,display:'flex',alignItems:'center',justifyContent:'center',gap:8,textDecoration:'none'}}><ShieldCheck size={17}/> Proceed to checkout</Link>}
+      <div className="product-benefits"><span><Truck />Worldwide delivery</span><span><ShieldCheck />Secure checkout</span></div></div>
   </section><Footer /></main>;
 }
