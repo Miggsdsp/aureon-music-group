@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
+import { adminFirestore } from '@/lib/firebase-admin';
+import { getArtwork } from '@/lib/get-artwork';
 import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
 
 export const runtime = 'nodejs';
@@ -36,6 +38,18 @@ function activeContinueListening(member: Record<string, any>) {
   };
 }
 
+function hydrateSongRecord(item: Record<string, any> | null, songData?: Record<string, any>) {
+  if (!item) return null;
+  if (!songData) return item;
+  const details = songData.details && typeof songData.details === 'object' ? songData.details : {};
+  return {
+    ...item,
+    title: String(songData.title || details.title || songData.name || details.name || item.title || ''),
+    artist: String(songData.artistName || details.artistName || songData.artist || details.artist || item.artist || ''),
+    coverImageUrl: getArtwork(songData, String(item.coverImageUrl || '')),
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const context = await requireMember(request);
@@ -53,11 +67,23 @@ export async function GET(request: Request) {
       await context.memberRef.set({ continueListening: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     }
 
+    const recentRecords = recentSnapshot.docs.map(item => ({ id: item.id, ...item.data(), playedAt: serialiseDate(item.data().playedAt) }));
+    const songIds = Array.from(new Set([
+      ...(continueListening?.songId ? [String(continueListening.songId)] : []),
+      ...recentRecords.map(item => String(item.songId || item.id || '')).filter(Boolean),
+    ]));
+    const songSnapshots = await Promise.all(songIds.map(songId => adminFirestore.collection('songs').doc(songId).get()));
+    const songDataById = new Map(songSnapshots.filter(snapshot => snapshot.exists).map(snapshot => [snapshot.id, snapshot.data() as Record<string, any>]));
+    const hydratedContinueListening = continueListening
+      ? hydrateSongRecord(continueListening, songDataById.get(String(continueListening.songId)))
+      : null;
+    const hydratedRecentlyPlayed = recentRecords.map(item => hydrateSongRecord(item, songDataById.get(String(item.songId || item.id || ''))) || item);
+
     return NextResponse.json({
       favouriteSongIds: Array.isArray(context.member.favouriteSongIds) ? context.member.favouriteSongIds : [],
       favouriteArtists: Array.isArray(context.member.favouriteArtists) ? context.member.favouriteArtists : [],
-      continueListening,
-      recentlyPlayed: recentSnapshot.docs.map(item => ({ id: item.id, ...item.data(), playedAt: serialiseDate(item.data().playedAt) })),
+      continueListening: hydratedContinueListening,
+      recentlyPlayed: hydratedRecentlyPlayed,
       downloadHistory: downloadsSnapshot.docs.map(item => ({ id: item.id, ...item.data(), createdAt: serialiseDate(item.data().createdAt) })),
       downloadsUsed,
       downloadLimit: 5,
