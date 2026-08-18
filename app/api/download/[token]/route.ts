@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { NextResponse } from 'next/server';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminFirestore, adminStorage } from '@/lib/firebase-admin';
@@ -191,14 +192,11 @@ export async function GET(request: Request, context: RouteContext) {
 
   try {
     const [metadata] = await file.getMetadata();
-    const contentType = String(metadata.contentType || 'audio/mpeg');
-    const extension = contentType.includes('wav') ? 'wav' : privateFilePath.toLowerCase().endsWith('.wav') ? 'wav' : 'mp3';
-    const [signedUrl] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 5 * 60 * 1000,
-      responseDisposition: `attachment; filename="${safeFilename(String(entitlement.songTitle || songId || 'aureon-song'))}.${extension}"`,
-      responseType: contentType
-    });
+    const originalContentType = String(metadata.contentType || 'audio/mpeg');
+    const extension = getFileExtension(privateFilePath, originalContentType);
+    const filename = `${safeFilename(String(entitlement.songTitle || songId || 'aureon-song'))}.${extension}`;
+    const nodeStream = file.createReadStream();
+    const body = Readable.toWeb(nodeStream) as ReadableStream;
 
     await downloadRef.set({
       active: false,
@@ -215,7 +213,18 @@ export async function GET(request: Request, context: RouteContext) {
       }, { merge: true });
     }
 
-    return NextResponse.redirect(signedUrl, 302);
+    const headers = new Headers({
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'private, no-store, max-age=0',
+      'Pragma': 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Aureon-Content-Type': originalContentType
+    });
+
+    if (metadata.size) headers.set('Content-Length', String(metadata.size));
+
+    return new Response(body, { status: 200, headers });
   } catch (error) {
     console.error('Unable to release purchased download:', error);
     await downloadRef.set({
@@ -250,7 +259,7 @@ function downloadPage(token: string, songTitle: string) {
       <h1 style="margin:0 0 14px;font-size:clamp(28px,6vw,42px);line-height:1.08;color:#fff">Your song is ready</h1>
       <p style="margin:0 auto 10px;color:#f0dfaa;font-size:20px;line-height:1.45">${safeTitle}</p>
       <p style="margin:0 auto 30px;max-width:520px;color:#bcbcbc;font-size:15px;line-height:1.7">Press the button below to securely download your purchased Aureon track. Your purchase includes one download.</p>
-      <a href="${downloadHref}" style="display:inline-flex;align-items:center;justify-content:center;min-width:220px;padding:16px 28px;border-radius:999px;background:linear-gradient(135deg,#f0d98b,#b98a2f);color:#080808;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 10px 32px rgba(216,184,95,.18)">Download Song</a>
+      <a href="${downloadHref}" download style="display:inline-flex;align-items:center;justify-content:center;min-width:220px;padding:16px 28px;border-radius:999px;background:linear-gradient(135deg,#f0d98b,#b98a2f);color:#080808;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 10px 32px rgba(216,184,95,.18)">Download Song</a>
       <p style="margin:28px 0 0;color:#8f8f8f;font-size:12px;line-height:1.7">By downloading your purchase, you agree to Aureon Music Group's <a href="/terms" style="color:#d8b85f;text-decoration:none">Terms &amp; Conditions</a> and <a href="/digital-download-policy" style="color:#d8b85f;text-decoration:none">Digital Download Policy</a>.</p>
       <p style="margin:16px 0 0;font-size:12px"><a href="/contact" style="color:#b9b9b9;text-decoration:none">Need help? Contact Aureon support</a></p>
     </section>
@@ -277,6 +286,16 @@ function escapeHtml(value: string) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function getFileExtension(path: string, contentType: string) {
+  const match = path.toLowerCase().match(/\.([a-z0-9]{2,5})$/);
+  if (match?.[1]) return match[1];
+  if (contentType.includes('wav')) return 'wav';
+  if (contentType.includes('mp4') || contentType.includes('m4a')) return 'm4a';
+  if (contentType.includes('aac')) return 'aac';
+  if (contentType.includes('flac')) return 'flac';
+  return 'mp3';
 }
 
 function safeFilename(value: string) {
