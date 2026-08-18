@@ -1,10 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { Clock3, Play } from 'lucide-react';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import { firebaseAuth } from '@/lib/firebase-client';
 import { type PlayerSong, useMusicPlayer } from '@/components/music/MusicPlayerProvider';
 import styles from './ContinueListening.module.css';
@@ -82,7 +82,7 @@ export function ContinueListening({ compact = false }: { compact?: boolean }) {
     </div>
     <article className={styles.card}>
       <div className={styles.artwork}>
-        {item.coverImageUrl ? <Image src={item.coverImageUrl} alt={`${item.title || 'Song'} artwork`} fill sizes={compact ? '96px' : '(max-width: 700px) 110px, 150px'} /> : <span>AUREON</span>}
+        <ArtworkImage src={item.coverImageUrl} alt={`${item.title || 'Song'} artwork`} fill sizes={compact ? '96px' : '(max-width: 700px) 110px, 150px'} />
       </div>
       <div className={styles.copy}>
         <p className={styles.artist}>{item.artist || 'Aureon Music Group'}</p>
