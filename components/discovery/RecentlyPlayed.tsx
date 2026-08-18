@@ -1,10 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { Clock3, History, Play } from 'lucide-react';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import { firebaseAuth } from '@/lib/firebase-client';
 import { type PlayerSong, useMusicPlayer } from '@/components/music/MusicPlayerProvider';
 import styles from './RecentlyPlayed.module.css';
@@ -100,7 +100,7 @@ export function RecentlyPlayed() {
         };
         return <article className={styles.card} key={id}>
           <div className={styles.artwork}>
-            {item.coverImageUrl ? <Image src={item.coverImageUrl} alt={`${item.title || 'Song'} artwork`} fill sizes="(max-width: 700px) 72px, 86px" /> : <span>A</span>}
+            <ArtworkImage src={item.coverImageUrl} alt={`${item.title || 'Song'} artwork`} fill sizes="(max-width: 700px) 72px, 86px" />
           </div>
           <div className={styles.copy}>
             <h3>{item.title || 'Untitled track'}</h3>
