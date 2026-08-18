@@ -67,7 +67,11 @@ export async function GET(request: Request) {
       await context.memberRef.set({ continueListening: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     }
 
-    const recentRecords = recentSnapshot.docs.map(item => ({ id: item.id, ...item.data(), playedAt: serialiseDate(item.data().playedAt) }));
+    const recentRecords: Record<string, any>[] = recentSnapshot.docs.map(item => ({
+      id: item.id,
+      ...(item.data() as Record<string, any>),
+      playedAt: serialiseDate(item.data().playedAt),
+    }));
     const songIds = Array.from(new Set([
       ...(continueListening?.songId ? [String(continueListening.songId)] : []),
       ...recentRecords.map(item => String(item.songId || item.id || '')).filter(Boolean),
