@@ -13,6 +13,9 @@ export function DeleteAccountPanel() {
   if (!user) return null;
 
   async function deleteAccount() {
+    const currentUser = user;
+    if (!currentUser) return;
+
     const confirmed = window.confirm(
       'Permanently delete your Aureon account? This cannot be undone. Any active Aureon subscription will be cancelled immediately, and your playlists, favourites, listening history and member profile will be removed.',
     );
@@ -26,7 +29,7 @@ export function DeleteAccountPanel() {
     setBusy(true);
     setMessage('');
     try {
-      const token = await user.getIdToken(true);
+      const token = await currentUser.getIdToken(true);
       const response = await fetch('/api/account/delete', {
         method: 'DELETE',
         headers: { authorization: `Bearer ${token}` },
