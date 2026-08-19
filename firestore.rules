@@ -26,12 +26,13 @@ service cloud.firestore {
     match /members/{uid} {
       allow read: if owns(uid) || activeAdmin();
       allow create: if owns(uid)
-        && request.resource.data.keys().hasOnly(['uid','email','name','createdAt','updatedAt'])
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.email == request.auth.token.email;
+        && request.resource.data.keys().hasOnly(['email','name','plan','subscriptionStatus','monthlyDownloadsUsed','createdAt','updatedAt'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.plan == 'free'
+        && request.resource.data.subscriptionStatus == 'inactive'
+        && request.resource.data.monthlyDownloadsUsed == 0;
       allow update: if activeAdmin() || (owns(uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt'])
-        && request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email);
       allow delete: if activeAdmin();
       match /playlists/{playlistId} {
