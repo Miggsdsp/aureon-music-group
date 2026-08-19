@@ -19,6 +19,16 @@ function privatePath(data: Record<string, any>) {
   return String(data.privateFilePath || details.privateFilePath || data.fullTrackPath || details.fullTrackPath || '').trim();
 }
 
+function extensionFor(path: string, contentType: string) {
+  const match = path.toLowerCase().match(/\.([a-z0-9]{2,5})$/);
+  if (match?.[1]) return match[1];
+  if (contentType.includes('wav')) return 'wav';
+  if (contentType.includes('flac')) return 'flac';
+  if (contentType.includes('aac')) return 'aac';
+  if (contentType.includes('mp4') || contentType.includes('m4a')) return 'm4a';
+  return 'mp3';
+}
+
 export async function POST(request: Request, context: { params: Promise<{ songId: string }> }) {
   try {
     const memberContext = await requireMember(request);
@@ -52,9 +62,12 @@ export async function POST(request: Request, context: { params: Promise<{ songId
 
     await recordAnalyticsEvent({ eventType: 'song_download', entityType: 'song', entityId: songId, title: String(song.data()?.title || ''), artistId: String(song.data()?.artistId || ''), artistName: String(song.data()?.artistName || song.data()?.artist || ''), memberId: memberContext.uid, metadata: { reDownload, plan: 'creator' } }).catch(error => console.error('Download analytics failed:', error));
 
-    const filename = `${String(song.data()?.title || 'aureon-track').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.mp3`;
-    const [url] = await adminStorage.bucket().file(path).getSignedUrl({ action: 'read', expires: Date.now() + 5 * 60 * 1000, responseDisposition: `attachment; filename=\"${filename}\"` });
-    return NextResponse.json({ url, remaining, reDownload, resetAt: memberContext.member.currentPeriodEnd || null });
+    const masterFile = adminStorage.bucket().file(path);
+    const [metadata] = await masterFile.getMetadata();
+    const extension = extensionFor(path, String(metadata.contentType || ''));
+    const filename = `${String(song.data()?.title || 'aureon-track').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.${extension}`;
+    const [url] = await masterFile.getSignedUrl({ action: 'read', expires: Date.now() + 5 * 60 * 1000, responseDisposition: `attachment; filename=\"${filename}\"` });
+    return NextResponse.json({ url, remaining, reDownload, resetAt: memberContext.member.currentPeriodEnd || null, format: extension });
   } catch (error) {
     if (error instanceof Error && error.message === 'QUOTA_EXCEEDED') return NextResponse.json({ error: 'Your five Creator downloads for this billing period have been used. Your allowance resets on your next billing date.' }, { status: 429 });
     console.error('Member download failed:', error);
