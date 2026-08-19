@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Crown, Pause, Play, ShoppingBag, ShoppingCart, Sparkles, UserPlus, X } from 'lucide-react';
@@ -44,6 +45,12 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     setNearEnd(false);
     setPreviewFinished(false);
   },[src]);
+  useEffect(()=>{
+    if(!previewFinished||typeof document==='undefined')return;
+    const previousOverflow=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    return()=>{document.body.style.overflow=previousOverflow;};
+  },[previewFinished]);
 
   function requestMetadata(){
     const audio=audioRef.current;
@@ -128,15 +135,8 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     trackConversion('cart_add');
   }
 
-  const defaultLabel=promotional?`Play: ${title}`:`40s Preview: ${title}`;
-  return <div className="song-commerce-control">
-    {hasPreview?<button className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onPointerEnter={requestMetadata} onFocus={requestMetadata} onTouchStart={requestMetadata} onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
-    {showPurchase&&!promotional&&purchase&&<div className="song-buy-row"><button type="button" className="song-buy-button" onClick={addSongToCart}><ShoppingCart size={14}/> {added?'Added to cart':`Buy full song €${price.toFixed(2)}`}</button>{added&&<Link href="/checkout">Checkout →</Link>}</div>}
-    {src?<audio ref={audioRef} src={src} preload="none" playsInline onCanPlay={()=>setHasError(false)} onTimeUpdate={enforcePreviewLimit} onEnded={ended} onError={()=>setHasError(true)}/>:null}
-
-    {nearEnd&&!previewFinished&&!promotional&&<div className={styles.benefitCue} role="status"><Sparkles size={15}/><div><strong>Keep the music going</strong><span>Premium unlocks the complete Aureon catalogue.</span></div></div>}
-
-    {previewFinished&&!promotional&&<div className={styles.conversionBackdrop} role="dialog" aria-modal="true" aria-labelledby={`preview-conversion-${entityId||'song'}`} onMouseDown={event=>{if(event.target===event.currentTarget)setPreviewFinished(false)}}>
+  const conversionModal=previewFinished&&!promotional&&typeof document!=='undefined'?createPortal(
+    <div className={styles.conversionBackdrop} role="dialog" aria-modal="true" aria-labelledby={`preview-conversion-${entityId||'song'}`} onMouseDown={event=>{if(event.target===event.currentTarget)setPreviewFinished(false)}}>
       <section className={styles.conversionPanel}>
         <button type="button" className={styles.close} onClick={()=>setPreviewFinished(false)} aria-label="Close preview options"><X/></button>
         <p className={styles.eyebrow}>Your preview has finished</p>
@@ -150,6 +150,16 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
         {added&&<Link className={styles.checkout} href="/checkout">Continue to secure checkout →</Link>}
         <button type="button" className={styles.replay} onClick={()=>{setPreviewFinished(false);void togglePlay()}}>Replay the 40-second preview</button>
       </section>
-    </div>}
+    </div>,
+    document.body,
+  ):null;
+
+  const defaultLabel=promotional?`Play: ${title}`:`40s Preview: ${title}`;
+  return <div className="song-commerce-control">
+    {hasPreview?<button className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onPointerEnter={requestMetadata} onFocus={requestMetadata} onTouchStart={requestMetadata} onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
+    {showPurchase&&!promotional&&purchase&&<div className="song-buy-row"><button type="button" className="song-buy-button" onClick={addSongToCart}><ShoppingCart size={14}/> {added?'Added to cart':`Buy full song €${price.toFixed(2)}`}</button>{added&&<Link href="/checkout">Checkout →</Link>}</div>}
+    {src?<audio ref={audioRef} src={src} preload="none" playsInline onCanPlay={()=>setHasError(false)} onTimeUpdate={enforcePreviewLimit} onEnded={ended} onError={()=>setHasError(true)}/>:null}
+    {nearEnd&&!previewFinished&&!promotional&&<div className={styles.benefitCue} role="status"><Sparkles size={15}/><div><strong>Keep the music going</strong><span>Premium unlocks the complete Aureon catalogue.</span></div></div>}
+    {conversionModal}
   </div>;
 }
