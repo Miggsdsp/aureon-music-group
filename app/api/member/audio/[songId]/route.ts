@@ -6,8 +6,12 @@ import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function privatePath(data: Record<string, any>) {
+function playbackPath(data: Record<string, any>) {
   const details = data.details && typeof data.details === 'object' ? data.details : {};
+  const stream = String(data.streamFilePath || details.streamFilePath || '').trim();
+  if (stream.startsWith('private/streams/')) return stream;
+
+  // Keep existing catalogue playable until legacy tracks are reprocessed.
   return String(data.privateFilePath || details.privateFilePath || data.fullTrackPath || details.fullTrackPath || '').trim();
 }
 
@@ -39,8 +43,8 @@ export async function GET(request: Request, context: { params: Promise<{ songId:
       return NextResponse.json({ error: 'Song not found.' }, { status: 404 });
     }
 
-    const path = privatePath(song.data() || {});
-    if (!path.startsWith('private/full-tracks/')) {
+    const path = playbackPath(song.data() || {});
+    if (!path.startsWith('private/streams/') && !path.startsWith('private/full-tracks/')) {
       return NextResponse.json({ error: 'Full track is unavailable.' }, { status: 404 });
     }
 
@@ -49,7 +53,7 @@ export async function GET(request: Request, context: { params: Promise<{ songId:
     const size = Number(metadata.size || 0);
     if (!size) return NextResponse.json({ error: 'Full track is unavailable.' }, { status: 404 });
 
-    const contentType = String(metadata.contentType || 'audio/mpeg');
+    const contentType = String(metadata.contentType || (path.endsWith('.aac') ? 'audio/aac' : 'audio/mpeg'));
     const range = parseRange(request.headers.get('range'), size);
     const start = range?.start ?? 0;
     const end = range?.end ?? size - 1;
@@ -67,6 +71,7 @@ export async function GET(request: Request, context: { params: Promise<{ songId:
         'Cache-Control': 'private, no-store, max-age=0',
         'Content-Disposition': `inline; filename="${encodeURIComponent(String(song.data()?.title || 'aureon-track'))}"`,
         'X-Content-Type-Options': 'nosniff',
+        'X-Aureon-Stream-Source': path.startsWith('private/streams/') ? 'compressed' : 'legacy-master',
       },
     });
   } catch (error) {
