@@ -1,2 +1,5 @@
-import { AdminSection } from '@/components/admin/AdminSection';
-export default function Page(){return <AdminSection title="Songs" description="Manage previews, private masters, pricing, release dates and publication status."/>;}
+import { SongAdminSection } from '@/components/admin/SongAdminSection';
+
+export default function Page() {
+  return <SongAdminSection />;
+}
