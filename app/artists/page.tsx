@@ -1,9 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Headphones } from 'lucide-react';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import { PageShell } from '@/components/PageShell';
+import { getArtwork } from '@/lib/get-artwork';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import styles from './ArtistsPage.module.css';
 
@@ -29,16 +30,15 @@ export default function ArtistsPage() {
       {loading ? <div className="store-empty"><h3>Loading artists…</h3></div> : artists.length ? (
         <div className="artist-grid page-grid artist-identity-grid">
           {artists.map((artist) => {
-            const logoSrc = artist.logoUrl || artist.profileImageUrl || '/images/branding/Aureon_Header_Logo.png';
+            const logoSrc = getArtwork(artist);
             return (
               <article className={`artist-card identity-card logo-card artist-${artist.slug} ${styles.card}`} key={artist.id}>
                 <div className={styles.logoFrame}>
-                  <Image
+                  <ArtworkImage
                     src={logoSrc}
                     alt={`${artist.name} logo`}
                     width={900}
                     height={900}
-                    unoptimized
                     className={styles.logo}
                   />
                 </div>
