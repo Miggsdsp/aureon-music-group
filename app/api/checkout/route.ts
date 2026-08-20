@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminFirestore } from '@/lib/firebase-admin';
 import { getStripe } from '@/lib/stripe-server';
+import { releaseMerchandiseReservation, reserveMerchandiseInventory } from '@/lib/merch-inventory-server';
 import { cleanText, clientIp, enforceRateLimit, validEmail, writeAuditLog } from '@/lib/server-security';
 
 export const runtime = 'nodejs';
@@ -78,6 +80,8 @@ function cleanDeliveryAddress(value: DeliveryAddress | undefined) {
 
 export async function POST(request: Request) {
   const ip = clientIp(request);
+  let reservationId = '';
+  let stripeSessionId = '';
   try {
     const allowed = await enforceRateLimit('checkout', ip, 20, 15 * 60 * 1000);
     if (!allowed) return NextResponse.json({ error: 'Too many checkout attempts. Please try again shortly.' }, { status: 429 });
@@ -134,23 +138,33 @@ export async function POST(request: Request) {
     const deliveryAddress = hasPhysical ? cleanDeliveryAddress(body.deliveryAddress) : null;
     if (hasPhysical && !deliveryAddress) return NextResponse.json({ error: 'A complete delivery address is required for merchandise orders.' }, { status: 400 });
 
+    const reservationExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    if (products.length) {
+      reservationId = randomUUID();
+      await reserveMerchandiseInventory(reservationId, products, reservationExpiresAt);
+    }
+
     const session = await getStripe().checkout.sessions.create({
       mode: 'payment', customer_creation: 'always', customer_email: email,
       billing_address_collection: 'required',
       allow_promotion_codes: false,
+      ...(reservationId ? { expires_at: Math.floor(reservationExpiresAt.getTime() / 1000) } : {}),
       line_items: validated.map(item => ({ quantity: item.quantity, price_data: { currency: 'eur', unit_amount: item.priceCents, product_data: { name: item.name, description: item.description, metadata: { itemId: item.id, itemType: item.digital ? 'song' : 'merchandise', size: item.size || '', colour: item.colour || '' } } } })),
       metadata: {
         firstName: safeMetadata(body.firstName, 100), surname: safeMetadata(body.surname, 100), phone: safeMetadata(body.phone, 50),
         songIds: songs.map(item => item.id).join(','), productIds: products.map(item => item.id).join(','), orderType: hasPhysical ? (songs.length ? 'mixed' : 'merchandise') : 'digital',
+        inventoryReservationId: reservationId,
         memberUid: discount.uid, memberDiscountPercent: String(discount.percent), deviceType: safeMetadata(body.deviceType || 'Not captured', 50),
         trafficSource: safeMetadata(body.trafficSource || 'Direct', 120), utmSource: safeMetadata(body.utmSource, 100), utmMedium: safeMetadata(body.utmMedium, 100), utmCampaign: safeMetadata(body.utmCampaign, 100), landingPath: safeMetadata(body.landingPath, 180), requestIp: ip,
       },
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/checkout/cancelled`,
     });
+    stripeSessionId = session.id;
 
     await adminFirestore.collection('orders').doc(session.id).set({
       stripeCheckoutSessionId: session.id, status: 'pending_payment', paymentStatus: session.payment_status,
+      inventoryReservationId: reservationId, inventoryReservationStatus: reservationId ? 'reserved' : 'not_applicable', inventoryReservationExpiresAt: reservationId ? reservationExpiresAt : null,
       customerEmail: email, customerName: `${safeMetadata(body.firstName,100)} ${safeMetadata(body.surname,100)}`.trim(), customerPhone: safeMetadata(body.phone,50),
       deliveryAddress: deliveryAddress || null,
       items: validated.map(item => ({ id:item.id, name:item.name, quantity:item.quantity, priceCents:item.priceCents, digital:item.digital, size:item.size || '', colour:item.colour || '' })),
@@ -158,10 +172,12 @@ export async function POST(request: Request) {
       memberUid: discount.uid, memberDiscountPercent: discount.percent, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    await writeAuditLog('checkout.created', { sessionId: session.id, ip, email, itemIds: validated.map(item => item.id), memberDiscountPercent: discount.percent });
+    await writeAuditLog('checkout.created', { sessionId: session.id, reservationId, ip, email, itemIds: validated.map(item => item.id), memberDiscountPercent: discount.percent });
     return NextResponse.json({ url: session.url, discountPercent: discount.percent });
   } catch (error) {
     console.error('Stripe checkout error:', error);
+    if (stripeSessionId) await getStripe().checkout.sessions.expire(stripeSessionId).catch(expireError => console.error('Unable to expire failed checkout session:', expireError));
+    if (reservationId) await releaseMerchandiseReservation(reservationId, stripeSessionId ? 'checkout_initialisation_failed' : 'stripe_session_creation_failed').catch(releaseError => console.error('Unable to release checkout reservation:', releaseError));
     const code = error instanceof Error ? error.message : '';
     if (code === 'ITEM_NOT_FOUND') return NextResponse.json({ error: 'One of the selected items no longer exists.' }, { status: 404 });
     if (code === 'ITEM_NOT_AVAILABLE') return NextResponse.json({ error: 'One of the selected items is not currently available.' }, { status: 409 });
