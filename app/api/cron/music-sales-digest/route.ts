@@ -1,1 +1,61 @@
-import { NextResponse } from 'next/server';import { adminFirestore } from '@/lib/firebase-admin';export const runtime='nodejs';export const maxDuration=300;function auth(r:Request){const s=process.env.CRON_SECRET;return Boolean(s)&&r.headers.get('authorization')===`Bearer ${s}`;}function ms(v:any){if(!v)return 0;if(typeof v.toMillis==='function')return v.toMillis();if(typeof v.toDate==='function')return v.toDate().getTime();return new Date(v).getTime()||0;}function c(v:any){return `"${String(v??'').replace(/"/g,'""')}"`;}async function send(subject:string,url:string,count:number,value:number){const key=process.env.RESEND_API_KEY;if(!key)throw new Error('RESEND_API_KEY is not configured.');const from=process.env.TRANSACTIONAL_EMAIL_FROM||'Aureon Music Group <info@aureonmusicgroup.com>';const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:['info@aureonmusicgroup.com'],subject,text:`Sold songs in previous 24 hours: ${count}. Revenue: €${(value/100).toFixed(2)}. Download: ${url}`,html:`<div style="background:#050505;padding:32px;color:#f5f1e8;font-family:Arial"><h1>${subject}</h1><p>${count} songs sold · €${(value/100).toFixed(2)}</p><a href="${url}" style="padding:14px 22px;background:#c6a34f;color:#080808;text-decoration:none;font-weight:700">Download spreadsheet</a></div>`})});if(!r.ok)throw new Error(await r.text());}export async function GET(r:Request){if(!auth(r))return NextResponse.json({error:'Unauthorized'},{status:401});const now=Date.now(),since=now-86400000,date=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Dublin',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));const snap=await adminFirestore.collection('orders').where('status','==','paid').limit(5000).get();const orders=snap.docs.map(d=>({id:d.id,...d.data()} as any)).filter(o=>Array.isArray(o.songs)&&o.songs.length&&ms(o.paidAt||o.createdAt)>=since);const rows=[['Date','Time','Order','Customer','Email','Song','Artist','Quantity','Price','Order total']];let count=0,value=0;for(const o of orders){const d=new Date(ms(o.paidAt||o.createdAt));for(const s of o.songs){const q=Number(s.quantity||1);count+=q;value+=Number(s.unitAmount||0)*q;rows.push([d.toLocaleDateString('en-IE',{timeZone:'Europe/Dublin'}),d.toLocaleTimeString('en-IE',{timeZone:'Europe/Dublin'}),o.orderNumber||o.id,o.customerName||'',o.customerEmail||'',s.title||'',s.artist||'',q,`€${(Number(s.unitAmount||0)/100).toFixed(2)}`,`€${(Number(o.amountTotal||0)/100).toFixed(2)}`]);}}if(!count)return NextResponse.json({ok:true,songs:0,sent:false});const subject=`Sold songs Orders-${date}.csv`,ref=adminFirestore.collection('fulfilmentDigests').doc();await ref.set({createdAt:new Date(),csv:rows.map(x=>x.map(c).join(',')).join('\n'),permanent:true,fileName:subject,reportType:'music-sales'});const base=(process.env.NEXT_PUBLIC_SITE_URL||'https://www.aureonmusicgroup.com').replace(/\/$/,'');await send(subject,`${base}/api/fulfilment-digest/${ref.id}`,count,value);return NextResponse.json({ok:true,songs:count,sent:true});}
+import { NextResponse } from 'next/server';
+import { adminFirestore } from '@/lib/firebase-admin';
+import { claimDailyReport, dublinReportDate, isWithinPrevious24Hours, makeCsv, markDailyReportFailed, markDailyReportSent, sendDailyReportEmail } from '@/lib/daily-report';
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
+
+function authorised(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  return Boolean(secret) && request.headers.get('authorization') === `Bearer ${secret}`;
+}
+function millis(value: any) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  return new Date(value).getTime() || 0;
+}
+
+export async function GET(request: Request) {
+  if (!authorised(request)) return NextResponse.json({ error:'Unauthorized' }, { status:401 });
+  const now = Date.now();
+  const date = dublinReportDate(now);
+  const subject = `Sold songs Orders-${date}.csv`;
+  const snapshot = await adminFirestore.collection('orders').where('status','==','paid').limit(5000).get();
+  const orders = snapshot.docs.map(document => ({ id:document.id, ...document.data() } as any))
+    .filter(order => Array.isArray(order.songs) && order.songs.length && isWithinPrevious24Hours(order.paidAt || order.createdAt, now))
+    .sort((a,b) => millis(a.paidAt || a.createdAt) - millis(b.paidAt || b.createdAt));
+
+  const rows: unknown[][] = [['Date','Time','Order Number','Customer Name','Email','Song','Artist','Quantity','Unit Price','Line Total','Order Total','Currency','Payment Status','Stripe Payment Intent']];
+  let count = 0;
+  let value = 0;
+  for (const order of orders) {
+    const paid = new Date(millis(order.paidAt || order.createdAt));
+    for (const song of order.songs || []) {
+      const quantity = Math.max(1, Number(song.quantity || 1));
+      const unitAmount = Number(song.unitAmount || 0);
+      const lineTotal = unitAmount * quantity;
+      count += quantity;
+      value += lineTotal;
+      rows.push([
+        paid.toLocaleDateString('en-IE',{timeZone:'Europe/Dublin'}), paid.toLocaleTimeString('en-IE',{timeZone:'Europe/Dublin'}),
+        order.orderNumber || order.id, order.customerName || '', order.customerEmail || '', song.title || '', song.artist || '', quantity,
+        (unitAmount/100).toFixed(2), (lineTotal/100).toFixed(2), (Number(order.amountTotal||0)/100).toFixed(2), String(order.currency||'EUR').toUpperCase(),
+        order.paymentStatus || order.status || '', order.stripePaymentIntentId || '',
+      ]);
+    }
+  }
+
+  const claimed = await claimDailyReport({ reportType:'music-sales', date, fileName:subject, csv:makeCsv(rows), metadata:{ orderIds:orders.map(order=>order.id), songCount:count, songRevenueCents:value } });
+  if (!claimed.claimed) return NextResponse.json({ ok:true, songs:count, sent:false, duplicate:true });
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/,'');
+  const url = `${base}/api/fulfilment-digest/${claimed.reportId}`;
+  try {
+    const sent = await sendDailyReportEmail({ reportType:'music-sales', date, subject, text:`Sold songs in previous 24 hours: ${count}. Revenue: €${(value/100).toFixed(2)}. Download: ${url}`, html:`<div style="background:#050505;padding:32px;color:#f5f1e8;font-family:Arial"><h1>${subject}</h1><p>${count} songs sold · €${(value/100).toFixed(2)}</p><p><a href="${url}" style="padding:14px 22px;background:#c6a34f;color:#080808;text-decoration:none;font-weight:700">Download spreadsheet</a></p>${count ? '' : '<p>No individual songs were sold in the previous 24 hours.</p>'}</div>` });
+    await markDailyReportSent(claimed.ref, sent.emailId);
+    return NextResponse.json({ ok:true, songs:count, sent:true, resendEmailId:sent.emailId });
+  } catch (error) {
+    await markDailyReportFailed(claimed.ref, error);
+    throw error;
+  }
+}
