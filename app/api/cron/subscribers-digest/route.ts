@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminFirestore } from '@/lib/firebase-admin';
+import { claimDailyReport, dublinReportDate, isWithinPrevious24Hours, makeCsv, markDailyReportFailed, markDailyReportSent, sendDailyReportEmail } from '@/lib/daily-report';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -8,105 +9,73 @@ function authorised(request: Request) {
   const secret = process.env.CRON_SECRET;
   return Boolean(secret) && request.headers.get('authorization') === `Bearer ${secret}`;
 }
-
 function millis(value: any) {
   if (!value) return 0;
   if (typeof value.toMillis === 'function') return value.toMillis();
   if (typeof value.toDate === 'function') return value.toDate().getTime();
   return new Date(value).getTime() || 0;
 }
-
-function csvCell(value: unknown) {
-  return `"${String(value ?? '').replace(/"/g, '""')}"`;
-}
-
-async function sendReport(subject: string, url: string, changed: number, deleted: number) {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error('RESEND_API_KEY is not configured.');
-  const from = process.env.TRANSACTIONAL_EMAIL_FROM || 'Aureon Music Group <info@aureonmusicgroup.com>';
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from,
-      to: ['info@aureonmusicgroup.com'],
-      subject,
-      text: `Daily subscriber report. ${changed} subscriber records changed/created and ${deleted} accounts deleted in the previous 24 hours. Download: ${url}`,
-      html: `<div style="background:#050505;padding:32px;color:#f5f1e8;font-family:Arial"><h1>${subject}</h1><p>${changed} subscriber records created or updated · ${deleted} accounts deleted in the previous 24 hours.</p><a href="${url}" style="padding:14px 22px;background:#c6a34f;color:#080808;text-decoration:none;font-weight:700">Download spreadsheet</a></div>`,
-    }),
-  });
-  if (!response.ok) throw new Error(await response.text());
+function iso(value: any) {
+  const timestamp = millis(value);
+  return timestamp ? new Date(timestamp).toISOString() : '';
 }
 
 export async function GET(request: Request) {
-  if (!authorised(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
+  if (!authorised(request)) return NextResponse.json({ error:'Unauthorized' }, { status:401 });
   const now = Date.now();
-  const since = now - 86_400_000;
-  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Dublin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
+  const date = dublinReportDate(now);
+  const subject = `Daly Subs -${date}.csv`;
 
-  const [memberSnapshot, deletionSnapshot] = await Promise.all([
+  const [memberSnapshot, eventSnapshot, analyticsSnapshot, deletionSnapshot] = await Promise.all([
     adminFirestore.collection('members').limit(10000).get(),
-    adminFirestore.collection('accountDeletions').where('status', '==', 'completed').limit(5000).get(),
+    adminFirestore.collection('subscriptionEvents').limit(10000).get(),
+    adminFirestore.collection('analyticsEvents').limit(10000).get(),
+    adminFirestore.collection('accountDeletions').where('status','==','completed').limit(5000).get(),
   ]);
+  const members = new Map(memberSnapshot.docs.map(document => [document.id, { id:document.id, ...document.data() } as any]));
+  const events = eventSnapshot.docs.map(document => ({ id:document.id, ...document.data() } as any))
+    .filter(event => isWithinPrevious24Hours(event.createdAt, now));
+  const paymentEvents = analyticsSnapshot.docs.map(document => ({ id:document.id, ...document.data() } as any))
+    .filter(event => ['membership_renewed','membership_payment_failed'].includes(String(event.eventType || '')) && isWithinPrevious24Hours(event.createdAt || event.receivedAt, now));
+  const deletions = deletionSnapshot.docs.map(document => ({ id:document.id, ...document.data() } as any))
+    .filter(deletion => isWithinPrevious24Hours(deletion.completedAt || deletion.requestedAt, now));
 
-  const members = memberSnapshot.docs
-    .map(document => ({ id: document.id, ...document.data() } as any))
-    .filter(member => millis(member.updatedAt || member.createdAt || member.subscriptionUpdatedAt) >= since);
-
-  const deletions = deletionSnapshot.docs
-    .map(document => ({ id: document.id, ...document.data() } as any))
-    .filter(deletion => millis(deletion.completedAt || deletion.requestedAt) >= since);
-
-  const rows: unknown[][] = [[
-    'Event', 'Name', 'Email', 'Plan', 'Subscription status', 'Stripe customer', 'Stripe subscription',
-    'Cancel at period end', 'Period end', 'Created/updated/deleted',
-  ]];
-
-  for (const member of members) {
+  const rows: unknown[][] = [['Event','Date / Time','Name','Email','Plan','Subscription Status','Active','Source','Amount','Currency','Stripe Customer','Stripe Subscription','Stripe Invoice / Reference','Cancel At Period End','Period End']];
+  for (const event of events) {
+    const member = members.get(String(event.uid || '')) || {};
     rows.push([
-      'Created / updated',
-      member.name || member.fullName || '',
-      member.email || '',
-      member.plan || '',
-      member.subscriptionStatus || member.status || '',
-      member.stripeCustomerId || '',
-      member.stripeSubscriptionId || '',
-      member.cancelAtPeriodEnd ? 'Yes' : 'No',
-      member.currentPeriodEnd?.toDate?.()?.toISOString?.() || '',
-      new Date(millis(member.updatedAt || member.createdAt || member.subscriptionUpdatedAt)).toISOString(),
+      'Subscription event', iso(event.createdAt), member.name || member.fullName || '', member.email || '', event.plan || member.plan || '', event.status || member.subscriptionStatus || '',
+      event.active === true ? 'Yes' : 'No', event.source || '', '', '', event.stripeCustomerId || member.stripeCustomerId || '', event.stripeSubscriptionId || member.stripeSubscriptionId || '', '',
+      member.cancelAtPeriodEnd ? 'Yes' : 'No', iso(member.currentPeriodEnd),
     ]);
   }
-
+  for (const event of paymentEvents) {
+    const member = members.get(String(event.memberId || '')) || {};
+    rows.push([
+      event.eventType === 'membership_renewed' ? 'Renewal paid' : 'Payment failed', iso(event.createdAt || event.receivedAt), member.name || member.fullName || '', member.email || '', event.plan || member.plan || '', member.subscriptionStatus || '',
+      member.subscriptionActive === true ? 'Yes' : 'No', event.eventType || '', (Number(event.revenueCents || 0) / 100).toFixed(2), String(event.currency || 'EUR').toUpperCase(),
+      member.stripeCustomerId || '', member.stripeSubscriptionId || '', event.entityId || '', member.cancelAtPeriodEnd ? 'Yes' : 'No', iso(member.currentPeriodEnd),
+    ]);
+  }
   for (const deletion of deletions) {
     rows.push([
-      'Account deleted',
-      deletion.name || '',
-      deletion.email || '',
-      deletion.plan || '',
-      deletion.subscriptionStatus || '',
-      deletion.stripeCustomerId || '',
-      deletion.stripeSubscriptionId || '',
-      'N/A',
-      '',
-      new Date(millis(deletion.completedAt || deletion.requestedAt)).toISOString(),
+      'Account deleted', iso(deletion.completedAt || deletion.requestedAt), deletion.name || '', deletion.email || '', deletion.plan || '', deletion.subscriptionStatus || '',
+      'No', 'account_deleted', '', '', deletion.stripeCustomerId || '', deletion.stripeSubscriptionId || '', '', 'N/A', '',
     ]);
   }
+  rows.slice(1).sort((a,b) => String(a[1]).localeCompare(String(b[1])));
 
-  const subject = `Daly Subs -${date}.csv`;
-  const reportRef = adminFirestore.collection('fulfilmentDigests').doc();
-  await reportRef.set({
-    createdAt: new Date(),
-    csv: rows.map(row => row.map(csvCell).join(',')).join('\n'),
-    permanent: true,
-    fileName: subject,
-    reportType: 'subscribers',
-    subscriberChanges: members.length,
-    accountDeletions: deletions.length,
-  });
-
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/, '');
-  await sendReport(subject, `${base}/api/fulfilment-digest/${reportRef.id}`, members.length, deletions.length);
-
-  return NextResponse.json({ ok: true, subscribers: members.length, deletions: deletions.length, sent: true });
+  const totalEvents = events.length + paymentEvents.length + deletions.length;
+  const claimed = await claimDailyReport({ reportType:'subscribers', date, fileName:subject, csv:makeCsv(rows), metadata:{ subscriptionEvents:events.length, paymentEvents:paymentEvents.length, accountDeletions:deletions.length } });
+  if (!claimed.claimed) return NextResponse.json({ ok:true, events:totalEvents, sent:false, duplicate:true });
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/,'');
+  const url = `${base}/api/fulfilment-digest/${claimed.reportId}`;
+  try {
+    const sent = await sendDailyReportEmail({ reportType:'subscribers', date, subject, text:`Daily subscription report for the previous 24 hours. Subscription events: ${events.length}. Payment events: ${paymentEvents.length}. Accounts deleted: ${deletions.length}. Download: ${url}`, html:`<div style="background:#050505;padding:32px;color:#f5f1e8;font-family:Arial"><h1>${subject}</h1><p>${events.length} subscription events · ${paymentEvents.length} payment events · ${deletions.length} accounts deleted</p><p><a href="${url}" style="padding:14px 22px;background:#c6a34f;color:#080808;text-decoration:none;font-weight:700">Download spreadsheet</a></p>${totalEvents ? '' : '<p>No subscription, payment or account-deletion events were recorded in the previous 24 hours.</p>'}</div>` });
+    await markDailyReportSent(claimed.ref, sent.emailId);
+    return NextResponse.json({ ok:true, events:totalEvents, sent:true, resendEmailId:sent.emailId });
+  } catch (error) {
+    await markDailyReportFailed(claimed.ref, error);
+    throw error;
+  }
 }
