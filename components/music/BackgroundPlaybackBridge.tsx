@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { DEFAULT_ARTWORK, getArtwork } from '@/lib/get-artwork';
 import { useMusicPlayer } from './MusicPlayerProvider';
-
-const FALLBACK_ARTWORK = '/images/branding/Aureon_Header_Logo.png';
 
 function getAudio() {
   return document.querySelector('audio') as HTMLAudioElement | null;
@@ -12,6 +11,22 @@ function getAudio() {
 function clickPlayerControl(label: string) {
   const button = document.querySelector(`.aureon-global-player button[aria-label="${label}"]`) as HTMLButtonElement | null;
   button?.click();
+}
+
+function absoluteArtwork(source: string) {
+  try { return new URL(source || DEFAULT_ARTWORK, window.location.origin).href; }
+  catch { return new URL(DEFAULT_ARTWORK, window.location.origin).href; }
+}
+
+function verifyArtwork(source: string) {
+  const candidate = absoluteArtwork(source);
+  const fallback = absoluteArtwork(DEFAULT_ARTWORK);
+  return new Promise<string>(resolve => {
+    const image = new window.Image();
+    image.onload = () => resolve(candidate);
+    image.onerror = () => resolve(fallback);
+    image.src = candidate;
+  });
 }
 
 export default function BackgroundPlaybackBridge() {
@@ -29,18 +44,22 @@ export default function BackgroundPlaybackBridge() {
     if (!('mediaSession' in navigator)) return;
 
     const mediaSession = navigator.mediaSession;
-    const artwork = currentSong?.coverImageUrl || currentSong?.imageUrl || FALLBACK_ARTWORK;
+    let cancelled = false;
 
     if (currentSong) {
-      mediaSession.metadata = new MediaMetadata({
-        title: currentSong.title || 'Aureon Music Group',
-        artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
-        album: 'Aureon Music Group',
-        artwork: [
-          { src: artwork, sizes: '512x512' },
-          { src: artwork, sizes: '256x256' },
-          { src: artwork, sizes: '128x128' },
-        ],
+      const requestedArtwork = getArtwork(currentSong);
+      void verifyArtwork(requestedArtwork).then(artwork => {
+        if (cancelled) return;
+        mediaSession.metadata = new MediaMetadata({
+          title: currentSong.title || 'Aureon Music Group',
+          artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
+          album: 'Aureon Music Group',
+          artwork: [
+            { src: artwork, sizes: '512x512' },
+            { src: artwork, sizes: '256x256' },
+            { src: artwork, sizes: '128x128' },
+          ],
+        });
       });
     } else {
       mediaSession.metadata = null;
@@ -102,6 +121,7 @@ export default function BackgroundPlaybackBridge() {
     audio.addEventListener('loadedmetadata', updatePosition);
 
     return () => {
+      cancelled = true;
       audio.removeEventListener('timeupdate', updatePosition);
       audio.removeEventListener('durationchange', updatePosition);
       audio.removeEventListener('loadedmetadata', updatePosition);
