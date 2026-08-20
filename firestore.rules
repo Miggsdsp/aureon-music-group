@@ -8,10 +8,15 @@ service cloud.firestore {
     function pluralAdminActive() { return pluralAdminExists() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true; }
     function singularAdminActive() { return singularAdminExists() && get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.active == true; }
     function activeAdmin() { return pluralAdminActive() || singularAdminActive(); }
+    function activePaidMember(uid) {
+      return owns(uid)
+        && get(/databases/$(database)/documents/members/$(uid)).data.subscriptionActive == true
+        && (get(/databases/$(database)/documents/members/$(uid)).data.subscriptionStatus == 'active' || get(/databases/$(database)/documents/members/$(uid)).data.subscriptionStatus == 'trialing')
+        && (get(/databases/$(database)/documents/members/$(uid)).data.plan == 'listener' || get(/databases/$(database)/documents/members/$(uid)).data.plan == 'creator');
+    }
 
     match /admins/{uid} { allow read: if owns(uid); allow write: if false; }
     match /admin/{uid} { allow read: if owns(uid); allow write: if false; }
-
     match /artists/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
     match /albums/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
     match /songs/{id} { allow read: if resource.data.status == 'published'; allow read, write: if activeAdmin(); }
@@ -25,32 +30,17 @@ service cloud.firestore {
 
     match /members/{uid} {
       allow read: if owns(uid) || activeAdmin();
-      allow create: if owns(uid)
-        && request.resource.data.keys().hasOnly(['email','name','plan','subscriptionStatus','monthlyDownloadsUsed','createdAt','updatedAt'])
-        && request.resource.data.email == request.auth.token.email
-        && request.resource.data.plan == 'free'
-        && request.resource.data.subscriptionStatus == 'inactive'
-        && request.resource.data.monthlyDownloadsUsed == 0;
-      allow update: if activeAdmin() || (owns(uid)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt'])
-        && request.resource.data.email == resource.data.email);
+      allow create: if owns(uid) && request.resource.data.keys().hasOnly(['email','name','plan','subscriptionStatus','monthlyDownloadsUsed','createdAt','updatedAt']) && request.resource.data.email == request.auth.token.email && request.resource.data.plan == 'free' && request.resource.data.subscriptionStatus == 'inactive' && request.resource.data.monthlyDownloadsUsed == 0;
+      allow update: if activeAdmin() || (owns(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']) && request.resource.data.email == resource.data.email);
       allow delete: if activeAdmin();
-      match /playlists/{playlistId} {
-        allow read, create, update, delete: if owns(uid) || activeAdmin();
-      }
-      match /library/{songId} {
-        allow read, create, delete: if owns(uid) || activeAdmin();
-        allow update: if activeAdmin();
-      }
-      match /followingArtists/{artistId} {
-        allow read, create, update, delete: if owns(uid) || activeAdmin();
-      }
+      match /playlists/{playlistId} { allow read, create, update, delete: if activePaidMember(uid) || activeAdmin(); }
+      match /library/{songId} { allow read, create, delete: if activePaidMember(uid) || activeAdmin(); allow update: if activeAdmin(); }
+      match /followingArtists/{artistId} { allow read, create, update, delete: if activePaidMember(uid) || activeAdmin(); }
     }
 
     match /licenses/{id} { allow read: if signedIn() && (resource.data.uid == request.auth.uid || activeAdmin()); allow write: if activeAdmin(); }
     match /subscriptionEvents/{id} { allow read: if activeAdmin(); allow write: if false; }
     match /accountDeletions/{id} { allow read: if activeAdmin(); allow write: if false; }
-
     match /orders/{id} { allow read, write: if activeAdmin(); }
     match /customers/{id} { allow read, write: if activeAdmin(); }
     match /downloads/{id} { allow read, write: if activeAdmin(); }
@@ -59,7 +49,6 @@ service cloud.firestore {
     match /analyticsEvents/{id} { allow read: if activeAdmin(); allow write: if false; }
     match /auditLogs/{id} { allow read: if activeAdmin(); allow write: if false; }
     match /_rateLimits/{id} { allow read, write: if false; }
-
     match /{document=**} { allow read, write: if false; }
   }
 }
