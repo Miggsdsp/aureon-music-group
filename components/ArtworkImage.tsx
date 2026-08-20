@@ -10,16 +10,27 @@ function isRemote(source: string) {
   return /^https?:\/\//i.test(source);
 }
 
-export function ArtworkImage({ src, fallbackSrc = DEFAULT_ARTWORK, alt, onError, quality = 75, sizes = '(max-width: 640px) 44vw, (max-width: 1100px) 25vw, 320px', ...props }: Props) {
-  const [currentSrc, setCurrentSrc] = useState(String(src || fallbackSrc));
+function cleanSource(value: string | null | undefined) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  if (source.startsWith('/') || source.startsWith('data:') || source.startsWith('blob:') || isRemote(source)) return source;
+  return '';
+}
 
-  // CMS artwork is stored remotely (primarily Firebase Storage). Serve remote
-  // URLs directly instead of proxying them through Next's image optimiser.
-  // This keeps signed/tokenised Firebase URLs intact and prevents _next/image
-  // failures while local Aureon assets still receive Next image optimisation.
+export function ArtworkImage({ src, fallbackSrc = DEFAULT_ARTWORK, alt, onError, quality = 75, sizes = '(max-width: 640px) 44vw, (max-width: 1100px) 25vw, 320px', ...props }: Props) {
+  const requestedSrc = cleanSource(src);
+  const requestedFallback = cleanSource(fallbackSrc) || DEFAULT_ARTWORK;
+  const [currentSrc, setCurrentSrc] = useState(requestedSrc || requestedFallback);
+  const [failedCompletely, setFailedCompletely] = useState(false);
+
   const unoptimized = useMemo(() => isRemote(currentSrc) || currentSrc.startsWith('data:') || currentSrc.startsWith('blob:'), [currentSrc]);
 
-  useEffect(() => setCurrentSrc(String(src || fallbackSrc)), [src, fallbackSrc]);
+  useEffect(() => {
+    setCurrentSrc(requestedSrc || requestedFallback);
+    setFailedCompletely(false);
+  }, [requestedSrc, requestedFallback]);
+
+  if (failedCompletely) return null;
 
   return (
     <Image
@@ -31,7 +42,15 @@ export function ArtworkImage({ src, fallbackSrc = DEFAULT_ARTWORK, alt, onError,
       unoptimized={unoptimized}
       onError={event => {
         onError?.(event);
-        if (currentSrc !== fallbackSrc) setCurrentSrc(fallbackSrc);
+        if (currentSrc !== requestedFallback) {
+          setCurrentSrc(requestedFallback);
+          return;
+        }
+        if (currentSrc !== DEFAULT_ARTWORK) {
+          setCurrentSrc(DEFAULT_ARTWORK);
+          return;
+        }
+        setFailedCompletely(true);
       }}
     />
   );
