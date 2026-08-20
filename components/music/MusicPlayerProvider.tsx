@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ListMusic, Pause, Play, Repeat1, Repeat2, Shuffle, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import { firebaseAuth } from '@/lib/firebase-client';
 import './music-player.css';
 
@@ -275,7 +276,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
       <button className="aureon-player-close" type="button" onClick={() => resetPlayer(true)} aria-label="Close music player"><X /></button>
       {error && <div className="aureon-player-error">{error}</div>}
       <div className="aureon-player-track">
-        {(currentSong.coverImageUrl || currentSong.imageUrl) ? <img src={currentSong.coverImageUrl || currentSong.imageUrl} alt="" /> : <div className="aureon-player-cover" />}
+        <ArtworkImage src={currentSong.coverImageUrl || currentSong.imageUrl} alt={`${currentSong.title || 'Song'} artwork`} width={64} height={64} sizes="64px" />
         <div><strong>{currentSong.title || 'Untitled track'}</strong><span>{currentSong.artistName || currentSong.artist || 'Aureon Music Group'}</span></div>
       </div>
       <div className="aureon-player-main">
