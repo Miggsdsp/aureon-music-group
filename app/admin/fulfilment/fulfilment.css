@@ -1,0 +1,144 @@
+.fulfilment-summary {
+  margin-bottom: 24px;
+}
+
+.fulfilment-line {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.fulfilment-line:last-child {
+  margin-bottom: 0;
+}
+
+.fulfilment-line span {
+  color: #bdb8ab;
+  font-size: 12px;
+}
+
+.fulfilment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fulfilment-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.fulfilment-mobile-list {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .fulfilment-table {
+    display: none;
+  }
+
+  .fulfilment-mobile-list {
+    display: grid;
+    gap: 16px;
+  }
+
+  .fulfilment-mobile-card {
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid rgba(217, 180, 95, .28);
+    background: rgba(5, 5, 4, .82);
+  }
+
+  .fulfilment-mobile-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(217, 180, 95, .18);
+  }
+
+  .fulfilment-mobile-head > div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  .fulfilment-mobile-head small {
+    color: #d9b45f;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+  }
+
+  .fulfilment-mobile-head strong {
+    overflow-wrap: anywhere;
+  }
+
+  .fulfilment-mobile-head > span {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    border: 1px solid rgba(217, 180, 95, .3);
+    color: #d9b45f;
+    font-size: 12px;
+  }
+
+  .fulfilment-mobile-card dl {
+    display: grid;
+    gap: 0;
+    margin: 0;
+  }
+
+  .fulfilment-mobile-card dl > div {
+    display: grid;
+    grid-template-columns: minmax(110px, .8fr) minmax(0, 1.6fr);
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+
+  .fulfilment-mobile-card dt {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #a9a59a;
+    font-size: 12px;
+  }
+
+  .fulfilment-mobile-card dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .fulfilment-mobile-card .fulfilment-actions {
+    margin-top: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .fulfilment-mobile-card {
+    padding: 15px;
+  }
+
+  .fulfilment-mobile-head {
+    flex-direction: column;
+  }
+
+  .fulfilment-mobile-card dl > div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .fulfilment-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .fulfilment-actions button {
+    width: 100%;
+  }
+}
