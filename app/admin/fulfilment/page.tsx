@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { Download, PackageCheck, Truck } from 'lucide-react';
+import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { Clock3, Download, Package, PackageCheck, Truck } from 'lucide-react';
 import { firestore } from '@/lib/firebase-client';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { useAdminAuth } from '@/components/admin/AdminAuthProvider';
+import './fulfilment.css';
 
 type Order = { id: string; [key: string]: any };
+type FulfilmentStatus = 'awaiting_fulfilment' | 'processing' | 'shipped';
 
 function toDate(value: any) {
   try { return value?.toDate?.() || new Date(value); } catch { return new Date(0); }
@@ -23,10 +25,26 @@ function addressText(address: any) {
   return [address.line1, address.line2, address.city, address.region, address.postalCode, address.country].filter(Boolean).join(', ');
 }
 
+function money(order: Order) {
+  const currency = String(order.currency || 'EUR').toUpperCase();
+  const amount = Number(order.amountTotal || 0) / 100;
+  try { return new Intl.NumberFormat('en-IE', { style: 'currency', currency }).format(amount); }
+  catch { return `${currency} ${amount.toFixed(2)}`; }
+}
+
+function statusLabel(status: string) {
+  if (status === 'awaiting_fulfilment') return 'Awaiting fulfilment';
+  if (status === 'processing') return 'Processing';
+  if (status === 'shipped') return 'Shipped';
+  if (status === 'manual_review') return 'Manual review';
+  return status || 'Awaiting fulfilment';
+}
+
 export default function FulfilmentPage() {
   const { authorised, loading } = useAdminAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState('');
 
   useEffect(() => {
     if (loading || !authorised) return;
@@ -65,21 +83,75 @@ export default function FulfilmentPage() {
     setMessage(`Downloaded ${rows.length} merchandise line items from the last 24 hours.`);
   }
 
-  async function setStatus(order: Order, status: 'processing' | 'shipped') {
-    await updateDoc(doc(firestore, 'orders', order.id), { fulfilmentStatus: status, updatedAt: new Date(), ...(status === 'shipped' ? { shippedAt: new Date() } : { processingAt: new Date() }) });
-    setMessage(`${order.orderNumber || order.id} marked ${status}.`);
+  async function setStatus(order: Order, status: FulfilmentStatus) {
+    const key = `${order.id}-${status}`;
+    setBusy(key);
+    setMessage('');
+    try {
+      await updateDoc(doc(firestore, 'orders', order.id), {
+        fulfilmentStatus: status,
+        updatedAt: serverTimestamp(),
+        ...(status === 'awaiting_fulfilment' ? { processingAt: null, shippedAt: null } : {}),
+        ...(status === 'processing' ? { processingAt: serverTimestamp(), shippedAt: null } : {}),
+        ...(status === 'shipped' ? { shippedAt: serverTimestamp() } : {}),
+      });
+      setMessage(`${order.orderNumber || order.id} marked ${statusLabel(status).toLowerCase()}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to update fulfilment status.');
+    } finally {
+      setBusy('');
+    }
   }
 
+  const actions = (order: Order) => <div className="fulfilment-actions">
+    <button disabled={Boolean(busy)} onClick={() => setStatus(order,'awaiting_fulfilment')}><Package size={14}/> Awaiting</button>
+    <button disabled={Boolean(busy)} onClick={() => setStatus(order,'processing')}><PackageCheck size={14}/> Processing</button>
+    <button disabled={Boolean(busy)} onClick={() => setStatus(order,'shipped')}><Truck size={14}/> Shipped</button>
+  </div>;
+
   return <AdminShell>
-    <div className="admin-page-heading"><p className="admin-kicker">Merchandise operations</p><h1>Daily Fulfilment</h1><p>Paid merchandise orders, delivery details and a dispatch-ready report for the previous 24 hours.</p></div>
+    <div className="admin-page-heading"><p className="admin-kicker">Merchandise operations</p><h1>Daily Fulfilment</h1><p>Paid merchandise orders with the customer, delivery, payment and dispatch information staff need to pack and ship correctly.</p></div>
     {message && <div className="admin-cms-message">{message}</div>}
-    <section className="admin-dashboard-grid">
+    <section className="admin-dashboard-grid fulfilment-summary">
       <article><p className="admin-kicker">Last 24 hours</p><h2>{last24Hours.length}</h2><p>Paid merchandise orders</p></article>
-      <article><p className="admin-kicker">Units to process</p><h2>{units24h}</h2><p>Total merchandise units sold</p></article>
-      <article><p className="admin-kicker">Dispatch report</p><button className="primary-button" onClick={downloadReport} disabled={!last24Hours.length}><Download size={16}/> Download 24h Excel CSV</button><p><small>Opens directly in Microsoft Excel, Numbers or Google Sheets.</small></p></article>
+      <article><p className="admin-kicker">Units sold</p><h2>{units24h}</h2><p>Total merchandise units in the last 24 hours</p></article>
+      <article><p className="admin-kicker">Dispatch report</p><button className="primary-button" onClick={downloadReport} disabled={!last24Hours.length}><Download size={16}/> Download 24h Excel CSV</button><p><small>Includes all packing, delivery, payment and fulfilment fields.</small></p></article>
     </section>
-    <div className="admin-table-wrap"><table><thead><tr><th>Date / time</th><th>Order</th><th>Customer</th><th>Delivery address</th><th>Products</th><th>Status</th><th>Dispatch</th></tr></thead>
-      <tbody>{orders.length ? orders.map(order => <tr key={order.id}><td>{toDate(order.paidAt || order.createdAt).toLocaleString('en-IE')}</td><td><strong>{order.orderNumber || order.id}</strong><br/><small>€{(Number(order.amountTotal || 0)/100).toFixed(2)}</small></td><td>{order.customerName || '—'}<br/><small>{order.customerEmail || '—'}<br/>{order.customerPhone || '—'}</small></td><td>{addressText(order.deliveryAddress) || 'Address not captured'}</td><td>{(order.products || []).map((item: any, index: number) => <div key={`${item.id || item.name}-${index}`} style={{marginBottom:6}}><strong>{item.quantity || 1} × {item.name}</strong>{item.size ? ` · Size ${item.size}` : ''}{item.colour ? ` · ${item.colour}` : ''}</div>)}</td><td>{order.fulfilmentStatus || 'awaiting_fulfilment'}</td><td><button onClick={() => setStatus(order,'processing')}><PackageCheck size={14}/> Processing</button> <button onClick={() => setStatus(order,'shipped')}><Truck size={14}/> Shipped</button></td></tr>) : <tr><td colSpan={7}>No paid merchandise orders yet.</td></tr>}</tbody>
+
+    <div className="admin-table-wrap fulfilment-table"><table><thead><tr><th>Date</th><th>Time</th><th>Order number</th><th>Customer</th><th>Email / phone</th><th>Delivery address</th><th>Product / variant</th><th>Qty</th><th>Total / currency</th><th>Payment</th><th>Fulfilment</th><th>Actions</th></tr></thead>
+      <tbody>{orders.length ? orders.map(order => {
+        const date = toDate(order.paidAt || order.createdAt);
+        const products = order.products || [];
+        return <tr key={order.id}>
+          <td>{date.toLocaleDateString('en-IE')}</td><td>{date.toLocaleTimeString('en-IE')}</td><td><strong>{order.orderNumber || order.id}</strong></td>
+          <td>{order.customerName || '—'}</td><td><small>{order.customerEmail || '—'}<br/>{order.customerPhone || '—'}</small></td><td>{addressText(order.deliveryAddress) || 'Address not captured'}</td>
+          <td>{products.map((item: any, index: number) => <div key={`${item.id || item.name}-${index}`} className="fulfilment-line"><strong>{item.name}</strong>{item.size ? <span>Size: {item.size}</span> : null}{item.colour ? <span>Colour / spec: {item.colour}</span> : null}</div>)}</td>
+          <td>{products.map((item: any, index: number) => <div key={`${item.id || item.name}-qty-${index}`}>{item.quantity || 1}</div>)}</td>
+          <td><strong>{money(order)}</strong><br/><small>{String(order.currency || 'EUR').toUpperCase()}</small></td><td>{String(order.paymentStatus || order.status || '—').toUpperCase()}</td>
+          <td><strong>{statusLabel(String(order.fulfilmentStatus || 'awaiting_fulfilment'))}</strong></td><td>{actions(order)}</td>
+        </tr>;
+      }) : <tr><td colSpan={12}>No paid merchandise orders yet.</td></tr>}</tbody>
     </table></div>
+
+    <section className="fulfilment-mobile-list" aria-label="Merchandise fulfilment orders">
+      {orders.length ? orders.map(order => {
+        const date = toDate(order.paidAt || order.createdAt);
+        return <article className="fulfilment-mobile-card" key={`mobile-${order.id}`}>
+          <div className="fulfilment-mobile-head"><div><small>Order</small><strong>{order.orderNumber || order.id}</strong></div><span>{statusLabel(String(order.fulfilmentStatus || 'awaiting_fulfilment'))}</span></div>
+          <dl>
+            <div><dt><Clock3 size={14}/> Date / time</dt><dd>{date.toLocaleDateString('en-IE')} · {date.toLocaleTimeString('en-IE')}</dd></div>
+            <div><dt>Customer</dt><dd>{order.customerName || '—'}</dd></div>
+            <div><dt>Email</dt><dd>{order.customerEmail || '—'}</dd></div>
+            <div><dt>Phone</dt><dd>{order.customerPhone || '—'}</dd></div>
+            <div><dt>Delivery address</dt><dd>{addressText(order.deliveryAddress) || 'Address not captured'}</dd></div>
+            <div><dt>Products</dt><dd>{(order.products || []).map((item: any, index: number) => <div key={`${item.id || item.name}-mobile-${index}`} className="fulfilment-line"><strong>{item.quantity || 1} × {item.name}</strong>{item.size ? <span>Size: {item.size}</span> : null}{item.colour ? <span>Colour / spec: {item.colour}</span> : null}</div>)}</dd></div>
+            <div><dt>Order total</dt><dd>{money(order)} · {String(order.currency || 'EUR').toUpperCase()}</dd></div>
+            <div><dt>Payment status</dt><dd>{String(order.paymentStatus || order.status || '—').toUpperCase()}</dd></div>
+            <div><dt>Fulfilment status</dt><dd>{statusLabel(String(order.fulfilmentStatus || 'awaiting_fulfilment'))}</dd></div>
+          </dl>
+          {actions(order)}
+        </article>;
+      }) : <p>No paid merchandise orders yet.</p>}
+    </section>
   </AdminShell>;
 }
