@@ -138,7 +138,9 @@ export async function POST(request: Request) {
     const deliveryAddress = hasPhysical ? cleanDeliveryAddress(body.deliveryAddress) : null;
     if (hasPhysical && !deliveryAddress) return NextResponse.json({ error: 'A complete delivery address is required for merchandise orders.' }, { status: 400 });
 
-    const reservationExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    // Stripe requires expires_at to be at least 30 minutes in the future. Use
+    // 31 minutes so request/transaction latency can never push us below that minimum.
+    const reservationExpiresAt = new Date(Date.now() + 31 * 60 * 1000);
     if (products.length) {
       reservationId = randomUUID();
       await reserveMerchandiseInventory(reservationId, products, reservationExpiresAt);
