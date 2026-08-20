@@ -1,6 +1,70 @@
 import { NextResponse } from 'next/server';
 import { adminFirestore } from '@/lib/firebase-admin';
-export const runtime='nodejs';export const maxDuration=300;
-function authorised(r:Request){const s=process.env.CRON_SECRET;return Boolean(s)&&r.headers.get('authorization')===`Bearer ${s}`;}function millis(v:any){if(!v)return 0;if(typeof v.toMillis==='function')return v.toMillis();if(typeof v.toDate==='function')return v.toDate().getTime();return new Date(v).getTime()||0;}function esc(v:unknown){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));}function addr(a:any){return a?[a.line1,a.line2,a.city,a.region,a.postalCode,a.country].filter(Boolean).join(', '):'Not captured';}function cell(v:unknown){return `"${String(v??'').replace(/"/g,'""')}"`;}function csv(orders:any[]){const rows=[['Date','Time','Order','Customer','Email','Phone','Delivery address','Product','Quantity','Size','Colour / specification','Order total','Payment','Fulfilment']];for(const o of orders){const d=new Date(millis(o.paidAt||o.createdAt));for(const p of o.products||[])rows.push([d.toLocaleDateString('en-IE',{timeZone:'Europe/Dublin'}),d.toLocaleTimeString('en-IE',{timeZone:'Europe/Dublin'}),o.orderNumber||o.id,o.customerName||'',o.customerEmail||'',o.customerPhone||'',addr(o.deliveryAddress),p.name||p.title||'',String(p.quantity||1),p.size||'',p.colour||p.specification||'',`€${(Number(o.amountTotal||0)/100).toFixed(2)}`,o.paymentStatus||o.status||'',o.fulfilmentStatus||'awaiting_fulfilment']);}return rows.map(r=>r.map(cell).join(',')).join('\n');}
-async function email(to:string,orders:any[],url:string,date:string){const key=process.env.RESEND_API_KEY;if(!key)throw new Error('RESEND_API_KEY is not configured.');const from=process.env.TRANSACTIONAL_EMAIL_FROM||'Aureon Music Group <info@aureonmusicgroup.com>';const items=orders.reduce((s,o)=>s+(o.products||[]).reduce((n:number,p:any)=>n+Number(p.quantity||1),0),0);const revenue=orders.reduce((s,o)=>s+Number(o.amountTotal||0),0);const details=orders.map(o=>`<div style="padding:18px 0;border-bottom:1px solid #42371e"><strong>${esc(o.orderNumber||o.id)}</strong> — ${esc(o.customerName)}<br>${esc(o.customerEmail)} · ${esc(o.customerPhone||'No phone')}<br>${esc(addr(o.deliveryAddress))}<ul>${(o.products||[]).map((p:any)=>`<li>${esc(p.name)} × ${Number(p.quantity||1)}${p.size?` · Size ${esc(p.size)}`:''}${p.colour?` · ${esc(p.colour)}`:''}</li>`).join('')}</ul></div>`).join('');const subject=`Merch Orders-${date}.csv`;const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[to],subject,text:`Previous 24 hours merchandise report. Orders: ${orders.length}. Items: ${items}. Value: €${(revenue/100).toFixed(2)}. Download: ${url}`,html:`<div style="background:#050505;padding:32px;font-family:Arial;color:#f5f1e8"><h1>${subject}</h1><p>${orders.length} orders · ${items} items · €${(revenue/100).toFixed(2)}</p><p><a href="${esc(url)}" style="padding:14px 22px;background:#c6a34f;color:#080808;text-decoration:none;font-weight:700">Download spreadsheet</a></p>${details}</div>`})});if(!r.ok)throw new Error(`Digest email failed: ${r.status} ${await r.text()}`);}
-export async function GET(request:Request){if(!authorised(request))return NextResponse.json({error:'Unauthorized'},{status:401});const now=Date.now(),since=now-86400000,date=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Dublin',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));const snap=await adminFirestore.collection('orders').where('status','==','paid').limit(5000).get();const orders=snap.docs.map(d=>({id:d.id,...d.data()} as any)).filter(o=>Array.isArray(o.products)&&o.products.length&&millis(o.paidAt||o.createdAt)>=since).sort((a,b)=>millis(a.paidAt||a.createdAt)-millis(b.paidAt||b.createdAt));if(!orders.length)return NextResponse.json({ok:true,orders:0,sent:false});const ref=adminFirestore.collection('fulfilmentDigests').doc();await ref.set({createdAt:new Date(),orderIds:orders.map(o=>o.id),csv:csv(orders),orderCount:orders.length,permanent:true,fileName:`Merch Orders-${date}.csv`});const base=(process.env.NEXT_PUBLIC_SITE_URL||'https://www.aureonmusicgroup.com').replace(/\/$/,'');const url=`${base}/api/fulfilment-digest/${ref.id}`;await email('info@aureonmusicgroup.com',orders,url,date);return NextResponse.json({ok:true,orders:orders.length,sent:true});}
+import { claimDailyReport, dublinReportDate, isWithinPrevious24Hours, makeCsv, markDailyReportFailed, markDailyReportSent, sendDailyReportEmail } from '@/lib/daily-report';
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
+
+function authorised(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  return Boolean(secret) && request.headers.get('authorization') === `Bearer ${secret}`;
+}
+function millis(value: any) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  return new Date(value).getTime() || 0;
+}
+function esc(value: unknown) {
+  return String(value ?? '').replace(/[&<>'"]/g, character => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[character] || character));
+}
+function address(addressValue: any) {
+  return addressValue ? [addressValue.line1,addressValue.line2,addressValue.city,addressValue.region,addressValue.postalCode,addressValue.country].filter(Boolean).join(', ') : 'Not captured';
+}
+
+export async function GET(request: Request) {
+  if (!authorised(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const now = Date.now();
+  const date = dublinReportDate(now);
+  const subject = `Merch Orders-${date}.csv`;
+  const snapshot = await adminFirestore.collection('orders').where('status','==','paid').limit(5000).get();
+  const orders = snapshot.docs.map(document => ({ id: document.id, ...document.data() } as any))
+    .filter(order => Array.isArray(order.products) && order.products.length && isWithinPrevious24Hours(order.paidAt || order.createdAt, now))
+    .sort((a,b) => millis(a.paidAt || a.createdAt) - millis(b.paidAt || b.createdAt));
+
+  const rows: unknown[][] = [['Date','Time','Order Number','Customer Name','Email','Phone','Delivery Address','Product','Quantity','Size','Colour / Specification','Unit Price','Line Total','Order Total','Currency','Payment Status','Stripe Payment Intent','Fulfilment Status']];
+  let units = 0;
+  let merchandiseValue = 0;
+  for (const order of orders) {
+    const paid = new Date(millis(order.paidAt || order.createdAt));
+    for (const product of order.products || []) {
+      const quantity = Math.max(1, Number(product.quantity || 1));
+      const unitAmount = Number(product.unitAmount ?? product.priceCents ?? 0);
+      const lineTotal = unitAmount * quantity;
+      units += quantity;
+      merchandiseValue += lineTotal;
+      rows.push([
+        paid.toLocaleDateString('en-IE',{timeZone:'Europe/Dublin'}), paid.toLocaleTimeString('en-IE',{timeZone:'Europe/Dublin'}),
+        order.orderNumber || order.id, order.customerName || '', order.customerEmail || '', order.customerPhone || '', address(order.deliveryAddress),
+        product.name || product.title || '', quantity, product.size || '', product.colour || product.specification || '',
+        (unitAmount / 100).toFixed(2), (lineTotal / 100).toFixed(2), (Number(order.amountTotal || 0) / 100).toFixed(2),
+        String(order.currency || 'EUR').toUpperCase(), order.paymentStatus || order.status || '', order.stripePaymentIntentId || '', order.fulfilmentStatus || 'awaiting_fulfilment',
+      ]);
+    }
+  }
+
+  const csv = makeCsv(rows);
+  const claimed = await claimDailyReport({ reportType:'merchandise', date, fileName:subject, csv, metadata:{ orderIds:orders.map(order=>order.id), orderCount:orders.length, unitCount:units, merchandiseValueCents:merchandiseValue } });
+  if (!claimed.claimed) return NextResponse.json({ ok:true, orders:orders.length, sent:false, duplicate:true });
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/,'');
+  const url = `${base}/api/fulfilment-digest/${claimed.reportId}`;
+  const details = orders.map(order => `<div style="padding:18px 0;border-bottom:1px solid #42371e"><strong>${esc(order.orderNumber||order.id)}</strong> — ${esc(order.customerName)}<br>${esc(order.customerEmail)} · ${esc(order.customerPhone||'No phone')}<br>${esc(address(order.deliveryAddress))}<ul>${(order.products||[]).map((product:any)=>`<li>${esc(product.name)} × ${Number(product.quantity||1)}${product.size?` · Size ${esc(product.size)}`:''}${product.colour?` · ${esc(product.colour)}`:''}</li>`).join('')}</ul></div>`).join('');
+  try {
+    const sent = await sendDailyReportEmail({ reportType:'merchandise', date, subject, text:`Previous 24 hours merchandise report. Orders: ${orders.length}. Items: ${units}. Merchandise value: €${(merchandiseValue/100).toFixed(2)}. Download: ${url}`, html:`<div style="background:#050505;padding:32px;font-family:Arial;color:#f5f1e8"><h1>${subject}</h1><p>${orders.length} orders · ${units} items · €${(merchandiseValue/100).toFixed(2)}</p><p><a href="${esc(url)}" style="padding:14px 22px;background:#c6a34f;color:#080808;text-decoration:none;font-weight:700">Download spreadsheet</a></p>${details || '<p>No merchandise orders were paid in the previous 24 hours.</p>'}</div>` });
+    await markDailyReportSent(claimed.ref, sent.emailId);
+    return NextResponse.json({ ok:true, orders:orders.length, sent:true, resendEmailId:sent.emailId });
+  } catch (error) {
+    await markDailyReportFailed(claimed.ref, error);
+    throw error;
+  }
+}
