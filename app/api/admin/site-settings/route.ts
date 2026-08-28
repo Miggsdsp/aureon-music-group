@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
       'heroLightEffects', 'heroDustEffects', 'heroLedEffects', 'heroLogoScale',
       'featuredArtistId', 'featuredSongId', 'featuredAlbumId', 'featuredVideoId',
       'featuredNewsId', 'termsPageId', 'privacyPageId', 'licensingPageId',
-      'spotifyUrl', 'youtubeUrl', 'instagramUrl', 'tiktokUrl', 'appleMusicUrl'
+      'spotifyUrl', 'youtubeUrl', 'instagramUrl', 'tiktokUrl', 'appleMusicUrl',
+      'facebookUrl', 'xUrl'
     ];
 
     const settings = Object.fromEntries(
