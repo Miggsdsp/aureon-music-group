@@ -53,6 +53,27 @@ function tokenExpiry(data: Record<string, any>) {
   return value?.toDate?.() || new Date(value || 0);
 }
 
+function memberSelectionIds(member: Record<string, any>) {
+  return Array.isArray(member.monthlyDownloadedSongIds) ? member.monthlyDownloadedSongIds.map(String) : [];
+}
+
+function effectiveUsage(member: Record<string, any>, usageData: Record<string, any> = {}, historySongIds: string[] = []) {
+  const ids = new Set<string>([
+    ...memberSelectionIds(member),
+    ...(Array.isArray(usageData.downloadedSongIds) ? usageData.downloadedSongIds.map(String) : []),
+    ...historySongIds,
+  ]);
+  const count = Math.max(Number(member.monthlyDownloadsUsed || 0), Number(usageData.count || 0), ids.size);
+  return { ids, count };
+}
+
+async function currentBillingHistorySongIds(memberRef: FirebaseFirestore.DocumentReference, member: Record<string, any>) {
+  const paidAt = member.lastInvoicePaidAt?.toDate?.() || (member.lastInvoicePaidAt ? new Date(member.lastInvoicePaidAt) : null);
+  if (!paidAt || Number.isNaN(paidAt.getTime())) return [] as string[];
+  const snapshot = await memberRef.collection('downloadHistory').where('createdAt', '>=', Timestamp.fromDate(paidAt)).get();
+  return Array.from(new Set(snapshot.docs.map(doc => String(doc.data()?.songId || '')).filter(Boolean)));
+}
+
 function downloadPage(songId: string, token: string, songTitle: string, remaining: number, reDownload: boolean) {
   const safeTitle = escapeHtml(songTitle);
   const href = `/api/member/download/${encodeURIComponent(songId)}?token=${encodeURIComponent(token)}&download=1`;
@@ -118,11 +139,13 @@ export async function POST(request: Request, context: RouteContext) {
     try { await file.getMetadata(); } catch { return NextResponse.json({ error: 'Full track is unavailable.' }, { status: 404 }); }
 
     const key = billingCycleKey(memberContext.member);
-    const usage = await memberContext.memberRef.collection('downloadUsage').doc(key).get();
-    const count = Number(usage.data()?.count || 0);
-    const downloadedSongIds = Array.isArray(usage.data()?.downloadedSongIds) ? usage.data()?.downloadedSongIds.map(String) : [];
-    const reDownload = downloadedSongIds.includes(songId);
-    if (!reDownload && count >= 5) {
+    const [usage, historySongIds] = await Promise.all([
+      memberContext.memberRef.collection('downloadUsage').doc(key).get(),
+      currentBillingHistorySongIds(memberContext.memberRef, memberContext.member),
+    ]);
+    const effective = effectiveUsage(memberContext.member, usage.data() || {}, historySongIds);
+    const reDownload = effective.ids.has(songId);
+    if (!reDownload && effective.count >= 5) {
       return NextResponse.json({ error: 'Your five Creator downloads for this billing period have been used. Your allowance resets on your next billing date.' }, { status: 429 });
     }
 
@@ -143,7 +166,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     return NextResponse.json({
       url: `/api/member/download/${songId}?token=${token}`,
-      remaining: Math.max(0, 5 - count),
+      remaining: Math.max(0, 5 - effective.count),
       reDownload,
       resetAt: memberContext.member.currentPeriodEnd || null,
     });
@@ -179,24 +202,27 @@ export async function GET(request: Request, context: RouteContext) {
       return downloadError('An active Aureon Creator membership is required for this download.', 403);
     }
 
+    const memberData = memberSnapshot.data() || {};
     const song = await adminFirestore.collection('songs').doc(songId).get();
     if (!song.exists || song.data()?.status !== 'published') return downloadError('This song is no longer available.', 404);
     const songData = song.data() || {};
     const path = privatePath(songData);
     if (!path.startsWith('private/full-tracks/')) return downloadError('The full track is unavailable.', 404);
 
-    const key = billingCycleKey(memberSnapshot.data() || {});
-    const usageSnapshot = await memberRef.collection('downloadUsage').doc(key).get();
-    const currentCount = Number(usageSnapshot.data()?.count || 0);
-    const downloadedSongIds = Array.isArray(usageSnapshot.data()?.downloadedSongIds) ? usageSnapshot.data()?.downloadedSongIds.map(String) : [];
-    const isReDownload = downloadedSongIds.includes(songId);
-    if (!isReDownload && currentCount >= 5) return downloadError('Your five Creator downloads for this billing period have been used.', 429);
+    const key = billingCycleKey(memberData);
+    const [usageSnapshot, historySongIds] = await Promise.all([
+      memberRef.collection('downloadUsage').doc(key).get(),
+      currentBillingHistorySongIds(memberRef, memberData),
+    ]);
+    const initialEffective = effectiveUsage(memberData, usageSnapshot.data() || {}, historySongIds);
+    const isReDownload = initialEffective.ids.has(songId);
+    if (!isReDownload && initialEffective.count >= 5) return downloadError('Your five Creator downloads for this billing period have been used.', 429);
 
     if (url.searchParams.get('download') !== '1') {
-      return downloadPage(songId, token, String(songData.title || tokenData.songTitle || 'Aureon track'), Math.max(0, 5 - currentCount), isReDownload);
+      return downloadPage(songId, token, String(songData.title || tokenData.songTitle || 'Aureon track'), Math.max(0, 5 - initialEffective.count), isReDownload);
     }
 
-    let nextCount = currentCount;
+    let nextCount = initialEffective.count;
     let reDownload = isReDownload;
     await adminFirestore.runTransaction(async transaction => {
       const latestToken = await transaction.get(tokenRef);
@@ -205,24 +231,29 @@ export async function GET(request: Request, context: RouteContext) {
       if (tokenExpiry(latestToken.data() || {}).getTime() < Date.now()) throw new Error('TOKEN_EXPIRED');
       if (!latestMember.exists || !hasActivePlan(latestMember.data() || {}, 'creator')) throw new Error('CREATOR_REQUIRED');
 
-      const liveKey = billingCycleKey(latestMember.data() || {});
+      const latestMemberData = latestMember.data() || {};
+      const liveKey = billingCycleKey(latestMemberData);
       const usageRef = memberRef.collection('downloadUsage').doc(liveKey);
       const usage = await transaction.get(usageRef);
-      const count = Number(usage.data()?.count || 0);
-      const songIds = Array.isArray(usage.data()?.downloadedSongIds) ? usage.data()?.downloadedSongIds.map(String) : [];
-      reDownload = songIds.includes(songId);
-      if (!reDownload && count >= 5) throw new Error('QUOTA_EXCEEDED');
-      nextCount = reDownload ? count : count + 1;
+      const effective = effectiveUsage(latestMemberData, usage.data() || {}, historySongIds);
+      reDownload = effective.ids.has(songId);
+      if (!reDownload && effective.count >= 5) throw new Error('QUOTA_EXCEEDED');
+
+      const selectedIds = new Set(effective.ids);
+      if (!reDownload) selectedIds.add(songId);
+      nextCount = reDownload ? effective.count : effective.count + 1;
+      const canonicalIds = Array.from(selectedIds);
 
       transaction.set(usageRef, {
         cycle: liveKey,
         count: nextCount,
-        downloadedSongIds: reDownload ? songIds : FieldValue.arrayUnion(songId),
-        resetAt: latestMember.data()?.currentPeriodEnd || null,
+        downloadedSongIds: canonicalIds,
+        resetAt: latestMemberData.currentPeriodEnd || null,
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
       transaction.set(memberRef, {
         monthlyDownloadsUsed: nextCount,
+        monthlyDownloadedSongIds: canonicalIds,
         monthlyDownloadCycle: liveKey,
         monthlyDownloadLimit: 5,
         updatedAt: FieldValue.serverTimestamp(),
