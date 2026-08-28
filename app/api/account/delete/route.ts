@@ -17,9 +17,17 @@ async function cancelMemberSubscriptions(member: Record<string, any>) {
   if (member.stripeSubscriptionId) ids.add(String(member.stripeSubscriptionId));
 
   if (member.stripeCustomerId) {
-    const subscriptions = await stripe.subscriptions.list({ customer: String(member.stripeCustomerId), status: 'all', limit: 100 });
-    for (const subscription of subscriptions.data) {
-      if (!['canceled', 'incomplete_expired'].includes(subscription.status)) ids.add(subscription.id);
+    try {
+      const subscriptions = await stripe.subscriptions.list({ customer: String(member.stripeCustomerId), status: 'all', limit: 100 });
+      for (const subscription of subscriptions.data) {
+        if (!['canceled', 'incomplete_expired'].includes(subscription.status)) ids.add(subscription.id);
+      }
+    } catch (error: any) {
+      // A member created while Stripe was in sandbox can still carry a test-mode
+      // customer ID after production switches to a live key. That customer does
+      // not exist in live mode, so there is nothing live to cancel. Continue the
+      // account deletion instead of blocking Firebase/Auth cleanup.
+      if (error?.code !== 'resource_missing') throw error;
     }
   }
 
