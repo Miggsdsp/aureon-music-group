@@ -62,6 +62,16 @@ export async function recordInvoicePaid(invoice: Stripe.Invoice) {
   if (members.empty) return;
   const member = members.docs[0];
   const resetDownloads = invoice.billing_reason === 'subscription_cycle' || invoice.billing_reason === 'subscription_create';
-  await member.ref.set({ ...(resetDownloads ? { monthlyDownloadsUsed: 0, downloadCycleResetAt: FieldValue.serverTimestamp() } : {}), lastInvoicePaidAt: FieldValue.serverTimestamp(), lastPaidInvoiceId: invoice.id, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await member.ref.set({
+    ...(resetDownloads ? {
+      monthlyDownloadsUsed: 0,
+      monthlyDownloadedSongIds: [],
+      monthlyDownloadCycle: `invoice-${invoice.id}`,
+      downloadCycleResetAt: FieldValue.serverTimestamp(),
+    } : {}),
+    lastInvoicePaidAt: FieldValue.serverTimestamp(),
+    lastPaidInvoiceId: invoice.id,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
   if (invoice.billing_reason === 'subscription_cycle') await recordAnalyticsEvent({ eventType: 'membership_renewed', entityType: 'subscription', entityId: invoice.id, memberId: member.id, plan: String(member.data().plan || ''), revenueCents: invoice.amount_paid || 0, currency: invoice.currency });
 }
