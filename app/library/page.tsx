@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
-import { Clock3, GripVertical, ListPlus, Play, Search, Trash2 } from 'lucide-react';
+import { Clock3, GripVertical, ListPlus, Play, Search, Trash2, X } from 'lucide-react';
 import { firebaseAuth, firestore } from '@/lib/firebase-client';
 import { type PlayerSong, useMusicPlayer } from '@/components/music/MusicPlayerProvider';
 import { getArtwork } from '@/lib/get-artwork';
@@ -66,6 +66,7 @@ export default function LibraryPage() {
   const [dragState, setDragState] = useState<{ playlistId: string; index: number } | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
+  const [downloadLimitOpen, setDownloadLimitOpen] = useState(false);
 
   useEffect(() => onAuthStateChanged(firebaseAuth, current => {
     setUser(current);
@@ -80,6 +81,19 @@ export default function LibraryPage() {
       setAccessChecked(true);
     }, () => { setMember(null); setAccessChecked(true); });
   }, [user]);
+
+  useEffect(() => {
+    if (!downloadLimitOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDownloadLimitOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [downloadLimitOpen]);
 
   const membershipStatus = String(member?.subscriptionStatus || 'inactive').toLowerCase();
   const hasAccess = membershipStatus === 'active' || membershipStatus === 'trialing';
@@ -139,8 +153,15 @@ export default function LibraryPage() {
     try {
       const data = await memberRequest(`/api/member/download/${song.id}`, 'POST');
       if (data?.url) window.location.href = data.url;
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to download this song.'); }
-    finally { setBusy(''); }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unable to download this song.';
+      if (/five Creator downloads|five Creator selections|allowance resets/i.test(errorMessage)) {
+        setMessage('');
+        setDownloadLimitOpen(true);
+      } else {
+        setMessage(errorMessage);
+      }
+    } finally { setBusy(''); }
   }
 
   async function createPlaylist(event: React.FormEvent) {
@@ -221,5 +242,19 @@ export default function LibraryPage() {
         </article>)}</div> : <div className={styles.emptyState}><h3>No matching releases</h3><p>Try removing a filter or searching for another title, artist or genre.</p><button className={styles.button} onClick={() => { setSearchText(''); setArtistFilter('all'); setGenreFilter('all'); }}>Clear filters</button></div>}
       </section>
     </>}
+
+    {downloadLimitOpen && <div className={styles.limitBackdrop} role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setDownloadLimitOpen(false); }}>
+      <section className={styles.limitModal} role="dialog" aria-modal="true" aria-labelledby="creator-download-limit-title">
+        <button className={styles.limitClose} type="button" aria-label="Close" onClick={() => setDownloadLimitOpen(false)}><X size={22} /></button>
+        <img className={styles.limitLogo} src="/images/branding/Aureon_Header_Logo.png" alt="Aureon Music Group" />
+        <p className={styles.limitKicker}>Creator membership</p>
+        <h2 id="creator-download-limit-title">Your monthly download limit has been reached</h2>
+        <div className={styles.limitCount}>5 / 5</div>
+        <p>You have used all 5 Creator song selections available in your current billing period.</p>
+        <p>Your full Aureon catalogue streaming access remains active. Your Creator download allowance will reset automatically at your next billing cycle.</p>
+        <button className={`${styles.button} ${styles.buttonPrimary} ${styles.limitButton}`} type="button" onClick={() => setDownloadLimitOpen(false)}>Continue listening</button>
+        <Link className={styles.limitAccountLink} href="/account">View Creator membership</Link>
+      </section>
+    </div>}
   </main>;
 }
