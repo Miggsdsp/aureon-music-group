@@ -57,29 +57,35 @@ function memberSelectionIds(member: Record<string, any>) {
   return Array.isArray(member.monthlyDownloadedSongIds) ? member.monthlyDownloadedSongIds.map(String) : [];
 }
 
-function effectiveUsage(member: Record<string, any>, usageData: Record<string, any> = {}, historySongIds: string[] = []) {
+function effectiveUsage(member: Record<string, any>, usageData: Record<string, any> = {}, historySongIds: string[] = [], historyCount = 0) {
   const ids = new Set<string>([
     ...memberSelectionIds(member),
     ...(Array.isArray(usageData.downloadedSongIds) ? usageData.downloadedSongIds.map(String) : []),
     ...historySongIds,
   ]);
-  const count = Math.max(Number(member.monthlyDownloadsUsed || 0), Number(usageData.count || 0), ids.size);
+  const count = Math.max(
+    Number(member.monthlyDownloadsUsed || 0),
+    Number(usageData.count || 0),
+    Number(historyCount || 0),
+    ids.size,
+  );
   return { ids, count };
 }
 
-async function currentBillingHistorySongIds(memberRef: FirebaseFirestore.DocumentReference, member: Record<string, any>) {
+async function currentBillingHistory(memberRef: FirebaseFirestore.DocumentReference, member: Record<string, any>) {
   const paidAt = member.lastInvoicePaidAt?.toDate?.() || (member.lastInvoicePaidAt ? new Date(member.lastInvoicePaidAt) : null);
-  if (!paidAt || Number.isNaN(paidAt.getTime())) return [] as string[];
+  if (!paidAt || Number.isNaN(paidAt.getTime())) return { songIds: [] as string[], count: 0 };
   const snapshot = await memberRef.collection('downloadHistory').where('createdAt', '>=', Timestamp.fromDate(paidAt)).get();
-  return Array.from(new Set(snapshot.docs.map(doc => String(doc.data()?.songId || '')).filter(Boolean)));
+  return {
+    songIds: Array.from(new Set(snapshot.docs.map(doc => String(doc.data()?.songId || '')).filter(Boolean))),
+    count: snapshot.size,
+  };
 }
 
-function downloadPage(songId: string, token: string, songTitle: string, remaining: number, reDownload: boolean) {
+function downloadPage(songId: string, token: string, songTitle: string, remaining: number) {
   const safeTitle = escapeHtml(songTitle);
   const href = `/api/member/download/${encodeURIComponent(songId)}?token=${encodeURIComponent(token)}&download=1`;
-  const allowanceCopy = reDownload
-    ? 'You have already selected this song in the current billing period, so downloading it again will not use another Creator selection.'
-    : `This download will leave ${Math.max(0, remaining - 1)} of your 5 Creator selections remaining for the current billing period.`;
+  const allowanceCopy = `This download will leave ${Math.max(0, remaining - 1)} of your 5 Creator downloads remaining for the current billing period.`;
 
   return new NextResponse(`<!doctype html>
 <html lang="en">
@@ -139,13 +145,12 @@ export async function POST(request: Request, context: RouteContext) {
     try { await file.getMetadata(); } catch { return NextResponse.json({ error: 'Full track is unavailable.' }, { status: 404 }); }
 
     const key = billingCycleKey(memberContext.member);
-    const [usage, historySongIds] = await Promise.all([
+    const [usage, history] = await Promise.all([
       memberContext.memberRef.collection('downloadUsage').doc(key).get(),
-      currentBillingHistorySongIds(memberContext.memberRef, memberContext.member),
+      currentBillingHistory(memberContext.memberRef, memberContext.member),
     ]);
-    const effective = effectiveUsage(memberContext.member, usage.data() || {}, historySongIds);
-    const reDownload = effective.ids.has(songId);
-    if (!reDownload && effective.count >= 5) {
+    const effective = effectiveUsage(memberContext.member, usage.data() || {}, history.songIds, history.count);
+    if (effective.count >= 5) {
       return NextResponse.json({ error: 'Your five Creator downloads for this billing period have been used. Your allowance resets on your next billing date.' }, { status: 429 });
     }
 
@@ -159,7 +164,6 @@ export async function POST(request: Request, context: RouteContext) {
       songTitle: String(data.title || 'Aureon track'),
       privateFilePath: path,
       cycle: key,
-      reDownload,
       createdAt: FieldValue.serverTimestamp(),
       expiresAt,
     });
@@ -167,7 +171,6 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({
       url: `/api/member/download/${songId}?token=${token}`,
       remaining: Math.max(0, 5 - effective.count),
-      reDownload,
       resetAt: memberContext.member.currentPeriodEnd || null,
     });
   } catch (error) {
@@ -210,20 +213,18 @@ export async function GET(request: Request, context: RouteContext) {
     if (!path.startsWith('private/full-tracks/')) return downloadError('The full track is unavailable.', 404);
 
     const key = billingCycleKey(memberData);
-    const [usageSnapshot, historySongIds] = await Promise.all([
+    const [usageSnapshot, history] = await Promise.all([
       memberRef.collection('downloadUsage').doc(key).get(),
-      currentBillingHistorySongIds(memberRef, memberData),
+      currentBillingHistory(memberRef, memberData),
     ]);
-    const initialEffective = effectiveUsage(memberData, usageSnapshot.data() || {}, historySongIds);
-    const isReDownload = initialEffective.ids.has(songId);
-    if (!isReDownload && initialEffective.count >= 5) return downloadError('Your five Creator downloads for this billing period have been used.', 429);
+    const initialEffective = effectiveUsage(memberData, usageSnapshot.data() || {}, history.songIds, history.count);
+    if (initialEffective.count >= 5) return downloadError('Your five Creator downloads for this billing period have been used.', 429);
 
     if (url.searchParams.get('download') !== '1') {
-      return downloadPage(songId, token, String(songData.title || tokenData.songTitle || 'Aureon track'), Math.max(0, 5 - initialEffective.count), isReDownload);
+      return downloadPage(songId, token, String(songData.title || tokenData.songTitle || 'Aureon track'), Math.max(0, 5 - initialEffective.count));
     }
 
     let nextCount = initialEffective.count;
-    let reDownload = isReDownload;
     await adminFirestore.runTransaction(async transaction => {
       const latestToken = await transaction.get(tokenRef);
       const latestMember = await transaction.get(memberRef);
@@ -235,13 +236,12 @@ export async function GET(request: Request, context: RouteContext) {
       const liveKey = billingCycleKey(latestMemberData);
       const usageRef = memberRef.collection('downloadUsage').doc(liveKey);
       const usage = await transaction.get(usageRef);
-      const effective = effectiveUsage(latestMemberData, usage.data() || {}, historySongIds);
-      reDownload = effective.ids.has(songId);
-      if (!reDownload && effective.count >= 5) throw new Error('QUOTA_EXCEEDED');
+      const effective = effectiveUsage(latestMemberData, usage.data() || {}, history.songIds, history.count);
+      if (effective.count >= 5) throw new Error('QUOTA_EXCEEDED');
 
       const selectedIds = new Set(effective.ids);
-      if (!reDownload) selectedIds.add(songId);
-      nextCount = reDownload ? effective.count : effective.count + 1;
+      selectedIds.add(songId);
+      nextCount = effective.count + 1;
       const canonicalIds = Array.from(selectedIds);
 
       transaction.set(usageRef, {
@@ -264,7 +264,6 @@ export async function GET(request: Request, context: RouteContext) {
         artist: songData.artistName || songData.artist || '',
         coverImageUrl: songData.coverImageUrl || songData.imageUrl || '',
         cycle: liveKey,
-        reDownload,
         createdAt: FieldValue.serverTimestamp(),
       });
       transaction.set(tokenRef, {
@@ -283,7 +282,7 @@ export async function GET(request: Request, context: RouteContext) {
       artistId: String(songData.artistId || ''),
       artistName: String(songData.artistName || songData.artist || ''),
       memberId: String(tokenData.uid || ''),
-      metadata: { reDownload, plan: 'creator' },
+      metadata: { plan: 'creator' },
     }).catch(error => console.error('Download analytics failed:', error));
 
     const masterFile = adminStorage.bucket().file(path);
