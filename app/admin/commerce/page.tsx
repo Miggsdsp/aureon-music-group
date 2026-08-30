@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { FileText, RefreshCw, Search } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { useAdminAuth } from '@/components/admin/AdminAuthProvider';
@@ -27,18 +27,41 @@ export default function CommerceOperationsPage() {
   const [selected, setSelected] = useState<Row | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function loadCommerceData(showSuccess = false) {
+    if (!authorised) return;
+    setRefreshing(true);
+    if (!showSuccess) setMessage('');
+    try {
+      const [membersSnap, downloadsSnap, ordersSnap, licencesResult, refundsResult] = await Promise.all([
+        getDocs(collection(firestore, 'members')),
+        getDocs(collection(firestore, 'downloads')),
+        getDocs(collection(firestore, 'orders')),
+        getDocs(collection(firestore, 'commercialLicences')).catch(() => null),
+        getDocs(collection(firestore, 'refunds')).catch(() => null),
+      ]);
+      setMembers(mapRows(membersSnap));
+      setDownloads(mapRows(downloadsSnap));
+      setOrders(mapRows(ordersSnap));
+      setLicences(licencesResult ? mapRows(licencesResult) : []);
+      setRefunds(refundsResult ? mapRows(refundsResult) : []);
+      if (showSuccess) setMessage('Commerce data refreshed.');
+    } catch (error) {
+      console.error(error);
+      setMessage('One or more secure operational collections could not be loaded.');
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     if (loading || !authorised) return;
-    const fail = (error: unknown) => { console.error(error); setMessage('One or more secure operational collections could not be loaded.'); };
-    const unsubscribers = [
-      onSnapshot(collection(firestore, 'members'), snapshot => setMembers(mapRows(snapshot)), fail),
-      onSnapshot(collection(firestore, 'downloads'), snapshot => setDownloads(mapRows(snapshot)), fail),
-      onSnapshot(collection(firestore, 'commercialLicences'), snapshot => setLicences(mapRows(snapshot)), () => setLicences([])),
-      onSnapshot(collection(firestore, 'refunds'), snapshot => setRefunds(mapRows(snapshot)), () => setRefunds([])),
-      onSnapshot(collection(firestore, 'orders'), snapshot => setOrders(mapRows(snapshot)), fail),
-    ];
-    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
+    void loadCommerceData(false);
+  // Intentionally load once per authenticated mount. Using one-shot reads here avoids
+  // the Firestore 11.10 watch-stream assertion seen during Next.js dev/HMR while still
+  // giving staff an explicit refresh action for current operational data.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authorised, loading]);
 
   const q = query.trim().toLowerCase();
@@ -66,6 +89,7 @@ export default function CommerceOperationsPage() {
     const note = prompt('Add an internal customer note:', String(member.notes || ''));
     if (note === null) return;
     await updateDoc(doc(firestore, 'members', member.id), { notes: note, updatedAt: new Date() });
+    setMembers(current => current.map(item => item.id === member.id ? { ...item, notes: note, updatedAt: new Date() } : item));
     setMessage('Customer note saved.');
   }
 
@@ -88,12 +112,13 @@ export default function CommerceOperationsPage() {
   }
 
   return <AdminShell>
-    <div className="admin-page-heading"><p className="admin-kicker">Commerce and CRM</p><h1>Subscriptions, Downloads, Licences & Refunds</h1><p>Live operational records connected to Stripe, members, orders and secure delivery history.</p></div>
+    <div className="admin-page-heading"><p className="admin-kicker">Commerce and CRM</p><h1>Subscriptions, Downloads, Licences & Refunds</h1><p>Operational records connected to Stripe, members, orders and secure delivery history.</p></div>
     {message && <div className="admin-cms-message" role="status">{message}</div>}
     <div className="admin-toolbar">
       <div>{(['subscriptions','downloads','licences','refunds'] as Tab[]).map(item => <button key={item} onClick={() => { setTab(item); setSelected(null); setStatus('all'); }}>{item[0].toUpperCase() + item.slice(1)} ({counts[item]})</button>)}</div>
       <label style={{ display:'flex',alignItems:'center',gap:8 }}><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${tab}`} /></label>
       <label>Status <select value={status} onChange={event => setStatus(event.target.value)}><option value="all">All</option>{statusOptions.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+      <button disabled={refreshing} onClick={() => void loadCommerceData(true)}><RefreshCw size={14}/>{refreshing ? ' Refreshing…' : ' Refresh'}</button>
     </div>
 
     <div className="admin-table-wrap"><table><thead><tr>
