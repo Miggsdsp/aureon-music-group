@@ -22,7 +22,7 @@ export type ServerAnalyticsEvent = {
   memberId?: string; referralCode?: string; searchQuery?: string; searchResultCount?: number;
   plan?: string; revenueCents?: number; currency?: string;
   durationSeconds?: number; listenedSeconds?: number; progressPercent?: number;
-  sessionId?: string; country?: string; region?: string; city?: string;
+  visitorId?: string; sessionId?: string; country?: string; region?: string; city?: string;
   locale?: string; timezone?: string; deviceType?: string; pathname?: string; referrer?: string; userAgent?: string;
   metricName?: string; metricValue?: number; metricRating?: string; metricId?: string;
   metadata?: Record<string, string | number | boolean | null | undefined>;
@@ -45,7 +45,7 @@ export async function recordAnalyticsEvent(input: ServerAnalyticsEvent) {
     memberId: clean(input.memberId, 160), referralCode: clean(input.referralCode, 80), searchQuery: clean(input.searchQuery, 240), searchResultCount: number(input.searchResultCount, 100000),
     plan: clean(input.plan, 40), revenueCents: number(input.revenueCents), currency: clean(input.currency || 'eur', 12).toLowerCase(),
     durationSeconds: number(input.durationSeconds, 86400), listenedSeconds: number(input.listenedSeconds, 86400), progressPercent: number(input.progressPercent, 100),
-    sessionId: clean(input.sessionId, 120), country: clean(input.country || 'Unknown', 8), region: clean(input.region || 'Unknown', 80), city: clean(input.city || 'Unknown', 100),
+    visitorId: clean(input.visitorId, 120), sessionId: clean(input.sessionId, 120), country: clean(input.country || 'Unknown', 8), region: clean(input.region || 'Unknown', 80), city: clean(input.city || 'Unknown', 100),
     locale: clean(input.locale, 40), timezone: clean(input.timezone, 80), deviceType: clean(input.deviceType, 30), pathname: clean(input.pathname, 300), referrer: clean(input.referrer, 500), userAgent: clean(input.userAgent, 500),
     metricName: clean(input.metricName, 30), metricValue: number(input.metricValue, 1000000), metricRating: clean(input.metricRating, 30), metricId: clean(input.metricId, 120),
     metadata, createdAt: FieldValue.serverTimestamp(), receivedAt: now.toISOString(), day
