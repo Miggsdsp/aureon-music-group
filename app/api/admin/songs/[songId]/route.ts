@@ -46,6 +46,11 @@ async function commitWrites(writes: PendingWrite[]) {
   }
 }
 
+function storageBucket() {
+  const bucketName = process.env.FIREBASE_ADMIN_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  return bucketName ? adminStorage.bucket(bucketName) : adminStorage.bucket();
+}
+
 export async function DELETE(request: Request, context: Context) {
   try {
     const admin = await requireAdminApi(request);
@@ -70,20 +75,27 @@ export async function DELETE(request: Request, context: Context) {
     [masterPath, streamPath, previewPath, coverPath].filter(Boolean).forEach(path => storagePaths.add(path));
 
     let storageObjectsDeleted = 0;
+    const bucket = storageBucket();
     for (const path of storagePaths) {
-      const file = adminStorage.bucket().file(path);
+      const file = bucket.file(path);
       const [exists] = await file.exists();
       if (!exists) continue;
       await file.delete();
       storageObjectsDeleted += 1;
     }
 
-    const [favouriteMembers, continueMembers, playlistRefs, recentRefs] = await Promise.all([
+    const [favouriteMembers, continueMembers, allPlaylists, allRecent] = await Promise.all([
       adminFirestore.collection('members').where('favouriteSongIds', 'array-contains', songId).get(),
       adminFirestore.collection('members').where('continueListening.songId', '==', songId).get(),
-      adminFirestore.collectionGroup('playlists').where('songIds', 'array-contains', songId).get(),
-      adminFirestore.collectionGroup('recentlyPlayed').where('songId', '==', songId).get(),
+      adminFirestore.collectionGroup('playlists').get(),
+      adminFirestore.collectionGroup('recentlyPlayed').get(),
     ]);
+
+    const playlistRefs = allPlaylists.docs.filter(item => {
+      const ids = item.get('songIds');
+      return Array.isArray(ids) && ids.includes(songId);
+    });
+    const recentRefs = allRecent.docs.filter(item => item.get('songId') === songId);
 
     const memberUpdates = new Map<string, { ref: DocumentReference; data: Record<string, unknown> }>();
     for (const member of favouriteMembers.docs) {
@@ -102,8 +114,8 @@ export async function DELETE(request: Request, context: Context) {
 
     const writes: PendingWrite[] = [
       ...Array.from(memberUpdates.values()).map(item => ({ type: 'update' as const, ref: item.ref, data: item.data })),
-      ...playlistRefs.docs.map(item => ({ type: 'update' as const, ref: item.ref, data: { songIds: FieldValue.arrayRemove(songId), updatedAt: FieldValue.serverTimestamp() } })),
-      ...recentRefs.docs.map(item => ({ type: 'delete' as const, ref: item.ref })),
+      ...playlistRefs.map(item => ({ type: 'update' as const, ref: item.ref, data: { songIds: FieldValue.arrayRemove(songId), updatedAt: FieldValue.serverTimestamp() } })),
+      ...recentRefs.map(item => ({ type: 'delete' as const, ref: item.ref })),
       { type: 'delete' as const, ref: songRef },
     ];
 
@@ -114,7 +126,7 @@ export async function DELETE(request: Request, context: Context) {
       songId,
       storageObjectsDeleted,
       storagePathsChecked: storagePaths.size,
-      memberReferencesCleaned: memberUpdates.size + playlistRefs.size + recentRefs.size,
+      memberReferencesCleaned: memberUpdates.size + playlistRefs.length + recentRefs.length,
       retainedHistoricalRecords: true,
     });
   } catch (error) {
@@ -122,6 +134,6 @@ export async function DELETE(request: Request, context: Context) {
     const code = error instanceof Error ? error.message : '';
     if (code === 'UNAUTHENTICATED') return NextResponse.json({ error: 'Sign in again to continue.' }, { status: 401 });
     if (code === 'FORBIDDEN') return NextResponse.json({ error: 'Administrator access is required.' }, { status: 403 });
-    return NextResponse.json({ error: 'Aureon could not delete the song completely. No further deletion should be attempted until this error is reviewed.' }, { status: 500 });
+    return NextResponse.json({ error: 'Aureon could not delete the song completely. Check the server log for the failing cleanup step and try again.' }, { status: 500 });
   }
 }
