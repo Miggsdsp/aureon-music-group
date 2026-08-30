@@ -26,6 +26,9 @@ function amountEuros(value: unknown) {
   const cents = Number(value);
   return Number.isFinite(cents) && cents !== 0 ? (cents / 100).toFixed(2) : '';
 }
+function metadata(record: any) {
+  return record?.metadata && typeof record.metadata === 'object' ? record.metadata : {};
+}
 
 export async function GET(request: Request) {
   if (!authorised(request)) return NextResponse.json({ error:'Unauthorized' }, { status:401 });
@@ -47,13 +50,14 @@ export async function GET(request: Request) {
   const membersBySubscription = new Map(memberRows.filter(member => member.stripeSubscriptionId).map(member => [String(member.stripeSubscriptionId), member]));
 
   const resolveMember = (record: any) => {
+    const meta = metadata(record);
     const id = String(record.uid || record.memberId || record.firebaseUid || '');
     if (id && membersById.has(id)) return membersById.get(id) || {};
-    const email = lower(record.email || record.customerEmail);
+    const email = lower(record.email || record.customerEmail || meta.email);
     if (email && membersByEmail.has(email)) return membersByEmail.get(email) || {};
-    const customer = String(record.stripeCustomerId || record.customerId || '');
+    const customer = String(record.stripeCustomerId || record.customerId || meta.stripeCustomerId || '');
     if (customer && membersByCustomer.has(customer)) return membersByCustomer.get(customer) || {};
-    const subscription = String(record.stripeSubscriptionId || record.subscriptionId || '');
+    const subscription = String(record.stripeSubscriptionId || record.subscriptionId || meta.stripeSubscriptionId || '');
     if (subscription && membersBySubscription.has(subscription)) return membersBySubscription.get(subscription) || {};
     return {};
   };
@@ -65,41 +69,44 @@ export async function GET(request: Request) {
   const deletions = deletionSnapshot.docs.map(document => ({ id:document.id, ...document.data() } as any))
     .filter(deletion => isWithinPrevious24Hours(deletion.completedAt || deletion.requestedAt, now));
 
-  const rows: unknown[][] = [[
-    'Purchase Type','Event','Date / Time','Member / User ID','Name','Email','Phone','Country','Plan','Subscription Status','Active','Source',
-    'Amount','Currency','Stripe Customer','Stripe Subscription','Stripe Invoice / Reference','Cancel At Period End','Period End'
-  ]];
+  const dataRows: unknown[][] = [];
 
   for (const event of events) {
     const member = resolveMember(event);
-    rows.push([
+    const meta = metadata(event);
+    dataRows.push([
       'Subscription', 'Subscription event', iso(event.createdAt), event.uid || event.memberId || member.id || '',
-      event.name || member.name || member.fullName || '', event.email || member.email || '', event.phone || member.phone || '', member.country || member.customerCountry || '',
+      event.name || meta.name || member.name || member.fullName || '', event.email || meta.email || member.email || '', event.phone || meta.phone || member.phone || '', event.country || meta.country || member.country || member.customerCountry || '',
       event.plan || member.plan || '', event.status || member.subscriptionStatus || '', event.active === true ? 'Yes' : 'No', event.source || '',
       amountEuros(event.amountPaid ?? event.amountTotal ?? event.revenueCents), String(event.currency || '').toUpperCase(),
-      event.stripeCustomerId || member.stripeCustomerId || '', event.stripeSubscriptionId || member.stripeSubscriptionId || '', event.invoiceId || event.entityId || '',
-      member.cancelAtPeriodEnd ? 'Yes' : 'No', iso(member.currentPeriodEnd),
+      event.stripeCustomerId || meta.stripeCustomerId || member.stripeCustomerId || '', event.stripeSubscriptionId || meta.stripeSubscriptionId || member.stripeSubscriptionId || '', event.invoiceId || event.entityId || '',
+      event.cancelAtPeriodEnd === true || member.cancelAtPeriodEnd === true ? 'Yes' : 'No', iso(event.currentPeriodEnd || member.currentPeriodEnd),
     ]);
   }
 
   for (const event of paymentEvents) {
     const member = resolveMember(event);
-    rows.push([
+    const meta = metadata(event);
+    dataRows.push([
       'Subscription', event.eventType === 'membership_renewed' ? 'Renewal paid' : 'Payment failed', iso(event.createdAt || event.receivedAt), event.memberId || member.id || '',
-      member.name || member.fullName || '', member.email || '', member.phone || '', member.country || member.customerCountry || '', event.plan || member.plan || '', member.subscriptionStatus || '',
+      meta.name || member.name || member.fullName || '', meta.email || member.email || '', meta.phone || member.phone || '', meta.country || member.country || member.customerCountry || '', event.plan || member.plan || '', member.subscriptionStatus || '',
       member.subscriptionActive === true ? 'Yes' : 'No', event.eventType || '', amountEuros(event.revenueCents), String(event.currency || 'EUR').toUpperCase(),
-      member.stripeCustomerId || '', member.stripeSubscriptionId || '', event.entityId || '', member.cancelAtPeriodEnd ? 'Yes' : 'No', iso(member.currentPeriodEnd),
+      meta.stripeCustomerId || member.stripeCustomerId || '', meta.stripeSubscriptionId || member.stripeSubscriptionId || '', event.entityId || '', member.cancelAtPeriodEnd ? 'Yes' : 'No', iso(member.currentPeriodEnd),
     ]);
   }
 
   for (const deletion of deletions) {
-    rows.push([
+    dataRows.push([
       'Subscription', 'Account deleted', iso(deletion.completedAt || deletion.requestedAt), deletion.uid || deletion.memberId || '', deletion.name || '', deletion.email || '', deletion.phone || '', deletion.country || '',
       deletion.plan || '', deletion.subscriptionStatus || '', 'No', 'account_deleted', '', '', deletion.stripeCustomerId || '', deletion.stripeSubscriptionId || '', '', 'N/A', '',
     ]);
   }
 
-  rows.slice(1).sort((a,b) => String(a[2]).localeCompare(String(b[2])));
+  dataRows.sort((a,b) => String(a[2]).localeCompare(String(b[2])));
+  const rows: unknown[][] = [[
+    'Purchase Type','Event','Date / Time','Member / User ID','Name','Email','Phone','Country','Plan','Subscription Status','Active','Source',
+    'Amount','Currency','Stripe Customer','Stripe Subscription','Stripe Invoice / Reference','Cancel At Period End','Period End'
+  ], ...dataRows];
 
   const totalEvents = events.length + paymentEvents.length + deletions.length;
   const claimed = await claimDailyReport({ reportType:'subscribers', date, fileName:subject, csv:makeCsv(rows), metadata:{ subscriptionEvents:events.length, paymentEvents:paymentEvents.length, accountDeletions:deletions.length } });
