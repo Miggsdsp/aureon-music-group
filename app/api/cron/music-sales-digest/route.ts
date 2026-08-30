@@ -15,6 +15,9 @@ function millis(value: any) {
   if (typeof value.toDate === 'function') return value.toDate().getTime();
   return new Date(value).getTime() || 0;
 }
+function stripeCustomerId(order: any) {
+  return String(order.stripeCustomerId || order.customerStripeId || '');
+}
 
 export async function GET(request: Request) {
   if (!authorised(request)) return NextResponse.json({ error:'Unauthorized' }, { status:401 });
@@ -26,7 +29,11 @@ export async function GET(request: Request) {
     .filter(order => Array.isArray(order.songs) && order.songs.length && isWithinPrevious24Hours(order.paidAt || order.createdAt, now))
     .sort((a,b) => millis(a.paidAt || a.createdAt) - millis(b.paidAt || b.createdAt));
 
-  const rows: unknown[][] = [['Date','Time','Order Number','Customer Name','Email','Song','Artist','Quantity','Unit Price','Line Total','Order Total','Currency','Payment Status','Stripe Payment Intent']];
+  const rows: unknown[][] = [[
+    'Purchase Type','Member / User ID','Date','Time','Order Number','Customer Name','Email','Phone','Country',
+    'Song','Song ID','Artist','Album','Quantity','Unit Price','Line Total','Order Total','Currency','Payment Status','Download Status',
+    'Stripe Customer','Stripe Payment Intent','Stripe Checkout Session'
+  ]];
   let count = 0;
   let value = 0;
   for (const order of orders) {
@@ -38,10 +45,12 @@ export async function GET(request: Request) {
       count += quantity;
       value += lineTotal;
       rows.push([
+        'Music', order.memberUid || order.uid || order.firebaseUid || '',
         paid.toLocaleDateString('en-IE',{timeZone:'Europe/Dublin'}), paid.toLocaleTimeString('en-IE',{timeZone:'Europe/Dublin'}),
-        order.orderNumber || order.id, order.customerName || '', order.customerEmail || '', song.title || '', song.artist || '', quantity,
+        order.orderNumber || order.id, order.customerName || '', order.customerEmail || '', order.customerPhone || '', order.customerCountry || order.country || order.deliveryAddress?.country || '',
+        song.title || '', song.id || song.songId || '', song.artist || song.artistName || '', song.albumTitle || song.album || 'Single', quantity,
         (unitAmount/100).toFixed(2), (lineTotal/100).toFixed(2), (Number(order.amountTotal||0)/100).toFixed(2), String(order.currency||'EUR').toUpperCase(),
-        order.paymentStatus || order.status || '', order.stripePaymentIntentId || '',
+        order.paymentStatus || order.status || '', order.downloadStatus || '', stripeCustomerId(order), order.stripePaymentIntentId || '', order.stripeCheckoutSessionId || order.id,
       ]);
     }
   }
