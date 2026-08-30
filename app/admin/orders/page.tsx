@@ -20,6 +20,33 @@ const displayDate = (value: any) => {
 
 const money = (value: any) => `€${(Number(value || 0) / 100).toFixed(2)}`;
 
+const purchaseType = (order: Row) => {
+  const type = String(order.purchaseType || order.orderType || '').toLowerCase();
+  const hasSongs = Array.isArray(order.songs) && order.songs.length > 0;
+  const hasProducts = Array.isArray(order.products) && order.products.length > 0;
+  if (hasSongs && hasProducts) return 'Mixed';
+  if (hasProducts || type === 'merchandise') return 'Merchandise';
+  if (hasSongs || type === 'digital' || type === 'music') return 'Music';
+  if (type.includes('subscription') || order.plan || order.subscriptionId || order.stripeSubscriptionId) return 'Subscription';
+  return type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Other';
+};
+
+const orderItems = (order: Row) => {
+  const songs = (order.songs || []).map((song: any) => song.title || song.name).filter(Boolean);
+  const products = (order.products || []).map((product: any) => {
+    const variants = [product.size ? `Size ${product.size}` : '', product.colour || product.specification || ''].filter(Boolean).join(' · ');
+    return `${product.name || product.title || 'Merchandise'}${product.quantity ? ` × ${product.quantity}` : ''}${variants ? ` (${variants})` : ''}`;
+  });
+  const legacy = !songs.length && !products.length ? (order.items || []).map((item: any) => item.title || item.name).filter(Boolean) : [];
+  const subscription = !songs.length && !products.length && !legacy.length && order.plan ? [`${String(order.plan).charAt(0).toUpperCase()}${String(order.plan).slice(1)} membership`] : [];
+  return [...songs, ...products, ...legacy, ...subscription];
+};
+
+const deliveryAddress = (order: Row) => {
+  const address = order.deliveryAddress || {};
+  return [address.line1, address.line2, address.city, address.region, address.postalCode, address.country].filter(Boolean).join(', ') || '—';
+};
+
 const snapshotRows = (docs: Array<{ id: string; data: () => any }>): Row[] =>
   docs.map<Row>(item => ({ id: item.id, ...(item.data() as Record<string, any>) }));
 
@@ -102,7 +129,9 @@ export default function OrdersPage() {
           order.id,
           order.customerName,
           order.customerEmail,
-          ...(order.songs || []).map((song: any) => song.title),
+          order.customerPhone,
+          purchaseType(order),
+          ...orderItems(order),
         ]
           .join(' ')
           .toLowerCase();
@@ -157,6 +186,11 @@ export default function OrdersPage() {
 
   const customerDownloads = useMemo(
     () => customerOrders.flatMap(order => order.songs || []),
+    [customerOrders],
+  );
+
+  const customerMerchandiseOrders = useMemo(
+    () => customerOrders.filter(order => Array.isArray(order.products) && order.products.length > 0),
     [customerOrders],
   );
 
@@ -235,7 +269,7 @@ export default function OrdersPage() {
       <div className="admin-page-heading">
         <p className="admin-kicker">Commerce operations</p>
         <h1>Orders, Customers & Enquiries</h1>
-        <p>Manage payments, purchase history, downloads, customer notes and enquiry replies.</p>
+        <p>Manage payments, complete purchase history, downloads, customer notes and enquiry replies.</p>
       </div>
 
       {error && <div className="admin-cms-message" role="alert">{error}</div>}
@@ -282,7 +316,7 @@ export default function OrdersPage() {
         <table>
           <thead>
             {tab === 'orders' ? (
-              <tr><th>Date</th><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Actions</th></tr>
+              <tr><th>Date</th><th>Order</th><th>Type</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Actions</th></tr>
             ) : tab === 'customers' ? (
               <tr><th>Customer</th><th>Email</th><th>Orders</th><th>Lifetime spend</th><th>Last order</th><th>Actions</th></tr>
             ) : (
@@ -291,17 +325,21 @@ export default function OrdersPage() {
           </thead>
           <tbody>
             {tab === 'orders' ? (
-              filteredOrders.length ? filteredOrders.map(order => (
-                <tr key={order.id}>
-                  <td>{displayDate(order.paidAt || order.createdAt)}</td>
-                  <td><button onClick={() => setSelectedOrder(order)}>{order.orderNumber || order.id}</button></td>
-                  <td>{order.customerName}<br /><small>{order.customerEmail}</small></td>
-                  <td>{(order.songs || order.items || []).map((item: any) => item.title || item.name).join(', ')}</td>
-                  <td>{money(order.amountTotal)}</td>
-                  <td>{order.paymentStatus || order.status}</td>
-                  <td><button disabled={actionId === order.id || String(order.status).toLowerCase() !== 'paid'} onClick={() => regenerateDownload(order)}><RefreshCw size={14} /> Regenerate</button></td>
-                </tr>
-              )) : <tr><td colSpan={7}>No matching orders.</td></tr>
+              filteredOrders.length ? filteredOrders.map(order => {
+                const canRegenerate = Array.isArray(order.songs) && order.songs.length > 0 && String(order.status).toLowerCase() === 'paid';
+                return (
+                  <tr key={order.id}>
+                    <td>{displayDate(order.paidAt || order.createdAt)}</td>
+                    <td><button onClick={() => setSelectedOrder(order)}>{order.orderNumber || order.id}</button></td>
+                    <td><strong>{purchaseType(order)}</strong></td>
+                    <td>{order.customerName}<br /><small>{order.customerEmail}{order.customerPhone ? ` · ${order.customerPhone}` : ''}</small></td>
+                    <td>{orderItems(order).join(', ') || '—'}</td>
+                    <td>{money(order.amountTotal)}</td>
+                    <td>{order.paymentStatus || order.status}</td>
+                    <td>{canRegenerate ? <button disabled={actionId === order.id} onClick={() => regenerateDownload(order)}><RefreshCw size={14} /> Regenerate</button> : <button onClick={() => setSelectedOrder(order)}>View</button>}</td>
+                  </tr>
+                );
+              }) : <tr><td colSpan={8}>No matching orders.</td></tr>
             ) : tab === 'customers' ? (
               filteredCustomers.length ? filteredCustomers.map(customer => (
                 <tr key={customer.id}>
@@ -337,10 +375,14 @@ export default function OrdersPage() {
         <section className="admin-dashboard-grid">
           <article style={{ gridColumn: '1 / -1' }}>
             <h2>Order details</h2>
-            <p><strong>{selectedOrder.orderNumber || selectedOrder.id}</strong> · {displayDate(selectedOrder.paidAt || selectedOrder.createdAt)}</p>
-            <p>{selectedOrder.customerName} · {selectedOrder.customerEmail}</p>
-            <p>Stripe: {selectedOrder.stripePaymentIntentId || '—'} · Email: {selectedOrder.emailStatus || '—'} · Download: {selectedOrder.downloadStatus || '—'}</p>
-            <table><thead><tr><th>Song</th><th>Artist</th><th>Album</th><th>Price</th></tr></thead><tbody>{(selectedOrder.songs || []).map((song: any, index: number) => <tr key={song.id || index}><td>{song.title}</td><td>{song.artist || song.artistName}</td><td>{song.albumTitle || 'Single'}</td><td>{money(song.unitAmount)}</td></tr>)}</tbody></table>
+            <p><strong>{selectedOrder.orderNumber || selectedOrder.id}</strong> · {displayDate(selectedOrder.paidAt || selectedOrder.createdAt)} · <strong>{purchaseType(selectedOrder)}</strong></p>
+            <p><strong>Customer:</strong> {selectedOrder.customerName || '—'} · {selectedOrder.customerEmail || '—'} · {selectedOrder.customerPhone || 'No phone captured'}</p>
+            <p><strong>Delivery:</strong> {deliveryAddress(selectedOrder)}</p>
+            <p><strong>Member / User ID:</strong> {selectedOrder.memberUid || selectedOrder.uid || 'Guest / not linked'} </p>
+            <p><strong>Stripe:</strong> customer {selectedOrder.stripeCustomerId || '—'} · payment {selectedOrder.stripePaymentIntentId || '—'} · session {selectedOrder.stripeCheckoutSessionId || selectedOrder.id}</p>
+            <p><strong>Payment:</strong> {selectedOrder.paymentStatus || selectedOrder.status || '—'} · <strong>Fulfilment:</strong> {selectedOrder.fulfilmentStatus || '—'} · <strong>Email:</strong> {selectedOrder.emailStatus || '—'} · <strong>Download:</strong> {selectedOrder.downloadStatus || '—'}</p>
+            {(selectedOrder.songs || []).length > 0 && <><h3>Music</h3><table><thead><tr><th>Song</th><th>Artist</th><th>Album</th><th>Price</th></tr></thead><tbody>{(selectedOrder.songs || []).map((song: any, index: number) => <tr key={song.id || index}><td>{song.title}</td><td>{song.artist || song.artistName}</td><td>{song.albumTitle || song.album || 'Single'}</td><td>{money(song.unitAmount)}</td></tr>)}</tbody></table></>}
+            {(selectedOrder.products || []).length > 0 && <><h3>Merchandise</h3><table><thead><tr><th>Product</th><th>Quantity</th><th>Size</th><th>Colour / Specification</th><th>Unit price</th></tr></thead><tbody>{(selectedOrder.products || []).map((product: any, index: number) => <tr key={product.id || index}><td>{product.name || product.title}</td><td>{product.quantity || 1}</td><td>{product.size || '—'}</td><td>{product.colour || product.specification || '—'}</td><td>{money(product.unitAmount ?? product.priceCents)}</td></tr>)}</tbody></table></>}
             <button onClick={() => setSelectedOrder(null)}>Close</button>
           </article>
         </section>
@@ -350,12 +392,12 @@ export default function OrdersPage() {
         <section className="admin-dashboard-grid">
           <article style={{ gridColumn: '1 / -1' }}>
             <h2>Customer CRM</h2>
-            <p><strong>{selectedCustomer.name || selectedCustomer.email}</strong> · {selectedCustomer.email}</p>
-            <p>{customerOrders.length} orders · {money(selectedCustomer.lifetimeSpend || customerOrders.reduce((total, order) => total + Number(order.amountTotal || 0), 0))} lifetime spend · {customerDownloads.length} purchased tracks</p>
+            <p><strong>{selectedCustomer.name || selectedCustomer.email}</strong> · {selectedCustomer.email}{selectedCustomer.phone ? ` · ${selectedCustomer.phone}` : ''}</p>
+            <p>{customerOrders.length} orders · {money(selectedCustomer.lifetimeSpend || customerOrders.reduce((total, order) => total + Number(order.amountTotal || 0), 0))} lifetime spend · {customerDownloads.length} purchased tracks · {customerMerchandiseOrders.length} merchandise orders</p>
             <label>Internal notes<textarea value={notes} onChange={event => setNotes(event.target.value)} /></label>
             <button className="primary-button" onClick={saveNotes}><Save size={14} /> Save notes</button>
             <h3>Purchase history</h3>
-            <table><thead><tr><th>Date</th><th>Order</th><th>Music</th><th>Total</th><th>Status</th></tr></thead><tbody>{customerOrders.map(order => <tr key={order.id}><td>{displayDate(order.paidAt || order.createdAt)}</td><td>{order.orderNumber || order.id}</td><td>{(order.songs || []).map((song: any) => song.title).join(', ')}</td><td>{money(order.amountTotal)}</td><td>{order.status || order.paymentStatus}</td></tr>)}</tbody></table>
+            <table><thead><tr><th>Date</th><th>Order</th><th>Type</th><th>What they bought</th><th>Total</th><th>Status</th></tr></thead><tbody>{customerOrders.map(order => <tr key={order.id}><td>{displayDate(order.paidAt || order.createdAt)}</td><td>{order.orderNumber || order.id}</td><td><strong>{purchaseType(order)}</strong></td><td>{orderItems(order).join(', ') || '—'}</td><td>{money(order.amountTotal)}</td><td>{order.status || order.paymentStatus}</td></tr>)}</tbody></table>
             <button onClick={() => setSelectedCustomer(null)}>Close</button>
           </article>
         </section>
