@@ -21,6 +21,9 @@ function esc(value: unknown) {
 function address(addressValue: any) {
   return addressValue ? [addressValue.line1,addressValue.line2,addressValue.city,addressValue.region,addressValue.postalCode,addressValue.country].filter(Boolean).join(', ') : 'Not captured';
 }
+function stripeCustomerId(order: any) {
+  return String(order.stripeCustomerId || order.customerStripeId || '');
+}
 
 export async function GET(request: Request) {
   if (!authorised(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -32,11 +35,17 @@ export async function GET(request: Request) {
     .filter(order => Array.isArray(order.products) && order.products.length && isWithinPrevious24Hours(order.paidAt || order.createdAt, now))
     .sort((a,b) => millis(a.paidAt || a.createdAt) - millis(b.paidAt || b.createdAt));
 
-  const rows: unknown[][] = [['Date','Time','Order Number','Customer Name','Email','Phone','Delivery Address','Product','Quantity','Size','Colour / Specification','Unit Price','Line Total','Order Total','Currency','Payment Status','Stripe Payment Intent','Fulfilment Status']];
+  const rows: unknown[][] = [[
+    'Purchase Type','Member / User ID','Date','Time','Order Number','Customer Name','Email','Phone',
+    'Delivery Address','Address Line 1','Address Line 2','City','Region','Postal Code','Country',
+    'Product','Product ID','Quantity','Size','Colour / Specification','Unit Price','Line Total','Order Total','Currency',
+    'Payment Status','Fulfilment Status','Stripe Customer','Stripe Payment Intent','Stripe Checkout Session','Inventory Reservation'
+  ]];
   let units = 0;
   let merchandiseValue = 0;
   for (const order of orders) {
     const paid = new Date(millis(order.paidAt || order.createdAt));
+    const delivery = order.deliveryAddress || {};
     for (const product of order.products || []) {
       const quantity = Math.max(1, Number(product.quantity || 1));
       const unitAmount = Number(product.unitAmount ?? product.priceCents ?? 0);
@@ -44,11 +53,14 @@ export async function GET(request: Request) {
       units += quantity;
       merchandiseValue += lineTotal;
       rows.push([
+        'Merchandise', order.memberUid || order.uid || order.firebaseUid || '',
         paid.toLocaleDateString('en-IE',{timeZone:'Europe/Dublin'}), paid.toLocaleTimeString('en-IE',{timeZone:'Europe/Dublin'}),
-        order.orderNumber || order.id, order.customerName || '', order.customerEmail || '', order.customerPhone || '', address(order.deliveryAddress),
-        product.name || product.title || '', quantity, product.size || '', product.colour || product.specification || '',
+        order.orderNumber || order.id, order.customerName || '', order.customerEmail || '', order.customerPhone || '', address(delivery),
+        delivery.line1 || '', delivery.line2 || '', delivery.city || order.customerCity || '', delivery.region || '', delivery.postalCode || order.customerPostalCode || '', delivery.country || order.customerCountry || order.country || '',
+        product.name || product.title || '', product.id || product.productId || '', quantity, product.size || '', product.colour || product.specification || '',
         (unitAmount / 100).toFixed(2), (lineTotal / 100).toFixed(2), (Number(order.amountTotal || 0) / 100).toFixed(2),
-        String(order.currency || 'EUR').toUpperCase(), order.paymentStatus || order.status || '', order.stripePaymentIntentId || '', order.fulfilmentStatus || 'awaiting_fulfilment',
+        String(order.currency || 'EUR').toUpperCase(), order.paymentStatus || order.status || '', order.fulfilmentStatus || 'awaiting_fulfilment',
+        stripeCustomerId(order), order.stripePaymentIntentId || '', order.stripeCheckoutSessionId || order.id, order.inventoryReservationId || '',
       ]);
     }
   }
