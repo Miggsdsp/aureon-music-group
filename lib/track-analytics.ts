@@ -23,6 +23,12 @@ export type AnalyticsEvent = {
   metadata?: Record<string, string | number | boolean | null | undefined>;
 };
 
+function visitorId() {
+  const key = 'aureon-analytics-visitor';
+  let value = localStorage.getItem(key);
+  if (!value) { value = crypto.randomUUID(); localStorage.setItem(key, value); }
+  return value;
+}
 function sessionId() {
   const key = 'aureon-analytics-session';
   let value = sessionStorage.getItem(key);
@@ -33,7 +39,7 @@ function deviceType() { const width = window.innerWidth; return width < 768 ? 'm
 
 export function trackAnalytics(event: AnalyticsEvent) {
   if (typeof window === 'undefined') return;
-  const payload = { ...event, sessionId: sessionId(), locale: navigator.language, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, deviceType: deviceType(), pathname: window.location.pathname, referrer: document.referrer };
+  const payload = { ...event, visitorId: visitorId(), sessionId: sessionId(), locale: navigator.language, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, deviceType: deviceType(), pathname: window.location.pathname, referrer: document.referrer };
   const body = JSON.stringify(payload);
   if (navigator.sendBeacon) { navigator.sendBeacon('/api/analytics/track', new Blob([body], { type: 'application/json' })); return; }
   fetch('/api/analytics/track', { method: 'POST', headers: { 'content-type': 'application/json' }, body, keepalive: true }).catch(() => undefined);
