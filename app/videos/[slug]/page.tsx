@@ -1,14 +1,16 @@
 'use client';
 
+import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Clapperboard, Film } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PreviewGatedVideo } from '@/components/video/PreviewGatedVideo';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
+import { useSiteFeatures } from '@/lib/useSiteFeatures';
 
 type VideoRecord = PublicRecord & {
   title?: string; slug?: string; artistId?: string; artistName?: string; artistSlug?: string;
@@ -61,11 +63,19 @@ function VideoPlayer({ video, poster }: { video: VideoRecord; poster: string }) 
 }
 
 export default function VideoDetailPage() {
+  const router = useRouter();
+  const { features, loading: featuresLoading } = useSiteFeatures();
   const { slug } = useParams<{ slug: string }>();
   const { data: video, loading: videoLoading } = usePublishedDocument<any>('videos', slug, null);
   const { data: album, loading: albumLoading } = usePublishedDocument<any>('videoAlbums', slug, null);
   const { items: allVideos } = usePublishedCollection<VideoRecord>('videos', []);
-  const loading = videoLoading || albumLoading;
+  const loading = featuresLoading || videoLoading || albumLoading;
+
+  useEffect(() => {
+    if (!featuresLoading && !features.videosEnabled) router.replace('/music');
+  }, [features.videosEnabled, featuresLoading, router]);
+
+  if (featuresLoading || !features.videosEnabled) return null;
 
   if (!video && !album && !loading) return <main className="page-shell"><Header /><section className="content-panel"><h1>Video not found</h1><p>This visual release is not published or has been removed.</p></section><Footer /></main>;
 
