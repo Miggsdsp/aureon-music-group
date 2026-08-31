@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const allowedKeys = [
-      'merchandiseEnabled', 'siteName', 'supportEmail', 'announcement',
+      'merchandiseEnabled', 'videosEnabled', 'siteName', 'supportEmail', 'announcement',
       'headerLogoUrl', 'footerLogoUrl', 'faviconUrl',
       'heroVideoUrl', 'heroPosterUrl', 'heroOverlayOpacity',
       'heroLightEffects', 'heroDustEffects', 'heroLedEffects', 'heroLogoScale',
