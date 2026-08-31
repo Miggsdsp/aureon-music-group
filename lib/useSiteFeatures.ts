@@ -6,10 +6,12 @@ import { firestore } from '@/lib/firebase-client';
 
 export type SiteFeatures = {
   merchandiseEnabled: boolean;
+  videosEnabled: boolean;
 };
 
 const defaults: SiteFeatures = {
-  merchandiseEnabled: false
+  merchandiseEnabled: false,
+  videosEnabled: false
 };
 
 export function useSiteFeatures() {
@@ -21,7 +23,10 @@ export function useSiteFeatures() {
       doc(firestore, 'siteSettings', 'platform'),
       (snapshot) => {
         const data = snapshot.exists() ? snapshot.data() : null;
-        setFeatures({ merchandiseEnabled: data?.merchandiseEnabled === true });
+        setFeatures({
+          merchandiseEnabled: data?.merchandiseEnabled === true,
+          videosEnabled: data?.videosEnabled === true
+        });
         setLoading(false);
       },
       () => {
