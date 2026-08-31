@@ -1,11 +1,14 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Clapperboard, Film, Play } from 'lucide-react';
 import { PageShell } from '@/components/PageShell';
 import { ArtworkImage } from '@/components/ArtworkImage';
 import { getArtwork } from '@/lib/get-artwork';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
+import { useSiteFeatures } from '@/lib/useSiteFeatures';
 import styles from './VideosPage.module.css';
 
 type VideoAlbumRecord = PublicRecord & {
@@ -41,9 +44,17 @@ type VideoRecord = PublicRecord & {
 };
 
 export default function VideosPage() {
+  const router = useRouter();
+  const { features, loading: featuresLoading } = useSiteFeatures();
   const { items: videoAlbums, loading: albumsLoading } = usePublishedCollection<VideoAlbumRecord>('videoAlbums', []);
   const { items: videos, loading: videosLoading } = usePublishedCollection<VideoRecord>('videos', []);
-  const loading = albumsLoading || videosLoading;
+  const loading = featuresLoading || albumsLoading || videosLoading;
+
+  useEffect(() => {
+    if (!featuresLoading && !features.videosEnabled) router.replace('/music');
+  }, [features.videosEnabled, featuresLoading, router]);
+
+  if (featuresLoading || !features.videosEnabled) return null;
 
   return (
     <PageShell title="Videos" kicker="Visual World">
