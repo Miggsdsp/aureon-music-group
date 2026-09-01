@@ -26,6 +26,8 @@ type ParsedWav = {
   frameCount: number;
 };
 
+type ProgressCallback = (percent: number) => void;
+
 function adtsHeader(payloadLength: number, sampleRate: number, channels: number) {
   const frequencyIndex = SAMPLE_RATES.indexOf(sampleRate);
   if (frequencyIndex < 0) throw new Error(`AAC streaming does not support ${sampleRate} Hz audio.`);
@@ -78,12 +80,7 @@ async function waitForEncoderCapacity(encoder: any, getError: () => Error | null
 }
 
 function fourCC(view: DataView, offset: number) {
-  return String.fromCharCode(
-    view.getUint8(offset),
-    view.getUint8(offset + 1),
-    view.getUint8(offset + 2),
-    view.getUint8(offset + 3),
-  );
+  return String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3));
 }
 
 function parseWav(bytes: ArrayBuffer): ParsedWav {
@@ -113,11 +110,7 @@ function parseWav(bytes: ArrayBuffer): ParsedWav {
       sampleRate = view.getUint32(chunkData + 4, true);
       blockAlign = view.getUint16(chunkData + 12, true);
       bitsPerSample = view.getUint16(chunkData + 14, true);
-      // WAVE_FORMAT_EXTENSIBLE. For normal PCM/float masters the first two
-      // bytes of the sub-format GUID contain the underlying format tag.
-      if (formatTag === 0xfffe && chunkSize >= 40) {
-        formatTag = view.getUint16(chunkData + 24, true);
-      }
+      if (formatTag === 0xfffe && chunkSize >= 40) formatTag = view.getUint16(chunkData + 24, true);
     } else if (chunkId === 'data') {
       dataOffset = chunkData;
       dataLength = chunkSize;
@@ -126,31 +119,13 @@ function parseWav(bytes: ArrayBuffer): ParsedWav {
     offset = chunkData + chunkSize + (chunkSize & 1);
   }
 
-  if (!channels || !sampleRate || !blockAlign || dataOffset < 0 || !dataLength) {
-    throw new Error('Aureon could not read the WAV audio data.');
-  }
+  if (!channels || !sampleRate || !blockAlign || dataOffset < 0 || !dataLength) throw new Error('Aureon could not read the WAV audio data.');
   if (channels > 2) throw new Error('Aureon supports mono or stereo WAV masters only.');
-  if (formatTag !== 1 && formatTag !== 3) {
-    throw new Error('This WAV uses an unsupported compression format. Export it as PCM WAV or IEEE-float WAV.');
-  }
-  if (formatTag === 1 && ![16, 24, 32].includes(bitsPerSample)) {
-    throw new Error(`Unsupported PCM WAV bit depth: ${bitsPerSample}-bit. Use 16, 24 or 32-bit PCM WAV.`);
-  }
-  if (formatTag === 3 && bitsPerSample !== 32) {
-    throw new Error(`Unsupported float WAV bit depth: ${bitsPerSample}-bit. Use 32-bit float WAV.`);
-  }
+  if (formatTag !== 1 && formatTag !== 3) throw new Error('This WAV uses an unsupported compression format. Export it as PCM WAV or IEEE-float WAV.');
+  if (formatTag === 1 && ![16, 24, 32].includes(bitsPerSample)) throw new Error(`Unsupported PCM WAV bit depth: ${bitsPerSample}-bit. Use 16, 24 or 32-bit PCM WAV.`);
+  if (formatTag === 3 && bitsPerSample !== 32) throw new Error(`Unsupported float WAV bit depth: ${bitsPerSample}-bit. Use 32-bit float WAV.`);
 
-  return {
-    bytes,
-    dataOffset,
-    dataLength,
-    channels,
-    sampleRate,
-    bitsPerSample,
-    formatTag,
-    blockAlign,
-    frameCount: Math.floor(dataLength / blockAlign),
-  };
+  return { bytes, dataOffset, dataLength, channels, sampleRate, bitsPerSample, formatTag, blockAlign, frameCount: Math.floor(dataLength / blockAlign) };
 }
 
 function readPcmSample(view: DataView, offset: number, formatTag: number, bitsPerSample: number) {
@@ -168,7 +143,6 @@ function makePlanarChunk(wav: ParsedWav, startFrame: number, frames: number) {
   const view = new DataView(wav.bytes);
   const bytesPerSample = wav.bitsPerSample / 8;
   const planar = new Float32Array(frames * wav.channels);
-
   for (let frame = 0; frame < frames; frame += 1) {
     const frameOffset = wav.dataOffset + (startFrame + frame) * wav.blockAlign;
     for (let channel = 0; channel < wav.channels; channel += 1) {
@@ -179,23 +153,55 @@ function makePlanarChunk(wav: ParsedWav, startFrame: number, frames: number) {
   return planar;
 }
 
-export async function buildAacStreamingFile(file: File, slug: string) {
-  const codecs = window as WebCodecsWindow;
-  if (!codecs.AudioEncoder || !codecs.AudioData) {
-    throw new Error('This browser cannot create Aureon AAC streaming files. Please use the latest Safari or Chrome on desktop.');
-  }
+function writeAscii(view: DataView, offset: number, value: string) {
+  for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
+}
 
-  // Parse the PCM directly from the WAV instead of decoding the whole song into
-  // an AudioBuffer. A 50 MB 24-bit WAV can expand to hundreds of MB when fully
-  // decoded; doing that alongside preview generation was causing Safari to stall.
+export async function buildWavPreviewFile(file: File, slug: string, seconds = 40) {
+  const wav = parseWav(await file.arrayBuffer());
+  const frames = Math.min(wav.frameCount, Math.floor(wav.sampleRate * seconds));
+  const channels = wav.channels;
+  const dataSize = frames * channels * 2;
+  const out = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(out);
+  writeAscii(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeAscii(view, 8, 'WAVE');
+  writeAscii(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true);
+  view.setUint32(24, wav.sampleRate, true);
+  view.setUint32(28, wav.sampleRate * channels * 2, true);
+  view.setUint16(32, channels * 2, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, 'data');
+  view.setUint32(40, dataSize, true);
+  const source = new DataView(wav.bytes);
+  const bytesPerSample = wav.bitsPerSample / 8;
+  let targetOffset = 44;
+  for (let frame = 0; frame < frames; frame += 1) {
+    const sourceFrameOffset = wav.dataOffset + frame * wav.blockAlign;
+    for (let channel = 0; channel < channels; channel += 1) {
+      const sample = readPcmSample(source, sourceFrameOffset + channel * bytesPerSample, wav.formatTag, wav.bitsPerSample);
+      view.setInt16(targetOffset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      targetOffset += 2;
+    }
+  }
+  return new File([out], `${slug}-preview.wav`, { type: 'audio/wav' });
+}
+
+export async function buildAacStreamingFile(file: File, slug: string, onProgress?: ProgressCallback) {
+  const codecs = window as WebCodecsWindow;
+  if (!codecs.AudioEncoder || !codecs.AudioData) throw new Error('This browser cannot create Aureon AAC streaming files. Please use the latest Safari or Chrome on desktop.');
+
+  onProgress?.(1);
   const wav = parseWav(await file.arrayBuffer());
   const channels = wav.channels;
   const sampleRate = wav.sampleRate;
   const config = { codec: AAC_CODEC, sampleRate, numberOfChannels: channels, bitrate: AAC_BITRATE };
   const support = await codecs.AudioEncoder.isConfigSupported(config).catch(() => null);
-  if (!support?.supported) {
-    throw new Error(`This browser cannot encode Aureon AAC at ${sampleRate} Hz. Export the WAV at 44.1 kHz or 48 kHz and try again.`);
-  }
+  if (!support?.supported) throw new Error(`This browser cannot encode Aureon AAC at ${sampleRate} Hz. Export the WAV at 44.1 kHz or 48 kHz and try again.`);
 
   const output: Uint8Array[] = [];
   let encoderError: Error | null = null;
@@ -212,11 +218,9 @@ export async function buildAacStreamingFile(file: File, slug: string) {
   try {
     encoder.configure(config);
     let frameIndex = 0;
-
     for (let offset = 0; offset < wav.frameCount; offset += AAC_FRAME_SIZE) {
       if (encoderError) throw encoderError;
       await waitForEncoderCapacity(encoder, () => encoderError);
-
       const frames = Math.min(AAC_FRAME_SIZE, wav.frameCount - offset);
       const planar = makePlanarChunk(wav, offset, frames);
       const audioData = new codecs.AudioData({
@@ -229,19 +233,18 @@ export async function buildAacStreamingFile(file: File, slug: string) {
       });
       encoder.encode(audioData);
       audioData.close();
-
       frameIndex += 1;
-      if (frameIndex % 24 === 0) await delay(0);
+      if (frameIndex % 24 === 0) {
+        onProgress?.(Math.max(2, Math.min(96, Math.round((offset / wav.frameCount) * 96))));
+        await delay(0);
+      }
     }
 
-    await withTimeout(
-      encoder.flush(),
-      FLUSH_TIMEOUT_MS,
-      'AAC encoding took too long to finish. Refresh the admin page and try the WAV upload again.',
-    );
+    onProgress?.(97);
+    await withTimeout(encoder.flush(), FLUSH_TIMEOUT_MS, 'AAC encoding took too long to finish. Refresh the admin page and try the WAV upload again.');
     if (encoderError) throw encoderError;
     if (!output.length) throw new Error('Aureon could not create the AAC streaming file.');
-
+    onProgress?.(100);
     return new File(output as BlobPart[], `${slug}-stream.aac`, { type: 'audio/aac' });
   } finally {
     try { encoder.close(); } catch { /* Encoder may already be closed after a codec failure. */ }
