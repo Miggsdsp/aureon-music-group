@@ -18,15 +18,9 @@ function absoluteArtwork(source: string) {
   catch { return new URL(DEFAULT_ARTWORK, window.location.origin).href; }
 }
 
-function verifyArtwork(source: string) {
-  const candidate = absoluteArtwork(source);
-  const fallback = absoluteArtwork(DEFAULT_ARTWORK);
-  return new Promise<string>(resolve => {
-    const image = new window.Image();
-    image.onload = () => resolve(candidate);
-    image.onerror = () => resolve(fallback);
-    image.src = candidate;
-  });
+function mediaArtwork(source: string) {
+  const absolute = absoluteArtwork(source);
+  return `${window.location.origin}/api/media/artwork?src=${encodeURIComponent(absolute)}`;
 }
 
 export default function BackgroundPlaybackBridge() {
@@ -44,22 +38,19 @@ export default function BackgroundPlaybackBridge() {
     if (!('mediaSession' in navigator)) return;
 
     const mediaSession = navigator.mediaSession;
-    let cancelled = false;
 
     if (currentSong) {
-      const requestedArtwork = getArtwork(currentSong);
-      void verifyArtwork(requestedArtwork).then(artwork => {
-        if (cancelled) return;
-        mediaSession.metadata = new MediaMetadata({
-          title: currentSong.title || 'Aureon Music Group',
-          artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
-          album: 'Aureon Music Group',
-          artwork: [
-            { src: artwork, sizes: '512x512' },
-            { src: artwork, sizes: '256x256' },
-            { src: artwork, sizes: '128x128' },
-          ],
-        });
+      const artwork = mediaArtwork(getArtwork(currentSong));
+      mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title || 'Aureon Music Group',
+        artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
+        album: 'Aureon Music Group',
+        artwork: [
+          { src: artwork, sizes: '512x512' },
+          { src: artwork, sizes: '256x256' },
+          { src: artwork, sizes: '128x128' },
+          { src: artwork, sizes: '96x96' },
+        ],
       });
     } else {
       mediaSession.metadata = null;
@@ -121,7 +112,6 @@ export default function BackgroundPlaybackBridge() {
     audio.addEventListener('loadedmetadata', updatePosition);
 
     return () => {
-      cancelled = true;
       audio.removeEventListener('timeupdate', updatePosition);
       audio.removeEventListener('durationchange', updatePosition);
       audio.removeEventListener('loadedmetadata', updatePosition);
