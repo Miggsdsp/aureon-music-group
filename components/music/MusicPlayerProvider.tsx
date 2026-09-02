@@ -48,6 +48,8 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const shouldAutoplay = useRef(false);
   const pendingSeek = useRef(0);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamCache = useRef(new Map<string, string>());
+  const streamRequests = useRef(new Map<string, Promise<string>>());
   const [queue, setQueue] = useState<PlayerSong[]>([]);
   const [index, setIndex] = useState(-1);
   const [audioUrl, setAudioUrl] = useState('');
@@ -66,6 +68,8 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const resetPlayer = useCallback((removeSavedState = false) => {
     shouldAutoplay.current = false;
     pendingSeek.current = 0;
+    streamCache.current.clear();
+    streamRequests.current.clear();
     if (progressTimer.current) clearInterval(progressTimer.current);
     const audio = audioRef.current;
     if (audio) {
@@ -139,14 +143,43 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   }, []);
 
   const fetchStream = useCallback(async (song: PlayerSong) => {
-    const user = firebaseAuth.currentUser;
-    if (!user) throw new Error('Sign in to play full tracks.');
-    const token = await user.getIdToken();
-    const response = await fetch(`/api/member/stream/${song.id}`, { headers: { authorization: `Bearer ${token}` } });
-    const data = await response.json();
-    if (!response.ok || !data?.url) throw new Error(data.error || 'The track could not be loaded.');
-    return String(data.url);
+    const cached = streamCache.current.get(song.id);
+    if (cached) return cached;
+    const existing = streamRequests.current.get(song.id);
+    if (existing) return existing;
+
+    const request = (async () => {
+      const user = firebaseAuth.currentUser;
+      if (!user) throw new Error('Sign in to play full tracks.');
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/member/stream/${song.id}`, { headers: { authorization: `Bearer ${token}` } });
+      const data = await response.json();
+      if (!response.ok || !data?.url) throw new Error(data.error || 'The track could not be loaded.');
+      const url = String(data.url);
+      streamCache.current.set(song.id, url);
+      return url;
+    })();
+
+    streamRequests.current.set(song.id, request);
+    try {
+      return await request;
+    } finally {
+      streamRequests.current.delete(song.id);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!authReady || !firebaseAuth.currentUser || queue.length < 2) return;
+    let cancelled = false;
+    const warmQueue = async () => {
+      for (const song of queue) {
+        if (cancelled) return;
+        try { await fetchStream(song); } catch {}
+      }
+    };
+    void warmQueue();
+    return () => { cancelled = true; };
+  }, [authReady, fetchStream, queue]);
 
   const loadAt = useCallback(async (nextIndex: number, nextQueue = queue, startSeconds = 0) => {
     const song = nextQueue[nextIndex];
@@ -181,8 +214,9 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
 
   const playQueue = useCallback(async (songs: PlayerSong[], startIndex = 0) => {
     if (!songs.length) return;
+    await Promise.allSettled(songs.map(song => fetchStream(song)));
     await loadAt(startIndex, songs, 0);
-  }, [loadAt]);
+  }, [fetchStream, loadAt]);
 
   const next = useCallback(async () => {
     if (!queue.length) return;
