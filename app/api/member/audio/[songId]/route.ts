@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 import { NextResponse } from 'next/server';
 import { adminFirestore, adminStorage } from '@/lib/firebase-admin';
 import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
+import { verifyPlaybackTicket } from '@/lib/playback-ticket';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,20 +25,34 @@ function parseRange(value: string | null, size: number) {
   return { start, end: Math.min(end, size - 1) };
 }
 
+async function activeMemberForRequest(request: Request, songId: string) {
+  const requestUrl = new URL(request.url);
+  const ticket = requestUrl.searchParams.get('ticket') || '';
+  if (ticket) {
+    const verified = verifyPlaybackTicket(ticket, songId);
+    if (!verified) return null;
+    const memberSnapshot = await adminFirestore.collection('members').doc(verified.uid).get();
+    const member = memberSnapshot.exists ? memberSnapshot.data() || {} : {};
+    return hasActivePlan(member) ? member : null;
+  }
+
+  // Backward compatibility for any already-open player using the older Firebase-token URL.
+  const queryToken = requestUrl.searchParams.get('token') || '';
+  const authenticatedRequest = queryToken
+    ? new Request(request.url, { headers: { authorization: `Bearer ${queryToken}` } })
+    : request;
+  const { member } = await requireMember(authenticatedRequest);
+  return hasActivePlan(member) ? member : null;
+}
+
 export async function GET(request: Request, context: { params: Promise<{ songId: string }> }) {
   try {
-    const requestUrl = new URL(request.url);
-    const queryToken = requestUrl.searchParams.get('token') || '';
-    const authenticatedRequest = queryToken
-      ? new Request(request.url, { headers: { authorization: `Bearer ${queryToken}` } })
-      : request;
-
-    const { member } = await requireMember(authenticatedRequest);
-    if (!hasActivePlan(member)) {
+    const { songId } = await context.params;
+    const member = await activeMemberForRequest(request, songId);
+    if (!member) {
       return NextResponse.json({ error: 'An active Aureon membership is required.' }, { status: 403 });
     }
 
-    const { songId } = await context.params;
     const song = await adminFirestore.collection('songs').doc(songId).get();
     if (!song.exists || song.data()?.status !== 'published') {
       return NextResponse.json({ error: 'Song not found.' }, { status: 404 });
