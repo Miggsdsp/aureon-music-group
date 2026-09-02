@@ -10,6 +10,8 @@ import { AdminShell } from './AdminShell';
 
 type RecordData = { id:string; title?:string; name?:string; slug?:string; description?:string; status?:string; price?:number; featured?:boolean; details?:Record<string,any>; artistId?:string; artistName?:string; artistSlug?:string; albumId?:string; albumTitle?:string; albumSlug?:string; genre?:string; trackNumber?:number; isrc?:string; releaseDate?:string; purchasable?:boolean; promotional?:boolean; privateFilePath?:string; streamFilePath?:string; previewUrl?:string; coverImageUrl?:string; [key:string]:any };
 type RelationForm = { artistId:string; albumId:string; genre:string; trackNumber:string; isrc:string; releaseDate:string; purchasable:boolean; promotional:boolean };
+type AlbumGroup = { key:string; title:string; albumId:string; songs:RecordData[] };
+type ArtistGroup = { key:string; name:string; artistId:string; albums:AlbumGroup[]; total:number };
 
 const emptyForm = { primary:'', slug:'', description:'', status:'draft', price:'0.99', featured:false, details:'{}' };
 const emptyRelations:RelationForm = { artistId:'', albumId:'', genre:'', trackNumber:'', isrc:'', releaseDate:'', purchasable:true, promotional:false };
@@ -18,18 +20,79 @@ const fallbackArtists:RecordData[] = builtInArtists.map(artist=>({ id:artist.id,
 function makeSlug(value:string){return value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
 function safeFileName(value:string){return value.toLowerCase().replace(/[^a-z0-9.]+/g,'-').replace(/^-|-$/g,'');}
 function songTrackNumber(item:RecordData){const value=Number(item.trackNumber??item.details?.trackNumber??0);return Number.isFinite(value)&&value>0?value:Number.MAX_SAFE_INTEGER;}
-function songArtistName(item:RecordData){return String(item.artistName||item.details?.artistName||'').trim();}
+function songArtistName(item:RecordData){return String(item.artistName||item.details?.artistName||'').trim()||'Unknown artist';}
 function songAlbumTitle(item:RecordData){return String(item.albumTitle||item.details?.albumTitle||'').trim();}
+function songAlbumId(item:RecordData){return String(item.albumId||item.details?.albumId||'').trim();}
+function songArtistId(item:RecordData){return String(item.artistId||item.details?.artistId||'').trim();}
+function displayTrack(item:RecordData){const value=songTrackNumber(item);return value===Number.MAX_SAFE_INTEGER?'—':value;}
 
 export function SongAdminSection(){
- const[items,setItems]=useState<RecordData[]>([]);const[firestoreArtists,setFirestoreArtists]=useState<RecordData[]>([]);const[albums,setAlbums]=useState<RecordData[]>([]);const[form,setForm]=useState(emptyForm);const[relations,setRelations]=useState<RelationForm>(emptyRelations);const[editingId,setEditingId]=useState<string|null>(null);const[saving,setSaving]=useState(false);const[message,setMessage]=useState('');const[uploading,setUploading]=useState<Record<string,number>>({});const[uploadedDetails,setUploadedDetails]=useState<Record<string,any>>({});const[masterProcessing,setMasterProcessing]=useState(false);const[masterProgress,setMasterProgress]=useState(0);const[masterStage,setMasterStage]=useState('');const[formResetKey,setFormResetKey]=useState(0);
- const artists=useMemo(()=>{const map=new Map<string,RecordData>();fallbackArtists.forEach(a=>map.set(String(a.slug||a.id),a));firestoreArtists.forEach(a=>map.set(String(a.slug||a.id),a));return[...map.values()].sort((a,b)=>String(a.name||a.title).localeCompare(String(b.name||b.title)));},[firestoreArtists]);
- const sortedItems=useMemo(()=>[...items].sort((a,b)=>songArtistName(a).localeCompare(songArtistName(b))||songAlbumTitle(a).localeCompare(songAlbumTitle(b))||songTrackNumber(a)-songTrackNumber(b)||String(a.title||'').localeCompare(String(b.title||''))),[items]);
+ const[items,setItems]=useState<RecordData[]>([]);
+ const[firestoreArtists,setFirestoreArtists]=useState<RecordData[]>([]);
+ const[albums,setAlbums]=useState<RecordData[]>([]);
+ const[form,setForm]=useState(emptyForm);
+ const[relations,setRelations]=useState<RelationForm>(emptyRelations);
+ const[editingId,setEditingId]=useState<string|null>(null);
+ const[saving,setSaving]=useState(false);
+ const[message,setMessage]=useState('');
+ const[uploading,setUploading]=useState<Record<string,number>>({});
+ const[uploadedDetails,setUploadedDetails]=useState<Record<string,any>>({});
+ const[masterProcessing,setMasterProcessing]=useState(false);
+ const[masterProgress,setMasterProgress]=useState(0);
+ const[masterStage,setMasterStage]=useState('');
+ const[formResetKey,setFormResetKey]=useState(0);
+ const[catalogueSearch,setCatalogueSearch]=useState('');
+
+ const artists=useMemo(()=>{
+  const map=new Map<string,RecordData>();
+  fallbackArtists.forEach(a=>map.set(String(a.slug||a.id),a));
+  firestoreArtists.forEach(a=>map.set(String(a.slug||a.id),a));
+  return[...map.values()].sort((a,b)=>String(a.name||a.title).localeCompare(String(b.name||b.title)));
+ },[firestoreArtists]);
+
+ const catalogueGroups=useMemo<ArtistGroup[]>(()=>{
+  const query=catalogueSearch.trim().toLowerCase();
+  const visible=query?items.filter(item=>{
+   const haystack=[item.title,songArtistName(item),songAlbumTitle(item),item.genre,item.status,item.isrc].filter(Boolean).join(' ').toLowerCase();
+   return haystack.includes(query);
+  }):items;
+  const artistMap=new Map<string,{name:string;artistId:string;albumMap:Map<string,AlbumGroup>}>();
+  for(const item of visible){
+   const artistId=songArtistId(item);
+   const artistName=songArtistName(item);
+   const artistKey=artistId||`artist:${artistName.toLowerCase()}`;
+   if(!artistMap.has(artistKey))artistMap.set(artistKey,{name:artistName,artistId,albumMap:new Map()});
+   const artistGroup=artistMap.get(artistKey)!;
+   const albumId=songAlbumId(item);
+   const albumTitle=songAlbumTitle(item);
+   const title=albumTitle||'Singles / no album';
+   const albumKey=albumId||`single:${title.toLowerCase()}`;
+   if(!artistGroup.albumMap.has(albumKey))artistGroup.albumMap.set(albumKey,{key:albumKey,title,albumId,songs:[]});
+   artistGroup.albumMap.get(albumKey)!.songs.push(item);
+  }
+  return[...artistMap.entries()].map(([key,value])=>{
+   const groupedAlbums=[...value.albumMap.values()].map(group=>({...group,songs:[...group.songs].sort((a,b)=>songTrackNumber(a)-songTrackNumber(b)||String(a.title||'').localeCompare(String(b.title||'')))}));
+   groupedAlbums.sort((a,b)=>{
+    if(a.title==='Singles / no album')return 1;
+    if(b.title==='Singles / no album')return -1;
+    return a.title.localeCompare(b.title);
+   });
+   return{key,name:value.name,artistId:value.artistId,albums:groupedAlbums,total:groupedAlbums.reduce((sum,group)=>sum+group.songs.length,0)};
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+ },[items,catalogueSearch]);
+
  useEffect(()=>onSnapshot(collection(firestore,'songs'),snap=>setItems(snap.docs.map(item=>({id:item.id,...item.data()} as RecordData))),error=>setMessage(`Unable to load songs: ${error.message}`)),[]);
  useEffect(()=>onSnapshot(collection(firestore,'artists'),snap=>setFirestoreArtists(snap.docs.map(item=>({id:item.id,...item.data()} as RecordData))),()=>setFirestoreArtists([])),[]);
  useEffect(()=>onSnapshot(collection(firestore,'albums'),snap=>setAlbums(snap.docs.map(item=>({id:item.id,...item.data()} as RecordData))),()=>setAlbums([])),[]);
- const selectedArtist=artists.find(a=>a.id===relations.artistId);const availableAlbums=albums.filter(album=>!relations.artistId||album.artistId===relations.artistId||album.details?.artistId===relations.artistId);
+
+ const selectedArtist=artists.find(a=>a.id===relations.artistId);
+ const availableAlbums=albums.filter(album=>!relations.artistId||album.artistId===relations.artistId||album.details?.artistId===relations.artistId);
  const toggleStyle:React.CSSProperties={display:'flex',alignItems:'center',gap:12,width:'100%',padding:'10px 0',margin:0};
+ const groupShellStyle:React.CSSProperties={border:'1px solid rgba(212,170,68,.35)',marginBottom:18,background:'rgba(8,8,8,.72)'};
+ const groupSummaryStyle:React.CSSProperties={cursor:'pointer',padding:'18px 20px',fontWeight:800,color:'#f3d574',letterSpacing:'.04em',listStyle:'none'};
+ const albumShellStyle:React.CSSProperties={borderTop:'1px solid rgba(212,170,68,.22)',padding:'0 14px 14px'};
+ const albumSummaryStyle:React.CSSProperties={cursor:'pointer',padding:'15px 8px',fontWeight:700,color:'#f4f0e6',display:'flex',justifyContent:'space-between',gap:16,listStyle:'none'};
+
  function resetForm(){setEditingId(null);setForm(emptyForm);setRelations(emptyRelations);setUploadedDetails({});setUploading({});setMasterProcessing(false);setMasterProgress(0);setMasterStage('');setFormResetKey(current=>current+1);setMessage('');}
  function startEdit(item:RecordData){const details=item.details||{};setEditingId(item.id);setUploadedDetails({...details,...(item.privateFilePath?{privateFilePath:item.privateFilePath}:{}),...(item.streamFilePath?{streamFilePath:item.streamFilePath}:{}),...(item.previewUrl?{previewUrl:item.previewUrl}:{}),...(item.coverImageUrl?{coverImageUrl:item.coverImageUrl}:{})});setForm({primary:String(item.title||''),slug:String(item.slug||''),description:String(item.description||''),status:String(item.status||'draft'),price:String(item.price??'0.99'),featured:Boolean(item.featured),details:JSON.stringify(details,null,2)});setRelations({artistId:String(item.artistId||details.artistId||''),albumId:String(item.albumId||details.albumId||''),genre:String(item.genre||details.genre||''),trackNumber:String(item.trackNumber||details.trackNumber||''),isrc:String(item.isrc||details.isrc||''),releaseDate:String(item.releaseDate||details.releaseDate||''),purchasable:item.purchasable!==false&&details.purchasable!==false,promotional:Boolean(item.promotional||details.promotional)});setMasterProcessing(false);setMasterProgress(0);setMasterStage('');setFormResetKey(current=>current+1);}
  function uploadToStorage(path:string,file:File,key:string,returnPath=false,onProgress?:(percent:number)=>void){setUploading(current=>({...current,[key]:0}));return new Promise<string>((resolve,reject)=>{const task=uploadBytesResumable(ref(firebaseStorage,path),file,{contentType:file.type||undefined});task.on('state_changed',snapshot=>{const percent=Math.round(snapshot.bytesTransferred/snapshot.totalBytes*100);setUploading(current=>({...current,[key]:percent}));onProgress?.(percent);},error=>{setUploading(current=>{const next={...current};delete next[key];return next;});reject(error);},async()=>{try{const value=returnPath?path:await getDownloadURL(task.snapshot.ref);setUploading(current=>{const next={...current};delete next[key];return next;});onProgress?.(100);resolve(value);}catch(error){reject(error);}});});}
@@ -55,8 +118,63 @@ export function SongAdminSection(){
   }catch(error){setMasterProgress(0);setMasterStage('Upload failed');setMessage(error instanceof Error?error.message:'Song processing failed.');}
   finally{setMasterProcessing(false);}
  }
- async function saveItem(event:React.FormEvent){event.preventDefault();if(masterProcessing)return setMessage('Please wait for the WAV master to finish processing before saving.');if(!form.primary.trim())return setMessage('Song title is required.');if(!relations.artistId)return setMessage('Please select an artist.');if(!editingId&&(!uploadedDetails.privateFilePath||!uploadedDetails.streamFilePath||!uploadedDetails.previewUrl))return setMessage('The WAV master is not ready yet. Wait until the upload reaches 100% before saving.');setSaving(true);try{const manual=JSON.parse(form.details||'{}');const artist=artists.find(item=>item.id===relations.artistId);const album=albums.find(item=>item.id===relations.albumId);const relationData={artistId:artist?.id||'',artistName:String(artist?.name||artist?.title||''),artistSlug:String(artist?.slug||''),genre:relations.genre,releaseDate:relations.releaseDate,albumId:album?.id||'',albumTitle:String(album?.title||''),albumSlug:String(album?.slug||''),trackNumber:Number(relations.trackNumber||0),isrc:relations.isrc,purchasable:relations.purchasable,promotional:relations.promotional};const details={...manual,...uploadedDetails,...relationData};const payload:Record<string,any>={title:form.primary.trim(),slug:form.slug.trim()||makeSlug(form.primary),description:form.description.trim(),status:form.status,featured:form.featured,price:Number(form.price||0),details,...uploadedDetails,...relationData,updatedAt:serverTimestamp()};if(editingId)await updateDoc(doc(firestore,'songs',editingId),payload);else await addDoc(collection(firestore,'songs'),{...payload,createdAt:serverTimestamp()});setMessage('Song saved successfully.');resetForm();}catch(error){setMessage(error instanceof Error?error.message:'Unable to save song.');}finally{setSaving(false);}}
+ async function saveItem(event:React.FormEvent){event.preventDefault();if(masterProcessing)return setMessage('Please wait for the WAV master to finish processing before saving.');if(!form.primary.trim())return setMessage('Song title is required.');if(!relations.artistId)return setMessage('Please select an artist.');if(!editingId&&(!uploadedDetails.privateFilePath||!uploadedDetails.streamFilePath||!uploadedDetails.previewUrl))return setMessage('The WAV master is not ready yet. Wait until the upload reaches 100% before saving.');setSaving(true);try{const manual=JSON.parse(form.details||'{}');const artist=artists.find(item=>item.id===relations.artistId);const album=albums.find(item=>item.id===relations.albumId);const relationData={artistId:artist?.id||'',artistName:String(artist?.name||artist?.title||''),artistSlug:String(artist?.slug||''),genre:relations.genre,releaseDate:relations.releaseDate,albumId:album?.id||'',albumTitle:String(album?.title||''),albumSlug:String(album?.slug||''),trackNumber:Number(relations.trackNumber||0),isrc:relations.isrc,purchasable:relations.purchasable,promotional:relations.promotional};const details={...manual,...uploadedDetails,...relationData};const payload:Record<string,any>={title:form.primary.trim(),slug:form.slug.trim()||makeSlug(form.primary),description:form.description.trim(),status:form.status,featured:form.featured,price:Number(form.price||0),details,...uploadedDetails,...relationData,updatedAt:serverTimestamp()};if(editingId)await updateDoc(doc(firestore,'songs',editingId),payload);else await addDoc(collection(firestore,'songs'),{...payload,createdAt:serverTimestamp()});resetForm();setMessage('Song saved successfully.');}catch(error){setMessage(error instanceof Error?error.message:'Unable to save song.');}finally{setSaving(false);}}
  async function removeItem(id:string){if(!confirm('Delete this song permanently? This removes its WAV master, subscriber stream, preview, song artwork and active member-library references.'))return;setMessage('Deleting song and associated assets…');try{const user=firebaseAuth.currentUser;if(!user)throw new Error('Administrator session expired. Sign in again.');const token=await user.getIdToken();const response=await fetch(`/api/admin/songs/${encodeURIComponent(id)}`,{method:'DELETE',headers:{authorization:`Bearer ${token}`}});const data=await response.json();if(!response.ok)throw new Error(data.error||'Unable to delete song.');if(editingId===id)resetForm();setMessage(`Song deleted completely. Removed ${Number(data.storageObjectsDeleted||0)} storage files and cleaned ${Number(data.memberReferencesCleaned||0)} active member references.`);}catch(error){setMessage(error instanceof Error?error.message:'Unable to delete song.');}}
  async function togglePublish(item:RecordData){if(item.status!=='published'&&!String(item.streamFilePath||item.details?.streamFilePath||'').startsWith('private/streams/')){setMessage('This song has no compressed subscriber stream. Upload the WAV master again before publishing it.');return;}await updateDoc(doc(firestore,'songs',item.id),{status:item.status==='published'?'draft':'published',updatedAt:serverTimestamp()});}
- return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Aureon Control Center</p><h1>Songs</h1><p>Upload one WAV master. Aureon stores the original privately, creates a 256 kbps AAC subscriber stream, and preserves the 40-second public preview.</p></div>{message&&<div className="admin-cms-message">{message}</div>}<section className="admin-cms-grid"><form key={formResetKey} className="admin-cms-form" onSubmit={saveItem}><h2>{editingId?'Edit':'Create'} Song</h2><label>Song title<input value={form.primary} onChange={event=>setForm({...form,primary:event.target.value})}/></label><label>Artist<select required value={relations.artistId} onChange={event=>setRelations({...relations,artistId:event.target.value,albumId:''})}><option value="">Select artist</option>{artists.map(artist=><option key={artist.id} value={artist.id}>{String(artist.name||artist.title)}</option>)}</select></label><label>Album (optional)<select disabled={!relations.artistId} value={relations.albumId} onChange={event=>setRelations({...relations,albumId:event.target.value})}><option value="">{!relations.artistId?'Select an artist first':availableAlbums.length?'Single / no album':'No albums yet — save as single'}</option>{availableAlbums.map(album=><option key={album.id} value={album.id}>{String(album.title||'Untitled album')}</option>)}</select></label><div className="checkout-fields two-columns"><label>Genre<input value={relations.genre} onChange={event=>setRelations({...relations,genre:event.target.value})}/></label><label>Release date<input type="date" value={relations.releaseDate} onChange={event=>setRelations({...relations,releaseDate:event.target.value})}/></label></div><div className="checkout-fields two-columns"><label>Track number<input type="number" min="0" value={relations.trackNumber} onChange={event=>setRelations({...relations,trackNumber:event.target.value})}/></label><label>ISRC (optional)<input value={relations.isrc} onChange={event=>setRelations({...relations,isrc:event.target.value.toUpperCase()})}/></label></div><label style={toggleStyle}><input style={{width:18,height:18,margin:0,flex:'0 0 auto'}} type="checkbox" checked={relations.purchasable} onChange={event=>setRelations({...relations,purchasable:event.target.checked})}/><span>Available to purchase</span></label><label style={toggleStyle}><input style={{width:18,height:18,margin:0,flex:'0 0 auto'}} type="checkbox" checked={relations.promotional} onChange={event=>setRelations({...relations,promotional:event.target.checked})}/><span>Promotional / free song</span></label><label>URL slug<input value={form.slug} placeholder="created-automatically" onChange={event=>setForm({...form,slug:event.target.value})}/></label><label>Description<textarea value={form.description} onChange={event=>setForm({...form,description:event.target.value})}/></label><label>Price (€)<input type="number" min="0" step="0.01" value={form.price} onChange={event=>setForm({...form,price:event.target.value})}/></label><fieldset><legend>Files and media</legend><div style={{marginBottom:18}}><label>Song cover artwork<input type="file" accept="image/*" onChange={async event=>{const file=event.target.files?.[0];if(file)await uploadArtwork(file);}}/></label>{typeof uploading.coverImageUrl==='number'&&<progress value={uploading.coverImageUrl} max={100} style={{width:'100%'}}/>}{uploadedDetails.coverImageUrl&&<small>✓ Artwork uploaded</small>}</div><div style={{marginBottom:18}}><label>Original WAV master — Aureon automatically creates subscriber AAC + 40-second preview<input type="file" disabled={masterProcessing} accept="audio/wav,audio/x-wav,.wav" onChange={async event=>{const file=event.target.files?.[0];if(file)await uploadMaster(file);}}/></label>{(masterProcessing||masterProgress>0)&&<div style={{marginTop:12}}><progress value={masterProgress} max={100} style={{width:'100%',height:16}}/><small style={{display:'block',marginTop:6}}>{masterStage} — {masterProgress}%</small></div>}{uploadedDetails.privateFilePath&&<small style={{display:'block'}}>✓ Private WAV master</small>}{uploadedDetails.streamFilePath&&<small style={{display:'block'}}>✓ Private {AUREON_STREAM_FORMAT} subscriber stream</small>}{uploadedDetails.previewUrl&&<small style={{display:'block'}}>✓ Public 40-second preview</small>}</div></fieldset><details><summary>Advanced content fields (optional)</summary><textarea rows={8} value={form.details} onChange={event=>setForm({...form,details:event.target.value})}/></details><label>Status<select value={form.status} onChange={event=>setForm({...form,status:event.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></label><label style={toggleStyle}><input style={{width:18,height:18,margin:0,flex:'0 0 auto'}} type="checkbox" checked={form.featured} onChange={event=>setForm({...form,featured:event.target.checked})}/><span>Feature on homepage</span></label><button className="primary-button" disabled={saving||masterProcessing||Object.keys(uploading).length>0}>{saving?'Saving…':masterProcessing?`Processing WAV… ${masterProgress}%`:editingId?'Update':'Save'}</button>{editingId&&<button type="button" onClick={resetForm}>Cancel</button>}</form><div className="admin-table-wrap"><table><thead><tr><th>Track</th><th>Name</th><th>Status</th><th>Price</th><th>Actions</th></tr></thead><tbody>{sortedItems.length?sortedItems.map(item=><tr key={item.id}><td>{songTrackNumber(item)===Number.MAX_SAFE_INTEGER?'—':songTrackNumber(item)}</td><td>{String(item.title||'Untitled')}</td><td>{String(item.status||'—')}</td><td>€{Number(item.price||0).toFixed(2)}</td><td><button type="button" onClick={()=>startEdit(item)}>Edit</button><button type="button" onClick={()=>togglePublish(item)}>{item.status==='published'?'Unpublish':'Publish'}</button><button type="button" onClick={()=>removeItem(item.id)}>Delete</button></td></tr>):<tr><td colSpan={5}>No songs yet.</td></tr>}</tbody></table></div></section></AdminShell>;
+
+ return <AdminShell>
+  <div className="admin-page-heading"><p className="admin-kicker">Aureon Control Center</p><h1>Songs</h1><p>Upload one WAV master. Aureon stores the original privately, creates a 256 kbps AAC subscriber stream, and preserves the 40-second public preview.</p></div>
+  {message&&<div className="admin-cms-message">{message}</div>}
+  <section className="admin-cms-grid">
+   <form key={formResetKey} className="admin-cms-form" onSubmit={saveItem}>
+    <h2>{editingId?'Edit':'Create'} Song</h2>
+    <label>Song title<input value={form.primary} onChange={event=>setForm({...form,primary:event.target.value})}/></label>
+    <label>Artist<select required value={relations.artistId} onChange={event=>setRelations({...relations,artistId:event.target.value,albumId:''})}><option value="">Select artist</option>{artists.map(artist=><option key={artist.id} value={artist.id}>{String(artist.name||artist.title)}</option>)}</select></label>
+    <label>Album (optional)<select disabled={!relations.artistId} value={relations.albumId} onChange={event=>setRelations({...relations,albumId:event.target.value})}><option value="">{!relations.artistId?'Select an artist first':availableAlbums.length?'Single / no album':'No albums yet — save as single'}</option>{availableAlbums.map(album=><option key={album.id} value={album.id}>{String(album.title||'Untitled album')}</option>)}</select></label>
+    <div className="checkout-fields two-columns"><label>Genre<input value={relations.genre} onChange={event=>setRelations({...relations,genre:event.target.value})}/></label><label>Release date<input type="date" value={relations.releaseDate} onChange={event=>setRelations({...relations,releaseDate:event.target.value})}/></label></div>
+    <div className="checkout-fields two-columns"><label>Track number<input type="number" min="0" value={relations.trackNumber} onChange={event=>setRelations({...relations,trackNumber:event.target.value})}/></label><label>ISRC (optional)<input value={relations.isrc} onChange={event=>setRelations({...relations,isrc:event.target.value.toUpperCase()})}/></label></div>
+    <label style={toggleStyle}><input style={{width:18,height:18,margin:0,flex:'0 0 auto'}} type="checkbox" checked={relations.purchasable} onChange={event=>setRelations({...relations,purchasable:event.target.checked})}/><span>Available to purchase</span></label>
+    <label style={toggleStyle}><input style={{width:18,height:18,margin:0,flex:'0 0 auto'}} type="checkbox" checked={relations.promotional} onChange={event=>setRelations({...relations,promotional:event.target.checked})}/><span>Promotional / free song</span></label>
+    <label>URL slug<input value={form.slug} placeholder="created-automatically" onChange={event=>setForm({...form,slug:event.target.value})}/></label>
+    <label>Description<textarea value={form.description} onChange={event=>setForm({...form,description:event.target.value})}/></label>
+    <label>Price (€)<input type="number" min="0" step="0.01" value={form.price} onChange={event=>setForm({...form,price:event.target.value})}/></label>
+    <fieldset><legend>Files and media</legend>
+     <div style={{marginBottom:18}}><label>Song cover artwork<input type="file" accept="image/*" onChange={async event=>{const file=event.target.files?.[0];if(file)await uploadArtwork(file);}}/></label>{typeof uploading.coverImageUrl==='number'&&<progress value={uploading.coverImageUrl} max={100} style={{width:'100%'}}/>}{uploadedDetails.coverImageUrl&&<small>✓ Artwork uploaded</small>}</div>
+     <div style={{marginBottom:18}}><label>Original WAV master — Aureon automatically creates subscriber AAC + 40-second preview<input type="file" disabled={masterProcessing} accept="audio/wav,audio/x-wav,.wav" onChange={async event=>{const file=event.target.files?.[0];if(file)await uploadMaster(file);}}/></label>{(masterProcessing||masterProgress>0)&&<div style={{marginTop:12}}><progress value={masterProgress} max={100} style={{width:'100%',height:16}}/><small style={{display:'block',marginTop:6}}>{masterStage} — {masterProgress}%</small></div>}{uploadedDetails.privateFilePath&&<small style={{display:'block'}}>✓ Private WAV master</small>}{uploadedDetails.streamFilePath&&<small style={{display:'block'}}>✓ Private {AUREON_STREAM_FORMAT} subscriber stream</small>}{uploadedDetails.previewUrl&&<small style={{display:'block'}}>✓ Public 40-second preview</small>}</div>
+    </fieldset>
+    <details><summary>Advanced content fields (optional)</summary><textarea rows={8} value={form.details} onChange={event=>setForm({...form,details:event.target.value})}/></details>
+    <label>Status<select value={form.status} onChange={event=>setForm({...form,status:event.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></label>
+    <label style={toggleStyle}><input style={{width:18,height:18,margin:0,flex:'0 0 auto'}} type="checkbox" checked={form.featured} onChange={event=>setForm({...form,featured:event.target.checked})}/><span>Feature on homepage</span></label>
+    <button className="primary-button" disabled={saving||masterProcessing||Object.keys(uploading).length>0}>{saving?'Saving…':masterProcessing?`Processing WAV… ${masterProgress}%`:editingId?'Update':'Save'}</button>{editingId&&<button type="button" onClick={resetForm}>Cancel</button>}
+   </form>
+
+   <div className="admin-table-wrap" style={{overflow:'visible'}}>
+    <div style={{padding:'0 0 18px'}}>
+     <label style={{display:'block',fontWeight:700,color:'#d8b65b',letterSpacing:'.08em',textTransform:'uppercase',fontSize:12}}>Catalogue search
+      <input value={catalogueSearch} onChange={event=>setCatalogueSearch(event.target.value)} placeholder="Search song, artist, album, genre or status" style={{marginTop:8,width:'100%'}}/>
+     </label>
+     <div style={{marginTop:10,color:'#aaa',fontSize:13}}>{items.length} songs · {catalogueGroups.length} artists · {albums.length} album records</div>
+    </div>
+
+    {catalogueGroups.length?catalogueGroups.map((artistGroup,artistIndex)=>
+     <details key={artistGroup.key} open={artistIndex===0} style={groupShellStyle}>
+      <summary style={groupSummaryStyle}>{artistGroup.name} <span style={{float:'right',color:'#aaa',fontWeight:500}}>{artistGroup.total} song{artistGroup.total===1?'':'s'}</span></summary>
+      <div style={{padding:'0 12px 12px'}}>
+       {artistGroup.albums.map((albumGroup,albumIndex)=>
+        <details key={albumGroup.key} open={artistIndex===0&&albumIndex===0} style={albumShellStyle}>
+         <summary style={albumSummaryStyle}><span>{albumGroup.title}</span><span style={{color:'#c9a84e',fontWeight:600}}>{albumGroup.songs.length} track{albumGroup.songs.length===1?'':'s'}</span></summary>
+         <div style={{overflowX:'auto'}}>
+          <table>
+           <thead><tr><th>Track</th><th>Name</th><th>Status</th><th>Price</th><th>Actions</th></tr></thead>
+           <tbody>{albumGroup.songs.map(item=><tr key={item.id}><td>{displayTrack(item)}</td><td>{String(item.title||'Untitled')}</td><td>{String(item.status||'—')}</td><td>€{Number(item.price||0).toFixed(2)}</td><td><button type="button" onClick={()=>startEdit(item)}>Edit</button><button type="button" onClick={()=>togglePublish(item)}>{item.status==='published'?'Unpublish':'Publish'}</button><button type="button" onClick={()=>removeItem(item.id)}>Delete</button></td></tr>)}</tbody>
+          </table>
+         </div>
+        </details>
+       )}
+      </div>
+     </details>
+    ):<div style={{padding:24,border:'1px solid rgba(212,170,68,.3)'}}>{items.length?'No songs match your search.':'No songs yet.'}</div>}
+   </div>
+  </section>
+ </AdminShell>;
 }
