@@ -35,7 +35,39 @@ type PlayerContextValue = {
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 const STORAGE_KEY = 'aureon-player-v1';
+const DEFAULT_ARTWORK = '/images/branding/Aureon_Header_Logo.png';
 const formatTime = (value: number) => Number.isFinite(value) ? `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}` : '0:00';
+
+function mediaArtwork(song: PlayerSong) {
+  if (typeof window === 'undefined') return DEFAULT_ARTWORK;
+  const source = song.coverImageUrl || song.imageUrl || DEFAULT_ARTWORK;
+  let absolute = '';
+  try { absolute = new URL(source, window.location.origin).href; }
+  catch { absolute = new URL(DEFAULT_ARTWORK, window.location.origin).href; }
+  return `${window.location.origin}/api/media/artwork?src=${encodeURIComponent(absolute)}`;
+}
+
+function updateNativeMetadata(song: PlayerSong | null) {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+  try {
+    if (!song) {
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+    const artwork = mediaArtwork(song);
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title || 'Aureon Music Group',
+      artist: song.artistName || song.artist || 'Aureon Music Group',
+      album: 'Aureon Music Group',
+      artwork: [
+        { src: artwork, sizes: '512x512' },
+        { src: artwork, sizes: '256x256' },
+        { src: artwork, sizes: '128x128' },
+        { src: artwork, sizes: '96x96' },
+      ],
+    });
+  } catch {}
+}
 
 export function useMusicPlayer() {
   const value = useContext(PlayerContext);
@@ -50,6 +82,11 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamCache = useRef(new Map<string, string>());
   const streamRequests = useRef(new Map<string, Promise<string>>());
+  const queueRef = useRef<PlayerSong[]>([]);
+  const indexRef = useRef(-1);
+  const repeatModeRef = useRef<RepeatMode>('off');
+  const shuffleRef = useRef(false);
+  const transitionLock = useRef(false);
   const [queue, setQueue] = useState<PlayerSong[]>([]);
   const [index, setIndex] = useState(-1);
   const [audioUrl, setAudioUrl] = useState('');
@@ -65,11 +102,19 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const [authReady, setAuthReady] = useState(false);
   const currentSong = index >= 0 ? queue[index] || null : null;
 
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { indexRef.current = index; }, [index]);
+  useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
+  useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
+
   const resetPlayer = useCallback((removeSavedState = false) => {
     shouldAutoplay.current = false;
     pendingSeek.current = 0;
+    transitionLock.current = false;
     streamCache.current.clear();
     streamRequests.current.clear();
+    queueRef.current = [];
+    indexRef.current = -1;
     if (progressTimer.current) clearInterval(progressTimer.current);
     const audio = audioRef.current;
     if (audio) {
@@ -85,6 +130,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     setDuration(0);
     setQueueOpen(false);
     setError('');
+    updateNativeMetadata(null);
     if (removeSavedState && typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
   }, []);
 
@@ -97,8 +143,14 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (saved) {
-        if (Array.isArray(saved.queue)) setQueue(saved.queue);
-        if (Number.isInteger(saved.index)) setIndex(saved.index);
+        if (Array.isArray(saved.queue)) {
+          queueRef.current = saved.queue;
+          setQueue(saved.queue);
+        }
+        if (Number.isInteger(saved.index)) {
+          indexRef.current = saved.index;
+          setIndex(saved.index);
+        }
         if (typeof saved.volume === 'number') setVolume(saved.volume);
         if (typeof saved.muted === 'boolean') setMuted(saved.muted);
         if (typeof saved.shuffle === 'boolean') setShuffle(saved.shuffle);
@@ -119,6 +171,8 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     document.body.classList.toggle('aureon-player-visible', Boolean(currentSong));
     return () => document.body.classList.remove('aureon-player-visible');
   }, [currentSong]);
+
+  useEffect(() => { updateNativeMetadata(currentSong); }, [currentSong]);
 
   const memberActivity = useCallback(async (action: 'played' | 'progress', song: PlayerSong, progressSeconds = 0, durationSeconds = 0) => {
     const user = firebaseAuth.currentUser;
@@ -161,27 +215,29 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     })();
 
     streamRequests.current.set(song.id, request);
-    try {
-      return await request;
-    } finally {
-      streamRequests.current.delete(song.id);
-    }
+    try { return await request; }
+    finally { streamRequests.current.delete(song.id); }
   }, []);
+
+  const warmQueue = useCallback((songs: PlayerSong[], activeIndex: number) => {
+    if (songs.length < 2) return;
+    const order = [
+      ...songs.slice(activeIndex + 1),
+      ...songs.slice(0, activeIndex),
+    ];
+    void (async () => {
+      for (const song of order) {
+        try { await fetchStream(song); } catch {}
+      }
+    })();
+  }, [fetchStream]);
 
   useEffect(() => {
     if (!authReady || !firebaseAuth.currentUser || queue.length < 2) return;
-    let cancelled = false;
-    const warmQueue = async () => {
-      for (const song of queue) {
-        if (cancelled) return;
-        try { await fetchStream(song); } catch {}
-      }
-    };
-    void warmQueue();
-    return () => { cancelled = true; };
-  }, [authReady, fetchStream, queue]);
+    warmQueue(queue, Math.max(0, index));
+  }, [authReady, index, queue, warmQueue]);
 
-  const loadAt = useCallback(async (nextIndex: number, nextQueue = queue, startSeconds = 0) => {
+  const loadAt = useCallback(async (nextIndex: number, nextQueue = queueRef.current, startSeconds = 0) => {
     const song = nextQueue[nextIndex];
     if (!song) return;
     setError('');
@@ -189,16 +245,54 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     pendingSeek.current = Math.max(0, Number(startSeconds || 0));
     try {
       const url = await fetchStream(song);
+      queueRef.current = nextQueue;
+      indexRef.current = nextIndex;
       setQueue(nextQueue);
       setIndex(nextIndex);
       setAudioUrl(url);
+      updateNativeMetadata(song);
       void memberActivity('played', song, pendingSeek.current, Number(song.duration || 0));
+      warmQueue(nextQueue, nextIndex);
     } catch (err) {
       shouldAutoplay.current = false;
       pendingSeek.current = 0;
       setError(err instanceof Error ? err.message : 'Unable to play this track.');
     }
-  }, [fetchStream, memberActivity, queue]);
+  }, [fetchStream, memberActivity, warmQueue]);
+
+  const playPreparedIndex = useCallback((nextIndex: number, nextQueue = queueRef.current) => {
+    if (transitionLock.current) return false;
+    const audio = audioRef.current;
+    const song = nextQueue[nextIndex];
+    const url = song ? streamCache.current.get(song.id) : '';
+    if (!audio || !song || !url) return false;
+
+    transitionLock.current = true;
+    queueRef.current = nextQueue;
+    indexRef.current = nextIndex;
+    setQueue(nextQueue);
+    setIndex(nextIndex);
+    setAudioUrl(url);
+    setCurrentTime(0);
+    setDuration(0);
+    setError('');
+    updateNativeMetadata(song);
+
+    audio.pause();
+    audio.src = url;
+    audio.volume = volume;
+    audio.muted = muted;
+    audio.load();
+
+    const start = () => {
+      transitionLock.current = false;
+      void audio.play().catch(() => setError('Playback was blocked. Press Play to continue.'));
+    };
+    audio.addEventListener('canplay', start, { once: true });
+    void memberActivity('played', song, 0, Number(song.duration || 0));
+    warmQueue(nextQueue, nextIndex);
+    return true;
+  }, [memberActivity, muted, volume, warmQueue]);
 
   const playSong = useCallback(async (song: PlayerSong, nextQueue?: PlayerSong[], nextIndex?: number) => {
     const targetQueue = nextQueue?.length ? nextQueue : [song];
@@ -214,40 +308,87 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
 
   const playQueue = useCallback(async (songs: PlayerSong[], startIndex = 0) => {
     if (!songs.length) return;
-    await Promise.allSettled(songs.map(song => fetchStream(song)));
+    // Start the requested track immediately. Do not wait for every song in the
+    // playlist to obtain a playback ticket before beginning playback.
     await loadAt(startIndex, songs, 0);
-  }, [fetchStream, loadAt]);
+    warmQueue(songs, startIndex);
+  }, [loadAt, warmQueue]);
 
   const next = useCallback(async () => {
-    if (!queue.length) return;
-    if (repeatMode === 'one' && audioRef.current) {
+    const activeQueue = queueRef.current;
+    const activeIndex = indexRef.current;
+    if (!activeQueue.length) return;
+    if (repeatModeRef.current === 'one' && audioRef.current) {
       audioRef.current.currentTime = 0;
       await audioRef.current.play();
       return;
     }
-    if (shuffle && queue.length > 1) {
-      let nextIndex = index;
-      while (nextIndex === index) nextIndex = Math.floor(Math.random() * queue.length);
-      await loadAt(nextIndex);
-      return;
+    let nextIndex = activeIndex + 1;
+    if (shuffleRef.current && activeQueue.length > 1) {
+      nextIndex = activeIndex;
+      while (nextIndex === activeIndex) nextIndex = Math.floor(Math.random() * activeQueue.length);
+    } else if (nextIndex >= activeQueue.length) {
+      if (repeatModeRef.current !== 'all') {
+        setIsPlaying(false);
+        return;
+      }
+      nextIndex = 0;
     }
-    if (index < queue.length - 1) await loadAt(index + 1);
-    else if (repeatMode === 'all') await loadAt(0);
-    else setIsPlaying(false);
-  }, [index, loadAt, queue, repeatMode, shuffle]);
+    if (!playPreparedIndex(nextIndex, activeQueue)) await loadAt(nextIndex, activeQueue);
+  }, [loadAt, playPreparedIndex]);
 
   const previous = useCallback(async () => {
-    if (audioRef.current && audioRef.current.currentTime > 4) {
-      audioRef.current.currentTime = 0;
+    const audio = audioRef.current;
+    const activeQueue = queueRef.current;
+    const activeIndex = indexRef.current;
+    if (audio && audio.currentTime > 4) {
+      audio.currentTime = 0;
       return;
     }
-    if (index > 0) await loadAt(index - 1);
-    else if (repeatMode === 'all' && queue.length) await loadAt(queue.length - 1);
-  }, [index, loadAt, queue.length, repeatMode]);
+    let previousIndex = activeIndex - 1;
+    if (previousIndex < 0) {
+      if (repeatModeRef.current !== 'all' || !activeQueue.length) return;
+      previousIndex = activeQueue.length - 1;
+    }
+    if (!playPreparedIndex(previousIndex, activeQueue)) await loadAt(previousIndex, activeQueue);
+  }, [loadAt, playPreparedIndex]);
+
+  const handleEnded = useCallback(() => {
+    const activeQueue = queueRef.current;
+    const activeIndex = indexRef.current;
+    if (!activeQueue.length) return;
+
+    if (repeatModeRef.current === 'one' && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      void audioRef.current.play();
+      return;
+    }
+
+    let nextIndex = activeIndex + 1;
+    if (shuffleRef.current && activeQueue.length > 1) {
+      nextIndex = activeIndex;
+      while (nextIndex === activeIndex) nextIndex = Math.floor(Math.random() * activeQueue.length);
+    } else if (nextIndex >= activeQueue.length) {
+      if (repeatModeRef.current !== 'all') {
+        setIsPlaying(false);
+        return;
+      }
+      nextIndex = 0;
+    }
+
+    // Critical for locked-screen playback: if the next ticket was prepared
+    // while the page was active, switch the same media element immediately in
+    // the native `ended` event instead of waiting for React/network work.
+    if (playPreparedIndex(nextIndex, activeQueue)) return;
+    void loadAt(nextIndex, activeQueue);
+  }, [loadAt, playPreparedIndex]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !audioUrl) return;
+    const currentAttribute = audio.getAttribute('src') || '';
+    if (currentAttribute === audioUrl) return;
+
     audio.pause();
     audio.src = audioUrl;
     audio.volume = volume;
@@ -282,17 +423,24 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   useEffect(() => {
     const saveBeforeLeave = () => {
       const audio = audioRef.current;
-      if (audio && currentSong && audio.currentTime > 0) void memberActivity('progress', currentSong, audio.currentTime, audio.duration || 0);
+      const song = queueRef.current[indexRef.current];
+      if (audio && song && audio.currentTime > 0) void memberActivity('progress', song, audio.currentTime, audio.duration || 0);
     };
     window.addEventListener('pagehide', saveBeforeLeave);
     return () => window.removeEventListener('pagehide', saveBeforeLeave);
-  }, [currentSong, memberActivity]);
+  }, [memberActivity]);
 
   const toggle = async () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (!audio.src && currentSong) return playSong(currentSong, queue, index);
-    try { if (audio.paused) await audio.play(); else audio.pause(); } catch { setError('Unable to control playback.'); }
+    const song = queueRef.current[indexRef.current];
+    if (!audio.src && song) return playSong(song, queueRef.current, indexRef.current);
+    try {
+      if (audio.paused) await audio.play();
+      else audio.pause();
+    } catch {
+      setError('Unable to control playback.');
+    }
   };
 
   const enqueue = (song: PlayerSong) => setQueue(current => current.some(item => item.id === song.id) ? current : [...current, song]);
@@ -300,12 +448,25 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const removeFromQueue = (removeIndex: number) => setQueue(current => current.filter((_, itemIndex) => itemIndex !== removeIndex));
   const clearQueue = () => resetPlayer(true);
 
-  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, resumeSong, playQueue, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue, resetPlayer, resumeSong]);
+  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, resumeSong, playQueue, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue, resumeSong]);
 
   return <PlayerContext.Provider value={value}>
     {children}
     {currentSong && <div className="aureon-player-spacer" aria-hidden="true" />}
-    <audio ref={audioRef} preload="auto" playsInline onPlay={() => setIsPlaying(true)} onPause={event => { setIsPlaying(false); if (currentSong && event.currentTarget.currentTime > 0) void memberActivity('progress', currentSong, event.currentTarget.currentTime, event.currentTarget.duration || 0); }} onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(event.currentTarget.duration)} onEnded={next} />
+    <audio
+      ref={audioRef}
+      preload="auto"
+      playsInline
+      onPlay={() => setIsPlaying(true)}
+      onPause={event => {
+        setIsPlaying(false);
+        const song = queueRef.current[indexRef.current];
+        if (song && event.currentTarget.currentTime > 0) void memberActivity('progress', song, event.currentTarget.currentTime, event.currentTarget.duration || 0);
+      }}
+      onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
+      onLoadedMetadata={event => setDuration(event.currentTarget.duration)}
+      onEnded={handleEnded}
+    />
     {currentSong && <aside className="aureon-global-player" aria-label="Music player">
       <button className="aureon-player-close" type="button" onClick={() => resetPlayer(true)} aria-label="Close music player"><X /></button>
       {error && <div className="aureon-player-error">{error}</div>}
