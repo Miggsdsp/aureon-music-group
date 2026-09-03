@@ -36,5 +36,23 @@ if (typeof window !== 'undefined' && appCheckSiteKey) {
 }
 
 export const firebaseAuth = getAuth(firebaseApp);
+
+// Some mobile networks/content filters intermittently block direct requests to
+// Google's Firebase Auth hosts, which surfaces as auth/network-request-failed
+// even though the Aureon site itself is online. In production we send Firebase
+// Auth traffic through same-origin Aureon proxy routes instead. This keeps the
+// normal Firebase client session/persistence behaviour while avoiding those
+// direct cross-origin failures on iPhone/Safari and cellular networks.
+if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+  const authWithConfig = firebaseAuth as typeof firebaseAuth & {
+    config?: { apiHost?: string; apiScheme?: string; tokenApiHost?: string };
+  };
+  if (authWithConfig.config) {
+    authWithConfig.config.apiScheme = window.location.protocol.replace(':', '') || 'https';
+    authWithConfig.config.apiHost = `${window.location.host}/api/firebase-auth`;
+    authWithConfig.config.tokenApiHost = `${window.location.host}/api/firebase-token`;
+  }
+}
+
 export const firestore = getFirestore(firebaseApp);
 export const firebaseStorage = getStorage(firebaseApp);
