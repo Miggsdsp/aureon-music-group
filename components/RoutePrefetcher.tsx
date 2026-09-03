@@ -10,7 +10,8 @@ export default function RoutePrefetcher() {
 
   useEffect(() => {
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-    if (connection?.saveData || connection?.effectiveType === '2g') return;
+    const effectiveType = connection?.effectiveType;
+    if (connection?.saveData || effectiveType === '2g' || effectiveType === '3g') return;
 
     const prefetch = () => CORE_ROUTES.forEach(route => router.prefetch(route));
     const windowWithIdle = window as Window & {
@@ -18,12 +19,15 @@ export default function RoutePrefetcher() {
       cancelIdleCallback?: (id: number) => void;
     };
 
+    // Keep navigation prefetching, but let the current page finish its critical
+    // network and rendering work first. This is especially important on mobile 5G,
+    // where six eager route prefetches can compete with images, Firebase and audio.
     if (windowWithIdle.requestIdleCallback) {
-      const id = windowWithIdle.requestIdleCallback(prefetch, { timeout: 2500 });
+      const id = windowWithIdle.requestIdleCallback(prefetch, { timeout: 6000 });
       return () => windowWithIdle.cancelIdleCallback?.(id);
     }
 
-    const timer = window.setTimeout(prefetch, 1800);
+    const timer = window.setTimeout(prefetch, 5000);
     return () => window.clearTimeout(timer);
   }, [router]);
 
