@@ -19,8 +19,10 @@ async function assertPaidMember(uid: string) {
   const member = await adminFirestore.doc(`members/${uid}`).get();
   const data = member.data() || {};
   const status = String(data.subscriptionStatus || '').toLowerCase();
-  const plan = String(data.plan || '').toLowerCase();
-  if (!member.exists || !['active', 'trialing'].includes(status) || !['listener', 'creator'].includes(plan)) {
+  // Playlist editing is a Listener feature as well as a Creator feature.  Do not
+  // make this endpoint depend on the exact plan label stored by Stripe/webhooks;
+  // access is determined by the active paid-membership status.
+  if (!member.exists || !['active', 'trialing'].includes(status)) {
     throw new Error('MEMBERSHIP_REQUIRED');
   }
 }
@@ -43,18 +45,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pl
     const playlistRef = adminFirestore.doc(`members/${decoded.uid}/playlists/${playlistId}`);
     const songRef = adminFirestore.doc(`songs/${songId}`);
 
-    const result = await adminFirestore.runTransaction(async transaction => {
-      const [playlistSnap, songSnap] = await Promise.all([
-        transaction.get(playlistRef),
-        transaction.get(songRef),
-      ]);
-      if (!playlistSnap.exists) throw new Error('PLAYLIST_NOT_FOUND');
-      if (!songSnap.exists || String(songSnap.data()?.status || '').toLowerCase() !== 'published') {
-        throw new Error('SONG_NOT_FOUND');
-      }
+    // Validate the song before the playlist transaction. This keeps the
+    // transaction focused on one mutable document and avoids mobile requests
+    // failing because of multi-document transaction read ordering.
+    const songSnap = await songRef.get();
+    if (!songSnap.exists || String(songSnap.data()?.status || '').toLowerCase() !== 'published') {
+      throw new Error('SONG_NOT_FOUND');
+    }
 
-      const currentIds = Array.isArray(playlistSnap.data()?.songIds)
-        ? playlistSnap.data()!.songIds.filter((id: unknown) => typeof id === 'string')
+    const result = await adminFirestore.runTransaction(async transaction => {
+      const playlistSnap = await transaction.get(playlistRef);
+      if (!playlistSnap.exists) throw new Error('PLAYLIST_NOT_FOUND');
+
+      const rawIds = playlistSnap.data()?.songIds;
+      const currentIds = Array.isArray(rawIds)
+        ? rawIds.filter((id: unknown): id is string => typeof id === 'string')
         : [];
       if (currentIds.includes(songId)) return { added: false, songIds: currentIds };
 
