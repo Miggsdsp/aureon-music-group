@@ -72,20 +72,19 @@ export default function BackgroundPlaybackBridge() {
       try { await activeAudio.play(); } catch {}
     });
     setHandler('pause', () => getAudio()?.pause());
+
+    // Advertise only true track navigation to connected systems. Do not
+    // register seekforward/seekbackward: several vehicle UIs switch to ±10s
+    // icons as soon as those actions exist, even when next/previous also exist.
     setHandler('nexttrack', () => clickPlayerControl('Next'));
     setHandler('previoustrack', () => clickPlayerControl('Previous'));
+    setHandler('seekforward', null);
+    setHandler('seekbackward', null);
     setHandler('seekto', details => {
       const activeAudio = getAudio();
       if (!activeAudio || details.seekTime == null || !Number.isFinite(activeAudio.duration)) return;
       activeAudio.currentTime = Math.min(Math.max(0, details.seekTime), activeAudio.duration);
     });
-
-    // Some car / Bluetooth interfaces insist on rendering ±10-second controls
-    // for browser audio even when nexttrack/previoustrack are registered. We
-    // map those hardware actions to track changes as a compatibility fallback,
-    // so the external controls still move through the Aureon queue.
-    setHandler('seekforward', () => clickPlayerControl('Next'));
-    setHandler('seekbackward', () => clickPlayerControl('Previous'));
 
     return () => {
       setHandler('play', null);
