@@ -73,16 +73,16 @@ export default function BackgroundPlaybackBridge() {
     });
     setHandler('pause', () => getAudio()?.pause());
 
-    // Expose true previous/next track actions whenever the platform supports
-    // them. iOS/CarPlay can still choose its own glyphs for browser audio, so
-    // also map the native seek buttons to track changes. This keeps external
-    // controls useful even on systems that insist on drawing ±10-second icons.
+    // Only advertise real track navigation to iOS/CarPlay/Android media UIs.
+    // Registering seekforward/seekbackward causes iOS to replace track-skip
+    // controls with misleading +/-10 second buttons on the lock screen and in
+    // some vehicle interfaces.
     setHandler('nexttrack', () => clickPlayerControl('Next'));
     setHandler('previoustrack', () => clickPlayerControl('Previous'));
-    setHandler('seekforward', () => clickPlayerControl('Next'));
-    setHandler('seekbackward', () => clickPlayerControl('Previous'));
+    setHandler('seekforward', null);
+    setHandler('seekbackward', null);
 
-    // Keep direct timeline scrubbing available from the lock-screen progress bar.
+    // Preserve direct timeline scrubbing through the lock-screen progress bar.
     setHandler('seekto', details => {
       const activeAudio = getAudio();
       if (!activeAudio || details.seekTime == null || !Number.isFinite(activeAudio.duration)) return;
