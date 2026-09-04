@@ -24,8 +24,6 @@ function mediaArtwork(source: string) {
 export default function BackgroundPlaybackBridge() {
   const { currentSong, isPlaying } = useMusicPlayer();
 
-  // Metadata is driven from the same React player state used by the visible
-  // Aureon player. There is deliberately no second queue implementation here.
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     const mediaSession = navigator.mediaSession;
@@ -54,8 +52,6 @@ export default function BackgroundPlaybackBridge() {
     try { navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'; } catch {}
   }, [isPlaying]);
 
-  // Install media controls once. Reinstalling/clearing them every time playback
-  // state changes can make car/lock-screen next/previous buttons disappear.
   useEffect(() => {
     const audio = getAudio();
     if (audio) {
@@ -84,10 +80,12 @@ export default function BackgroundPlaybackBridge() {
       activeAudio.currentTime = Math.min(Math.max(0, details.seekTime), activeAudio.duration);
     });
 
-    // Do not register seekforward/seekbackward. Several car interfaces replace
-    // previous/next with 10-second seek buttons when those handlers exist.
-    setHandler('seekforward', null);
-    setHandler('seekbackward', null);
+    // Some car / Bluetooth interfaces insist on rendering ±10-second controls
+    // for browser audio even when nexttrack/previoustrack are registered. We
+    // map those hardware actions to track changes as a compatibility fallback,
+    // so the external controls still move through the Aureon queue.
+    setHandler('seekforward', () => clickPlayerControl('Next'));
+    setHandler('seekbackward', () => clickPlayerControl('Previous'));
 
     return () => {
       setHandler('play', null);
@@ -95,6 +93,8 @@ export default function BackgroundPlaybackBridge() {
       setHandler('nexttrack', null);
       setHandler('previoustrack', null);
       setHandler('seekto', null);
+      setHandler('seekforward', null);
+      setHandler('seekbackward', null);
     };
   }, []);
 
