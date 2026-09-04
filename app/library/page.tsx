@@ -227,11 +227,29 @@ export default function LibraryPage() {
   async function addToPlaylist(song: Song) {
     const playlistId = selectedPlaylists[song.id];
     const playlist = playlists.find(item => item.id === playlistId);
-    if (!playlist) return setMessage('Choose a playlist first.');
-    const songIds = playlist.songIds || [];
-    if (songIds.includes(song.id)) return setMessage('That song is already in this playlist.');
-    await saveSongIds(playlist.id, [...songIds, song.id]);
-    setMessage(`${song.title || 'Song'} added to ${playlist.name || 'playlist'}.`);
+    if (!playlist) { setMessage('Choose a playlist first.'); return; }
+    if ((playlist.songIds || []).includes(song.id)) { setMessage('That song is already in this playlist.'); return; }
+    if (!user) { setMessage('Please sign in again.'); return; }
+
+    setBusy(`playlist-add-${song.id}`);
+    setMessage('');
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/member/playlists/${encodeURIComponent(playlist.id)}/songs`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ songId: song.id }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to add this song to your playlist.');
+      if (!data.added) setMessage('That song is already in this playlist.');
+      else setMessage(`${song.title || 'Song'} added to ${playlist.name || 'playlist'}.`);
+      setSelectedPlaylists(current => ({ ...current, [song.id]: '' }));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to add this song to your playlist.');
+    } finally {
+      setBusy('');
+    }
   }
 
   async function removeFromPlaylist(playlist: Playlist, songId: string) {
@@ -249,10 +267,26 @@ export default function LibraryPage() {
 
   function songActions(song: Song, queue: Song[]) {
     const index = queue.findIndex(item => item.id === song.id);
-    return <><div className={styles.actions}><button className={`${styles.button} ${styles.buttonPrimary}`} onClick={() => playSong(song, queue, index)}><Play size={15}/> Play</button><button className={styles.button} onClick={() => enqueue(song)}><ListPlus size={15}/> Queue</button>{isCreator && <button className={styles.button} disabled={busy === `download-${song.id}`} onClick={() => download(song)}>{busy === `download-${song.id}` ? 'Preparing…' : 'Download'}</button>}</div>{playlists.length > 0 && <div className={styles.addRow}><select value={selectedPlaylists[song.id] || ''} onChange={event => setSelectedPlaylists(current => ({ ...current, [song.id]: event.target.value }))}><option value="">Choose playlist</option>{playlists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name || 'Untitled playlist'}</option>)}</select><button onClick={() => addToPlaylist(song)}>Add</button></div>}</>;
+    return <><div className={styles.actions}><button className={`${styles.button} ${styles.buttonPrimary}`} onClick={() => playSong(song, queue, index)}><Play size={15}/> Play</button><button className={styles.button} onClick={() => enqueue(song)}><ListPlus size={15}/> Queue</button>{isCreator && <button className={styles.button} disabled={busy === `download-${song.id}`} onClick={() => download(song)}>{busy === `download-${song.id}` ? 'Preparing…' : 'Download'}</button>}</div>{playlists.length > 0 && <div className={styles.addRow}><select value={selectedPlaylists[song.id] || ''} onChange={event => setSelectedPlaylists(current => ({ ...current, [song.id]: event.target.value }))}><option value="">Choose playlist</option>{playlists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name || 'Untitled playlist'}</option>)}</select><button disabled={busy === `playlist-add-${song.id}`} onClick={() => addToPlaylist(song)}>{busy === `playlist-add-${song.id}` ? 'Adding…' : 'Add'}</button></div>}</>;
   }
 
   return <main className={styles.shell}>
+    <style jsx global>{`
+      @media (max-width: 700px) {
+        .aureon-library-album-song { display:grid !important; grid-template-columns:1fr !important; gap:12px !important; padding:14px 10px !important; }
+        .aureon-library-song-info { display:grid !important; grid-template-columns:28px minmax(0,1fr) !important; gap:12px !important; width:100% !important; min-width:0 !important; }
+        .aureon-library-song-info strong { white-space:normal !important; overflow:visible !important; text-overflow:clip !important; line-height:1.25 !important; }
+        .aureon-library-song-actions { display:grid !important; grid-template-columns:44px 44px minmax(0,1fr) 58px !important; gap:8px !important; padding-left:40px !important; width:100% !important; box-sizing:border-box !important; align-items:center !important; }
+        .aureon-library-song-actions select { width:100% !important; max-width:none !important; min-width:0 !important; height:44px !important; font-size:16px !important; }
+        .aureon-library-song-actions button { width:44px !important; min-width:44px !important; height:44px !important; }
+        .aureon-library-song-actions button.aureon-library-add { width:58px !important; min-width:58px !important; border-radius:12px !important; }
+      }
+      @media (max-width: 390px) {
+        .aureon-library-song-actions { grid-template-columns:42px 42px minmax(0,1fr) 54px !important; padding-left:36px !important; gap:6px !important; }
+        .aureon-library-song-actions button { width:42px !important; min-width:42px !important; height:42px !important; }
+        .aureon-library-song-actions button.aureon-library-add { width:54px !important; min-width:54px !important; }
+      }
+    `}</style>
     <div className={styles.topbar}><Link href="/account">← Member dashboard</Link><Link href="/">Return to website</Link></div>
     <section className={styles.hero}><p className={styles.kicker}>Member Library</p><h1>Your music. Your way.</h1><p>Find music by artist, open an album to see its songs, or search directly for any track.</p></section>
     {message && <p className={styles.message}>{message}</p>}
@@ -281,7 +315,7 @@ export default function LibraryPage() {
       <section className={styles.section}>
         <div className={styles.sectionHeader}><div><p className={styles.kicker}>Full catalogue</p><h2>Browse music</h2></div><p>{filteredSongs.length} of {songs.length} tracks</p></div>
         <div className={styles.libraryTools}><label className={styles.searchBox}><Search size={20}/><input value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Search song, album, artist or genre"/></label><select value={artistFilter} onChange={event => setArtistFilter(event.target.value)}><option value="all">All artists</option>{artists.map(artist => <option key={artist} value={artist}>{artist}</option>)}</select><select value={genreFilter} onChange={event => setGenreFilter(event.target.value)}><option value="all">All genres</option>{genres.map(genre => <option key={genre} value={genre}>{genre}</option>)}</select></div>
-        {songsLoading ? <div className={styles.catalogue}>{[1,2,3].map(item => <div className={styles.skeletonCard} key={item}><div/><span/><span/></div>)}</div> : !filteredSongs.length ? <div className={styles.emptyState}><h3>No matching releases</h3><p>Try another song, album, artist or genre.</p><button className={styles.button} onClick={() => { setSearchText(''); setArtistFilter('all'); setGenreFilter('all'); }}>Clear filters</button></div> : searchText.trim() ? <div className={styles.catalogue}>{filteredSongs.map(song => <article className={styles.songCard} key={song.id}><div className={styles.artworkWrap}><img src={song.coverImageUrl || song.imageUrl || '/images/branding/Aureon_Header_Logo.png'} alt={`${song.title || 'Song'} cover`}/></div><div className={styles.songBody}><h3>{song.title || 'Untitled track'}</h3><p>{song.artistName || song.artist || 'Aureon Music Group'}{song.albumTitle ? ` · ${song.albumTitle}` : ''}</p><div className={styles.metadata}><span><Clock3 size={14}/> {durationLabel(song.duration)}</span><span>{yearLabel(song)}</span></div>{songActions(song, filteredSongs)}</div></article>)}</div> : <div className={styles.artistDirectory}>{artistGroups.map(artist => <section className={styles.artistGroup} key={artist.name}><div className={styles.artistHeading}><div><p className={styles.kicker}>Artist</p><h3>{artist.name}</h3></div><span>{artist.albums.length} {artist.albums.length === 1 ? 'album' : 'albums'}</span></div><div className={styles.albumGrid}>{artist.albums.map(album => <details className={styles.albumFolder} key={`${artist.name}-${album.title}`}><summary><img src={album.artwork} alt=""/><div><strong>{album.title}</strong><span>{album.songs.length} {album.songs.length === 1 ? 'track' : 'tracks'}</span></div><ChevronDown/></summary><div className={styles.albumSongs}>{album.songs.map((song, index) => <article className={`${styles.albumSong} ${currentSong?.id === song.id ? styles.currentSong : ''}`} key={song.id}><button className={styles.albumSongInfo} onClick={() => playSong(song, album.songs, index)}><span>{song.trackNumber || index + 1}</span><div><strong>{song.title || 'Untitled track'}</strong><small>{durationLabel(song.duration)}</small></div></button><div className={styles.albumSongActions}><button onClick={() => playSong(song, album.songs, index)} aria-label={`Play ${song.title || 'track'}`}><Play size={16}/></button><button onClick={() => enqueue(song)} aria-label={`Queue ${song.title || 'track'}`}><ListPlus size={16}/></button>{playlists.length > 0 && <select aria-label={`Add ${song.title || 'track'} to playlist`} value={selectedPlaylists[song.id] || ''} onChange={event => { const value = event.target.value; setSelectedPlaylists(current => ({ ...current, [song.id]: value })); }}><option value="">Playlist…</option>{playlists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name || 'Untitled playlist'}</option>)}</select>}{playlists.length > 0 && <button onClick={() => addToPlaylist(song)}>Add</button>}{isCreator && <button disabled={busy === `download-${song.id}`} onClick={() => download(song)}>↓</button>}</div></article>)}</div></details>)}</div></section>)}</div>}
+        {songsLoading ? <div className={styles.catalogue}>{[1,2,3].map(item => <div className={styles.skeletonCard} key={item}><div/><span/><span/></div>)}</div> : !filteredSongs.length ? <div className={styles.emptyState}><h3>No matching releases</h3><p>Try another song, album, artist or genre.</p><button className={styles.button} onClick={() => { setSearchText(''); setArtistFilter('all'); setGenreFilter('all'); }}>Clear filters</button></div> : searchText.trim() ? <div className={styles.catalogue}>{filteredSongs.map(song => <article className={styles.songCard} key={song.id}><div className={styles.artworkWrap}><img src={song.coverImageUrl || song.imageUrl || '/images/branding/Aureon_Header_Logo.png'} alt={`${song.title || 'Song'} cover`}/></div><div className={styles.songBody}><h3>{song.title || 'Untitled track'}</h3><p>{song.artistName || song.artist || 'Aureon Music Group'}{song.albumTitle ? ` · ${song.albumTitle}` : ''}</p><div className={styles.metadata}><span><Clock3 size={14}/> {durationLabel(song.duration)}</span><span>{yearLabel(song)}</span></div>{songActions(song, filteredSongs)}</div></article>)}</div> : <div className={styles.artistDirectory}>{artistGroups.map(artist => <section className={styles.artistGroup} key={artist.name}><div className={styles.artistHeading}><div><p className={styles.kicker}>Artist</p><h3>{artist.name}</h3></div><span>{artist.albums.length} {artist.albums.length === 1 ? 'album' : 'albums'}</span></div><div className={styles.albumGrid}>{artist.albums.map(album => <details className={styles.albumFolder} key={`${artist.name}-${album.title}`}><summary><img src={album.artwork} alt=""/><div><strong>{album.title}</strong><span>{album.songs.length} {album.songs.length === 1 ? 'track' : 'tracks'}</span></div><ChevronDown/></summary><div className={styles.albumSongs}>{album.songs.map((song, index) => <article className={`${styles.albumSong} aureon-library-album-song ${currentSong?.id === song.id ? styles.currentSong : ''}`} key={song.id}><button className={`${styles.albumSongInfo} aureon-library-song-info`} onClick={() => playSong(song, album.songs, index)}><span>{song.trackNumber || index + 1}</span><div><strong>{song.title || 'Untitled track'}</strong><small>{durationLabel(song.duration)}</small></div></button><div className={`${styles.albumSongActions} aureon-library-song-actions`}><button onClick={() => playSong(song, album.songs, index)} aria-label={`Play ${song.title || 'track'}`}><Play size={16}/></button><button onClick={() => enqueue(song)} aria-label={`Queue ${song.title || 'track'}`}><ListPlus size={16}/></button>{playlists.length > 0 && <select aria-label={`Add ${song.title || 'track'} to playlist`} value={selectedPlaylists[song.id] || ''} onChange={event => { const value = event.target.value; setSelectedPlaylists(current => ({ ...current, [song.id]: value })); }}><option value="">Playlist…</option>{playlists.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name || 'Untitled playlist'}</option>)}</select>}{playlists.length > 0 && <button className="aureon-library-add" disabled={busy === `playlist-add-${song.id}`} onClick={() => addToPlaylist(song)}>{busy === `playlist-add-${song.id}` ? '…' : 'Add'}</button>}{isCreator && <button disabled={busy === `download-${song.id}`} onClick={() => download(song)}>↓</button>}</div></article>)}</div></details>)}</div></section>)}</div>}
       </section>
     </>}
 
