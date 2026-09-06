@@ -5,12 +5,7 @@ import { DEFAULT_ARTWORK, getArtwork } from '@/lib/get-artwork';
 import { useMusicPlayer } from './MusicPlayerProvider';
 
 function getAudio() {
-  return document.querySelector('.aureon-global-player + audio, audio') as HTMLAudioElement | null;
-}
-
-function clickPlayerControl(label: string) {
-  const button = document.querySelector(`.aureon-global-player button[aria-label="${label}"]`) as HTMLButtonElement | null;
-  button?.click();
+  return document.querySelector('audio') as HTMLAudioElement | null;
 }
 
 function mediaArtwork(source: string) {
@@ -22,7 +17,7 @@ function mediaArtwork(source: string) {
 }
 
 export default function BackgroundPlaybackBridge() {
-  const { currentSong, isPlaying } = useMusicPlayer();
+  const { currentSong, isPlaying, next, previous, seekBy, seekTo } = useMusicPlayer();
 
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
@@ -61,6 +56,7 @@ export default function BackgroundPlaybackBridge() {
       audio.setAttribute('x-webkit-airplay', 'allow');
     }
     if (!('mediaSession' in navigator)) return;
+
     const mediaSession = navigator.mediaSession;
     const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
       try { mediaSession.setActionHandler(action, handler); } catch {}
@@ -73,20 +69,20 @@ export default function BackgroundPlaybackBridge() {
     });
     setHandler('pause', () => getAudio()?.pause());
 
-    // Only advertise real track navigation to iOS/CarPlay/Android media UIs.
-    // Registering seekforward/seekbackward causes iOS to replace track-skip
-    // controls with misleading +/-10 second buttons on the lock screen and in
-    // some vehicle interfaces.
-    setHandler('nexttrack', () => clickPlayerControl('Next'));
-    setHandler('previoustrack', () => clickPlayerControl('Previous'));
-    setHandler('seekforward', null);
-    setHandler('seekbackward', null);
+    // Advertise proper track controls to Bluetooth/CarPlay/Android Auto.
+    // Call the player actions directly instead of relying on simulated DOM clicks.
+    setHandler('nexttrack', () => { void next(); });
+    setHandler('previoustrack', () => { void previous(); });
 
-    // Preserve direct timeline scrubbing through the lock-screen progress bar.
+    // Some vehicle/iOS media surfaces insist on rendering 10-second seek icons
+    // for web audio. Map those hardware/media commands to track navigation too,
+    // so the left/right external controls still perform Previous/Next songs.
+    setHandler('seekforward', () => { void next(); });
+    setHandler('seekbackward', () => { void previous(); });
+
     setHandler('seekto', details => {
-      const activeAudio = getAudio();
-      if (!activeAudio || details.seekTime == null || !Number.isFinite(activeAudio.duration)) return;
-      activeAudio.currentTime = Math.min(Math.max(0, details.seekTime), activeAudio.duration);
+      if (details.seekTime == null) return;
+      seekTo(details.seekTime);
     });
 
     return () => {
@@ -98,7 +94,7 @@ export default function BackgroundPlaybackBridge() {
       setHandler('seekforward', null);
       setHandler('seekbackward', null);
     };
-  }, []);
+  }, [next, previous, seekBy, seekTo]);
 
   return null;
 }
