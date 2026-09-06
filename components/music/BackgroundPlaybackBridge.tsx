@@ -17,7 +17,7 @@ function mediaArtwork(source: string) {
 }
 
 export default function BackgroundPlaybackBridge() {
-  const { currentSong, isPlaying, next, previous, seekBy, seekTo } = useMusicPlayer();
+  const { currentSong, isPlaying, next, previous, seekTo } = useMusicPlayer();
 
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
@@ -31,7 +31,7 @@ export default function BackgroundPlaybackBridge() {
       mediaSession.metadata = new MediaMetadata({
         title: currentSong.title || 'Aureon Music Group',
         artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
-        album: 'Aureon Music Group',
+        album: currentSong.album || 'Aureon Music Group',
         artwork: [
           { src: artwork, sizes: '512x512' },
           { src: artwork, sizes: '256x256' },
@@ -69,17 +69,17 @@ export default function BackgroundPlaybackBridge() {
     });
     setHandler('pause', () => getAudio()?.pause());
 
-    // Advertise proper track controls to Bluetooth/CarPlay/Android Auto.
-    // Call the player actions directly instead of relying on simulated DOM clicks.
-    setHandler('nexttrack', () => { void next(); });
+    // These are the standard AVRCP/MediaSession track actions consumed by
+    // Bluetooth head units, CarPlay, Android Auto and lock-screen media UIs.
     setHandler('previoustrack', () => { void previous(); });
+    setHandler('nexttrack', () => { void next(); });
 
-    // Some vehicle/iOS media surfaces insist on rendering 10-second seek icons
-    // for web audio. Map those hardware/media commands to track navigation too,
-    // so the left/right external controls still perform Previous/Next songs.
-    setHandler('seekforward', () => { void next(); });
-    setHandler('seekbackward', () => { void previous(); });
+    // Do NOT advertise +/-10-second actions. Registering these makes several
+    // iOS/vehicle surfaces choose seek buttons instead of previous/next track.
+    setHandler('seekbackward', null);
+    setHandler('seekforward', null);
 
+    // Timeline scrubbing can remain supported independently of skip buttons.
     setHandler('seekto', details => {
       if (details.seekTime == null) return;
       seekTo(details.seekTime);
@@ -88,13 +88,13 @@ export default function BackgroundPlaybackBridge() {
     return () => {
       setHandler('play', null);
       setHandler('pause', null);
-      setHandler('nexttrack', null);
       setHandler('previoustrack', null);
-      setHandler('seekto', null);
-      setHandler('seekforward', null);
+      setHandler('nexttrack', null);
       setHandler('seekbackward', null);
+      setHandler('seekforward', null);
+      setHandler('seekto', null);
     };
-  }, [next, previous, seekBy, seekTo]);
+  }, [next, previous, seekTo]);
 
   return null;
 }
