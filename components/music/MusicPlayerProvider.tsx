@@ -27,6 +27,11 @@ type PlayerContextValue = {
   playSong: (song: PlayerSong, queue?: PlayerSong[], index?: number) => Promise<void>;
   resumeSong: (song: PlayerSong, positionSeconds: number, queue?: PlayerSong[], index?: number) => Promise<void>;
   playQueue: (songs: PlayerSong[], index?: number) => Promise<void>;
+  next: () => Promise<void>;
+  previous: () => Promise<void>;
+  toggle: () => Promise<void>;
+  seekBy: (seconds: number) => void;
+  seekTo: (seconds: number) => void;
   enqueue: (song: PlayerSong) => void;
   enqueueMany: (songs: PlayerSong[]) => void;
   removeFromQueue: (index: number) => void;
@@ -308,8 +313,6 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
 
   const playQueue = useCallback(async (songs: PlayerSong[], startIndex = 0) => {
     if (!songs.length) return;
-    // Start the requested track immediately. Do not wait for every song in the
-    // playlist to obtain a playback ticket before beginning playback.
     await loadAt(startIndex, songs, 0);
     warmQueue(songs, startIndex);
   }, [loadAt, warmQueue]);
@@ -357,13 +360,11 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     const activeQueue = queueRef.current;
     const activeIndex = indexRef.current;
     if (!activeQueue.length) return;
-
     if (repeatModeRef.current === 'one' && audioRef.current) {
       audioRef.current.currentTime = 0;
       void audioRef.current.play();
       return;
     }
-
     let nextIndex = activeIndex + 1;
     if (shuffleRef.current && activeQueue.length > 1) {
       nextIndex = activeIndex;
@@ -375,10 +376,6 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
       }
       nextIndex = 0;
     }
-
-    // Critical for locked-screen playback: if the next ticket was prepared
-    // while the page was active, switch the same media element immediately in
-    // the native `ended` event instead of waiting for React/network work.
     if (playPreparedIndex(nextIndex, activeQueue)) return;
     void loadAt(nextIndex, activeQueue);
   }, [loadAt, playPreparedIndex]);
@@ -388,7 +385,6 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     if (!audio || !audioUrl) return;
     const currentAttribute = audio.getAttribute('src') || '';
     if (currentAttribute === audioUrl) return;
-
     audio.pause();
     audio.src = audioUrl;
     audio.volume = volume;
@@ -430,7 +426,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     return () => window.removeEventListener('pagehide', saveBeforeLeave);
   }, [memberActivity]);
 
-  const toggle = async () => {
+  const toggle = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
     const song = queueRef.current[indexRef.current];
@@ -441,14 +437,27 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     } catch {
       setError('Unable to control playback.');
     }
-  };
+  }, [playSong]);
+
+  const seekTo = useCallback((seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(seconds)) return;
+    const limit = Number.isFinite(audio.duration) ? audio.duration : Number.MAX_SAFE_INTEGER;
+    audio.currentTime = Math.min(Math.max(0, seconds), limit);
+  }, []);
+
+  const seekBy = useCallback((seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(seconds)) return;
+    seekTo(audio.currentTime + seconds);
+  }, [seekTo]);
 
   const enqueue = (song: PlayerSong) => setQueue(current => current.some(item => item.id === song.id) ? current : [...current, song]);
   const enqueueMany = (songs: PlayerSong[]) => setQueue(current => [...current, ...songs.filter(song => !current.some(item => item.id === song.id))]);
   const removeFromQueue = (removeIndex: number) => setQueue(current => current.filter((_, itemIndex) => itemIndex !== removeIndex));
   const clearQueue = () => resetPlayer(true);
 
-  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, resumeSong, playQueue, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue, resumeSong]);
+  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, resumeSong, playQueue, next, previous, toggle, seekBy, seekTo, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue, resumeSong, next, previous, toggle, seekBy, seekTo]);
 
   return <PlayerContext.Provider value={value}>
     {children}
@@ -482,7 +491,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
           <button onClick={next} aria-label="Next"><SkipForward /></button>
           <button className={repeatMode !== 'off' ? 'active' : ''} onClick={() => setRepeatMode(value => value === 'off' ? 'all' : value === 'all' ? 'one' : 'off')} aria-label="Repeat">{repeatMode === 'one' ? <Repeat1 /> : <Repeat2 />}</button>
         </div>
-        <div className="aureon-player-progress"><span>{formatTime(currentTime)}</span><input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={event => { if (audioRef.current) audioRef.current.currentTime = Number(event.target.value); }} /><span>{formatTime(duration)}</span></div>
+        <div className="aureon-player-progress"><span>{formatTime(currentTime)}</span><input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={event => seekTo(Number(event.target.value))} /><span>{formatTime(duration)}</span></div>
       </div>
       <div className="aureon-player-side">
         <button onClick={() => setQueueOpen(value => !value)} aria-label="Queue"><ListMusic /></button>
