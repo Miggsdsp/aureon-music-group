@@ -66,7 +66,7 @@ type SubscriptionEmail = {
 function emailConfig() {
   return {
     apiKey: process.env.RESEND_API_KEY,
-    from: process.env.TRANSACTIONAL_EMAIL_FROM || 'Aureon Music Group <members@aureonmusicgroup.com>',
+    from: 'Aureon Music Group <info@aureonmusicgroup.com>',
   };
 }
 
@@ -113,7 +113,7 @@ export async function sendPurchaseReceiptEmail(input: PurchaseReceiptEmail) {
     to: input.to,
     subject: `Aureon order confirmation & receipt — ${input.orderNumber}`,
     text: `Thank you for your Aureon purchase.\n\nOrder: ${input.orderNumber}\nTotal paid: ${formatMoney(input.amountTotal, input.currency)}\n\n${textItems}${address.length ? `\n\nDelivery address:\n${address.join('\n')}` : ''}\n\nWe will email you again if your merchandise order requires a shipping update.`,
-    html: `<div style="background:#050505;padding:32px;font-family:Arial,sans-serif;color:#f5f1e8;"><div style="max-width:680px;margin:0 auto;border:1px solid #5b4925;padding:34px;background:#0b0b0b;"><p style="letter-spacing:3px;color:#d8b85f;text-transform:uppercase;">Aureon Music Group</p><h1 style="font-size:30px;margin:12px 0 18px;">Order confirmed.</h1><p>Hello ${escapeHtml(input.customerName || 'Aureon customer')},</p><p>Thank you for your purchase. Your payment has been received successfully.</p><p><strong>Order reference:</strong> ${escapeHtml(input.orderNumber)}</p><table style="width:100%;border-collapse:collapse;margin-top:24px;color:#f5f1e8;"><thead><tr><th style="padding:10px 8px;text-align:left;border-bottom:1px solid #806a35;">Item</th><th style="padding:10px 8px;text-align:center;border-bottom:1px solid #806a35;">Qty</th><th style="padding:10px 8px;text-align:right;border-bottom:1px solid #806a35;">Amount</th></tr></thead><tbody>${itemHtml}</tbody></table><p style="font-size:20px;text-align:right;margin-top:22px;"><strong>Total paid: ${escapeHtml(formatMoney(input.amountTotal, input.currency))}</strong></p>${addressHtml}<p style="margin-top:26px;color:#aaa;font-size:13px;">Keep this email as your purchase confirmation and receipt.</p></div></div>`,
+    html: `<div style="background:#050505;padding:32px;font-family:Arial,sans-serif;color:#f5f1e8;"><div style="max-width:680px;margin:0 auto;border:1px solid #5b4925;padding:34px;background:#0b0b0b;"><p style="letter-spacing:3px;color:#d8b85f;text-transform:uppercase;">Aureon Music Group</p><h1 style="font-size:30px;margin:12px 0 18px;">Order confirmed.</h1><p>Hello ${escapeHtml(input.customerName || 'Aureon customer')},</p><p>Thank you for your purchase. Your payment has been received successfully.</p><p><strong>Order reference:</strong> ${escapeHtml(input.orderNumber)}</p><table style="width:100%;border-collapse:collapse;margin-top:24px;color:#f5f1e8;"><thead><tr><th style="padding:10px 8px;text-align:left;border-bottom:1px solid #806a35;">Item</th><th style="padding:10px 8px;text-align:center;border-bottom:1px solid #806a35;">Qty</th><th style="padding:10px 8px;border-bottom:1px solid #806a35;text-align:right;">Amount</th></tr></thead><tbody>${itemHtml}</tbody></table><p style="font-size:20px;text-align:right;margin-top:22px;"><strong>Total paid: ${escapeHtml(formatMoney(input.amountTotal, input.currency))}</strong></p>${addressHtml}<p style="margin-top:26px;color:#aaa;font-size:13px;">Keep this email as your purchase confirmation and receipt.</p></div></div>`,
   });
 }
 
