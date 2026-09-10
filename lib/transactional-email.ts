@@ -5,6 +5,7 @@ type DownloadEmailItem = {
 };
 
 type PurchaseEmail = {
+  idempotencyKey?: string;
   to: string;
   customerName?: string;
   orderNumber: string;
@@ -21,6 +22,7 @@ type ReceiptItem = {
 };
 
 type PurchaseReceiptEmail = {
+  idempotencyKey?: string;
   to: string;
   customerName?: string;
   orderNumber: string;
@@ -40,7 +42,7 @@ type PurchaseReceiptEmail = {
 type FulfilmentNotification = PurchaseReceiptEmail & {
   customerEmail: string;
   customerPhone?: string;
-  paidAt?: Date;
+  paidAt?: Date | string;
 };
 
 export type SubscriptionEmailKind =
@@ -70,7 +72,7 @@ function emailConfig() {
   };
 }
 
-async function sendEmail(payload: { to: string; subject: string; text: string; html: string }) {
+async function sendEmail(payload: { to: string; subject: string; text: string; html: string; idempotencyKey?: string }) {
   const { apiKey, from } = emailConfig();
   if (!apiKey) {
     console.warn('RESEND_API_KEY is not configured. Transactional email was not sent.');
@@ -79,7 +81,8 @@ async function sendEmail(payload: { to: string; subject: string; text: string; h
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...(payload.idempotencyKey ? { 'Idempotency-Key': payload.idempotencyKey } : {}) },
+    signal: AbortSignal.timeout(20000),
     body: JSON.stringify({ from, to: [payload.to], subject: payload.subject, text: payload.text, html: payload.html }),
   });
 
@@ -111,6 +114,7 @@ export async function sendPurchaseReceiptEmail(input: PurchaseReceiptEmail) {
 
   return sendEmail({
     to: input.to,
+    idempotencyKey: input.idempotencyKey,
     subject: `Aureon order confirmation & receipt — ${input.orderNumber}`,
     text: `Thank you for your Aureon purchase.\n\nOrder: ${input.orderNumber}\nTotal paid: ${formatMoney(input.amountTotal, input.currency)}\n\n${textItems}${address.length ? `\n\nDelivery address:\n${address.join('\n')}` : ''}\n\nWe will email you again if your merchandise order requires a shipping update.`,
     html: `<div style="background:#050505;padding:32px;font-family:Arial,sans-serif;color:#f5f1e8;"><div style="max-width:680px;margin:0 auto;border:1px solid #5b4925;padding:34px;background:#0b0b0b;"><p style="letter-spacing:3px;color:#d8b85f;text-transform:uppercase;">Aureon Music Group</p><h1 style="font-size:30px;margin:12px 0 18px;">Order confirmed.</h1><p>Hello ${escapeHtml(input.customerName || 'Aureon customer')},</p><p>Thank you for your purchase. Your payment has been received successfully.</p><p><strong>Order reference:</strong> ${escapeHtml(input.orderNumber)}</p><table style="width:100%;border-collapse:collapse;margin-top:24px;color:#f5f1e8;"><thead><tr><th style="padding:10px 8px;text-align:left;border-bottom:1px solid #806a35;">Item</th><th style="padding:10px 8px;text-align:center;border-bottom:1px solid #806a35;">Qty</th><th style="padding:10px 8px;border-bottom:1px solid #806a35;text-align:right;">Amount</th></tr></thead><tbody>${itemHtml}</tbody></table><p style="font-size:20px;text-align:right;margin-top:22px;"><strong>Total paid: ${escapeHtml(formatMoney(input.amountTotal, input.currency))}</strong></p>${addressHtml}<p style="margin-top:26px;color:#aaa;font-size:13px;">Keep this email as your purchase confirmation and receipt.</p></div></div>`,
@@ -124,8 +128,9 @@ export async function sendFulfilmentOrderNotification(input: FulfilmentNotificat
   const rows = input.items.map(item => `${item.quantity} × ${item.name}${item.size ? ` | Size: ${item.size}` : ''}${item.colour ? ` | Colour: ${item.colour}` : ''}`).join('\n');
   return sendEmail({
     to: operationsEmail,
+    idempotencyKey: input.idempotencyKey,
     subject: `NEW MERCH ORDER — ${input.orderNumber} — dispatch required`,
-    text: `A new paid merchandise order requires fulfilment.\n\nOrder: ${input.orderNumber}\nDate/time: ${(input.paidAt || new Date()).toLocaleString('en-IE')}\nCustomer: ${input.customerName || ''}\nEmail: ${input.customerEmail}\nPhone: ${input.customerPhone || ''}\nTotal: ${formatMoney(input.amountTotal, input.currency)}\n\nITEMS\n${rows}\n\nDELIVERY ADDRESS\n${address.join('\n') || 'Not captured'}\n\nOpen the Aureon admin fulfilment dashboard to process this order.`,
+    text: `A new paid merchandise order requires fulfilment.\n\nOrder: ${input.orderNumber}\nDate/time: ${new Date(input.paidAt instanceof Date ? input.paidAt.getTime() : input.paidAt || Date.now()).toLocaleString('en-IE')}\nCustomer: ${input.customerName || ''}\nEmail: ${input.customerEmail}\nPhone: ${input.customerPhone || ''}\nTotal: ${formatMoney(input.amountTotal, input.currency)}\n\nITEMS\n${rows}\n\nDELIVERY ADDRESS\n${address.join('\n') || 'Not captured'}\n\nOpen the Aureon admin fulfilment dashboard to process this order.`,
     html: `<div style="font-family:Arial,sans-serif;background:#080808;color:#f4f0e6;padding:30px;"><div style="max-width:680px;margin:auto;border:1px solid #806a35;padding:28px;"><h1 style="color:#d8b85f;">New merchandise order</h1><p><strong>${escapeHtml(input.orderNumber)}</strong></p><p>${escapeHtml(input.customerName || '')}<br>${escapeHtml(input.customerEmail)}<br>${escapeHtml(input.customerPhone || '')}</p><pre style="white-space:pre-wrap;font-family:Arial,sans-serif;background:#111;padding:16px;">${escapeHtml(rows)}</pre><h3>Delivery address</h3><p>${address.map(escapeHtml).join('<br>') || 'Not captured'}</p><p><strong>Total: ${escapeHtml(formatMoney(input.amountTotal, input.currency))}</strong></p></div></div>`,
   });
 }
@@ -141,6 +146,7 @@ export async function sendPurchaseDownloadEmail(input: PurchaseEmail) {
 
   return sendEmail({
     to: input.to,
+    idempotencyKey: input.idempotencyKey,
     subject: `Your Aureon download is ready — ${input.orderNumber}`,
     text: `Your Aureon music is ready.\n\nOrder reference: ${input.orderNumber}\n\nEach purchased song can be downloaded once only.\n\n${textItems}\n\nIf a technical problem prevents your download, contact Aureon support and quote your order reference.`,
     html: `<div style="background:#050505;padding:32px;font-family:Arial,sans-serif;color:#f5f1e8;"><div style="max-width:640px;margin:0 auto;"><p style="letter-spacing:3px;color:#d8b85f;text-transform:uppercase;">Aureon Music Group</p><h1 style="font-size:32px;margin:10px 0 18px;">Your music is ready.</h1><p>Hello ${escapeHtml(input.customerName || 'music lover')},</p><p>Thank you for your purchase. Your order reference is <strong>${escapeHtml(input.orderNumber)}</strong>.</p><p><strong>Each purchased song can be downloaded once only.</strong> Save the file securely after the download begins. Opening this email does not use your download.</p><div style="margin-top:28px;">${itemHtml}</div><p style="margin-top:26px;color:#bcbcbc;">If a genuine technical problem prevents your download, contact Aureon support and quote your order reference.</p></div></div>`,

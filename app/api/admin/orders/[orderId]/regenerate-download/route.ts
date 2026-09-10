@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminFirestore } from '@/lib/firebase-admin';
 import { requireAdminApi } from '@/lib/require-admin-api';
+import { purchaseDownloadEmailKey } from '@/lib/purchase-email-fulfilment';
 import { sendPurchaseDownloadEmail } from '@/lib/transactional-email';
 
 export const runtime = 'nodejs';
@@ -97,7 +98,12 @@ export async function POST(request: Request, context: Context) {
       });
     });
 
+    batch.delete(orderRef.collection('emailFulfilment').doc('download'));
     batch.set(orderRef, {
+      receiptEmailStatus: order.receiptEmailStatus || (order.emailStatus === 'sent' ? 'sent' : 'pending'),
+      downloadEmailStatus: 'pending',
+      purchaseEmailsPending: true,
+      purchaseEmailRetryAt: Date.now(),
       downloadStatus: 'available',
       downloadRegeneratedAt: FieldValue.serverTimestamp(),
       downloadRegeneratedBy: admin.uid,
@@ -106,23 +112,22 @@ export async function POST(request: Request, context: Context) {
     await batch.commit();
 
     const siteUrl = getPublicSiteUrl();
+    const emailItems = songs.map(song => ({ title: song.title, artist: song.artist, downloadUrl: `${siteUrl}/api/download/${song.token}` }));
     const result = await sendPurchaseDownloadEmail({
+      idempotencyKey: purchaseDownloadEmailKey(orderId, emailItems),
       to: customerEmail,
       customerName: String(order.customerName || ''),
       orderNumber: String(order.orderNumber || orderId),
-      items: songs.map(song => ({
-        title: song.title,
-        artist: song.artist,
-        downloadUrl: `${siteUrl}/api/download/${song.token}`
-      }))
+      items: emailItems
     });
 
     await orderRef.set({
-      emailStatus: result.sent ? 'sent' : 'not-configured',
-      emailSentAt: result.sent ? FieldValue.serverTimestamp() : null,
+      downloadEmailStatus: result.sent ? 'sent' : 'not-configured',
+      downloadEmailSentAt: result.sent ? FieldValue.serverTimestamp() : null,
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
+    if (!result.sent) return NextResponse.json({ error: 'Download regenerated, but email delivery is pending. Do not regenerate again.' }, { status: 503 });
     return NextResponse.json({ ok: true, downloads: songs.length, expiresAt: expiresAt.toISOString() });
   } catch (error) {
     console.error('Download regeneration failed:', error);

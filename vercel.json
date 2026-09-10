@@ -1,5 +1,6 @@
 {
   "crons": [
+    { "path": "/api/cron/purchase-emails", "schedule": "45 8 * * *" },
     { "path": "/api/cron/lifecycle-emails", "schedule": "15 8 * * *" },
     { "path": "/api/cron/merchandise-digest", "schedule": "30 8 * * *" },
     { "path": "/api/cron/music-sales-digest", "schedule": "35 8 * * *" },
