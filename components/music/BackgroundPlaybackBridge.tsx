@@ -31,7 +31,7 @@ export default function BackgroundPlaybackBridge() {
       mediaSession.metadata = new MediaMetadata({
         title: currentSong.title || 'Aureon Music Group',
         artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
-        album: currentSong.album || 'Aureon Music Group',
+        album: 'Aureon Music Group',
         artwork: [
           { src: artwork, sizes: '512x512' },
           { src: artwork, sizes: '256x256' },
