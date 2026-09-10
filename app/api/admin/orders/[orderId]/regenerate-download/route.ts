@@ -21,6 +21,14 @@ function getPrivateFilePath(data: Record<string, any>) {
   return String(data.privateFilePath || details.privateFilePath || data.fullTrackPath || details.fullTrackPath || '').trim();
 }
 
+function getPublicSiteUrl() {
+  const productionUrl = 'https://www.aureonmusicgroup.com';
+  const configured = String(process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+  if (process.env.NODE_ENV === 'production') return productionUrl;
+  if (!configured || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configured)) return configured || 'http://localhost:3000';
+  return configured;
+}
+
 export async function POST(request: Request, context: Context) {
   try {
     const admin = await requireAdminApi(request);
@@ -97,7 +105,7 @@ export async function POST(request: Request, context: Context) {
     }, { merge: true });
     await batch.commit();
 
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/, '');
+    const siteUrl = getPublicSiteUrl();
     const result = await sendPurchaseDownloadEmail({
       to: customerEmail,
       customerName: String(order.customerName || ''),
