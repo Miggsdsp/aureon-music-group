@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
 import { adminFirestore } from '@/lib/firebase-admin';
+import { artistLookupSlugs } from '@/lib/artist-identity';
 import { isPublicContent, normalizePublicRecord } from '@/lib/public-content';
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/, '');
@@ -21,12 +22,17 @@ export function text(value: unknown, fallback = '') {
 
 export const getPublishedRecord = cache(async (collectionName: string, slug: string): Promise<SeoRecord | null> => {
   if (!slug || slug.includes('/')) return null;
-  const direct = await adminFirestore.collection(collectionName).doc(slug).get();
-  if (direct.exists && isPublicContent(direct.data()!)) return normalizePublicRecord(direct.data()!, direct.id);
-  const snapshot = await adminFirestore.collection(collectionName).where('slug', '==', slug).where('status', '==', 'published').limit(1).get();
-  if (snapshot.empty) return null;
-  const record = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-  return isPublicContent(record) ? normalizePublicRecord(record, snapshot.docs[0].id) : null;
+  const candidates = collectionName === 'artists' ? artistLookupSlugs(slug) : [slug];
+  for (const candidate of candidates) {
+    const direct = await adminFirestore.collection(collectionName).doc(candidate).get();
+    if (direct.exists && isPublicContent(direct.data()!)) return normalizePublicRecord(direct.data()!, direct.id);
+    const snapshot = await adminFirestore.collection(collectionName).where('slug', '==', candidate).where('status', '==', 'published').limit(1).get();
+    if (!snapshot.empty) {
+      const record = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+      if (isPublicContent(record)) return normalizePublicRecord(record, snapshot.docs[0].id);
+    }
+  }
+  return null;
 });
 
 export const getPublishedRecords = cache(async (collectionName: string): Promise<SeoRecord[]> => {
