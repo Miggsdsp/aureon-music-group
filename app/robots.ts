@@ -7,7 +7,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin/', '/api/', '/account/', '/checkout/', '/library/'],
+        // Allow crawlers to read explicit noindex metadata / X-Robots-Tag.
+        // Authentication, not robots.txt, protects private data.
       },
     ],
     sitemap: [

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import { adminFirestore } from '@/lib/firebase-admin';
+import { isPublicContent } from '@/lib/public-content';
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/, '');
 export const SITE_NAME = 'Aureon Music Group';
@@ -17,17 +19,19 @@ export function text(value: unknown, fallback = '') {
   return String(value || fallback).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-export async function getPublishedRecord(collectionName: string, slug: string): Promise<SeoRecord | null> {
+export const getPublishedRecord = cache(async (collectionName: string, slug: string): Promise<SeoRecord | null> => {
+  if (!slug || slug.includes('/')) return null;
   const direct = await adminFirestore.collection(collectionName).doc(slug).get();
-  if (direct.exists && direct.data()?.status === 'published') return { id: direct.id, ...direct.data() };
+  if (direct.exists && isPublicContent(direct.data()!)) return { id: direct.id, ...direct.data() };
   const snapshot = await adminFirestore.collection(collectionName).where('slug', '==', slug).where('status', '==', 'published').limit(1).get();
   if (snapshot.empty) return null;
-  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-}
+  const record = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+  return isPublicContent(record) ? record : null;
+});
 
 export async function getPublishedRecords(collectionName: string): Promise<SeoRecord[]> {
   const snapshot = await adminFirestore.collection(collectionName).where('status', '==', 'published').get();
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(item => isPublicContent(item));
 }
 
 export function buildMetadata({ title, description, path, image, type = 'website' }: { title: string; description: string; path: string; image?: string; type?: 'website' | 'article' }) : Metadata {

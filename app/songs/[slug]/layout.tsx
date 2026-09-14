@@ -1,10 +1,11 @@
+import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { buildMetadata, breadcrumbSchema, getPublishedRecord, safeJsonLd, SITE_URL, text } from '@/lib/seo';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const song = await getPublishedRecord('songs', slug);
-  if (!song) return { title: 'Song not found', robots: { index: false, follow: false } };
+  if (!song) notFound();
   const details = song.details || {};
   const title = text(song.title || song.name, 'Aureon song');
   const artist = text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function SongLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const song = await getPublishedRecord('songs', slug);
-  if (!song) return children;
+  if (!song) notFound();
   const details = song.details || {};
   const title = text(song.title || song.name, 'Aureon song');
   const artist = text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');

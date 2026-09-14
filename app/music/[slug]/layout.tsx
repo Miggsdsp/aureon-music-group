@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { buildMetadata, breadcrumbSchema, getPublishedRecord, getPublishedRecords, safeJsonLd, SITE_URL, text } from '@/lib/seo';
 import { faqSchema, musicRecordingSchema } from '@/lib/schema';
@@ -5,7 +6,7 @@ import { faqSchema, musicRecordingSchema } from '@/lib/schema';
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const album = await getPublishedRecord('albums', slug);
-  if (!album) return { title: 'Album not found', robots: { index: false, follow: false } };
+  if (!album) notFound();
   const title = text(album.title || album.name, 'Aureon Album');
   const artist = text(album.artistName || album.artist, 'Aureon Music Group');
   const description = text(album.seoDescription || album.description, `Listen to ${title} by ${artist}. Discover the album, songs and artist on Aureon Music Group.`).slice(0, 160);
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function AlbumLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const album = await getPublishedRecord('albums', slug);
-  if (!album) return children;
+  if (!album) notFound();
   const title = text(album.title || album.name, 'Aureon Album');
   const artist = text(album.artistName || album.artist, 'Aureon Music Group');
   const path = `/music/${album.slug || slug}`;

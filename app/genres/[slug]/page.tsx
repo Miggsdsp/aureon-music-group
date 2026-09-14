@@ -1,16 +1,14 @@
-'use client';
-
-import { useParams } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import { getPublicGenre } from '@/lib/public-genres';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { NewReleases } from '@/components/discovery/NewReleases';
 
-const titleCase=(value:string)=>value.split('-').map(part=>part?part[0].toUpperCase()+part.slice(1):'').join(' ');
-
-export default function GenrePage(){
-  const{slug}=useParams<{slug:string}>();
-  const genre=slug==='all'?'':titleCase(decodeURIComponent(slug));
+export default async function GenrePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const genre = await getPublicGenre(slug);
+  if (genre === null) notFound();
   return <main className="page-shell">
     <Header/>
     <section className="content-panel" style={{paddingTop:'140px',paddingBottom:'44px'}}>
