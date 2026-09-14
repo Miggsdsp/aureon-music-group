@@ -1,22 +1,29 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
+import { artistSeoDescription, canonicalArtistIdentity } from '@/lib/artist-identity';
 import { buildMetadata, breadcrumbSchema, getPublishedRecord, safeJsonLd, SITE_URL, text } from '@/lib/seo';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const artist = await getPublishedRecord('artists', slug);
   if (!artist) notFound();
-  const name = text(artist.name || artist.title, 'Aureon Artist');
-  const description = text(artist.seoDescription || artist.bio || artist.description, `Discover ${name}, official music, albums and videos from Aureon Music Group.`).slice(0, 160);
-  return buildMetadata({ title: `${name} | Official Artist`, description, path: `/artists/${artist.slug || slug}`, image: artist.profileImageUrl || artist.logoUrl || artist.image });
+  const identity = canonicalArtistIdentity(artist);
+  const name = identity?.name || text(artist.name || artist.title, 'Aureon Artist');
+  const path = `/artists/${identity?.slug || artist.slug || slug}`;
+  const description = artistSeoDescription(artist, `Discover ${name}, official music, albums and videos from Aureon Music Group.`);
+  return buildMetadata({ title: `${name} | Official Artist`, description, path, image: artist.profileImageUrl || artist.logoUrl || artist.image });
 }
 
 export default async function ArtistLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const artist = await getPublishedRecord('artists', slug);
   if (!artist) notFound();
-  const name = text(artist.name || artist.title, 'Aureon Artist');
-  const path = `/artists/${artist.slug || slug}`;
+  const identity = canonicalArtistIdentity(artist);
+  const canonicalSlug = identity?.slug || artist.slug || slug;
+  if (slug !== canonicalSlug) permanentRedirect(`/artists/${canonicalSlug}`);
+
+  const name = identity?.name || text(artist.name || artist.title, 'Aureon Artist');
+  const path = `/artists/${canonicalSlug}`;
   const schema = {
     '@context': 'https://schema.org',
     '@type': artist.artistType === 'person' ? 'Person' : 'MusicGroup',
