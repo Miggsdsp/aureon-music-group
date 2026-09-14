@@ -66,7 +66,7 @@ test('genre allowlist preserves core and actual catalogue genres without arbitra
 test('missing artist, song and album records call Next notFound in metadata and layout', async () => {
   for (const route of ['artists','songs','music']) {
     const notFound = () => { throw new Error('NEXT_HTTP_ERROR_FALLBACK;404'); };
-    const layout = load(`app/${route}/[slug]/layout.tsx`, { 'next/navigation': { notFound }, '@/lib/seo': { getPublishedRecord: async () => null }, '@/lib/schema': {} });
+    const layout = load(`app/${route}/[slug]/layout.tsx`, { 'next/navigation': { notFound }, '@/lib/seo': { getPublishedRecord: async () => null }, '@/lib/schema': {}, '@/lib/public-catalogue': {}, '@/lib/get-preview-url': {} });
     const props = { params:Promise.resolve({slug:'missing'}), children:null };
     await assert.rejects(layout.generateMetadata(props), /;404/);
     await assert.rejects(layout.default(props), /;404/);
@@ -84,6 +84,10 @@ test('SEO record lookup filters direct IDs and slug results without swallowing d
   assert.equal(await seo.getPublishedRecord('songs','future'),null);
   direct = null; bySlug = { status:'published',slug:'ok' };
   assert.equal((await seo.getPublishedRecord('songs','ok')).id,'slug-id');
+  bySlug = { status:'published', id:'forged-id', slug:'ok', details:{title:'Legacy title'} };
+  const records = await seo.getPublishedRecords('songs');
+  assert.equal(records[0].id,'slug-id');
+  assert.equal(records[0].title,'Legacy title');
   bySlug = { status:'published',isPublic:false };
   assert.equal(await seo.getPublishedRecord('songs','private'),null);
   db.collection = () => {throw Error('database unavailable')};
@@ -112,4 +116,35 @@ test('genre server layout rejects missing genres before rendering children', asy
   await assert.rejects(layout.default({ params:Promise.resolve({slug:'missing'}), children:'content' }), /;404/);
   await assert.rejects(layout.generateMetadata({ params:Promise.resolve({slug:'missing'}) }), /;404/);
   assert.equal(await layout.default({ params:Promise.resolve({slug:'all'}), children:'content' }), 'content');
+});
+
+const catalogue = load('lib/public-catalogue.ts', {
+ './recommendations': load('lib/recommendations.ts'), './public-content': content, './get-artwork': load('lib/get-artwork.ts'), './get-preview-url': load('lib/get-preview-url.ts')
+});
+test('public normalization keeps authoritative top-level values, nested fallbacks and document identity', () => {
+ const record = content.normalizePublicRecord({title:'Published title', price:0, promotional:false, details:{id:'forged',title:'Old title',price:1, promotional:true,description:'Story'}}, 'real-id');
+ assert.equal(record.id,'real-id'); assert.equal(record.title,'Published title'); assert.equal(record.details.title,record.title);
+ assert.equal(record.price,0); assert.equal(record.promotional,false); assert.equal(record.description,'Story');
+});
+test('server catalogue payload whitelists display fields and public preview assets', () => {
+ const record = catalogue.publicCatalogueRecord({id:'song',status:'published',title:'Song',details:{description:'Story',previewUrl:'/public/previews/song.wav',releaseDate:{seconds:0},fullTrackUrl:'private/full-tracks/master.wav'},streamUrl:'private/streams/song.aac',downloadToken:'secret',previewAudioUrl:'/private/master.wav'},true);
+ assert.equal(record.description,'Story'); assert.equal(record.previewUrl,'/public/previews/song.wav');
+ assert.equal(record.releaseDate,'1970-01-01T00:00:00.000Z');
+ assert.equal(record.downloadToken,undefined); assert.equal(record.streamUrl,undefined); assert.equal(record.details,undefined);
+ for(const url of ['/private/full-tracks/song.wav','https://storage.example/private%2Fstreams%2Fsong.aac','/api/download/token','/api/member/audio/song']) assert.equal(catalogue.publicAsset(url),'');
+});
+test('public catalogue resolves legacy references, excludes scheduled/private records and avoids empty album matches', () => {
+ const records = catalogue.makePublicCatalogue({artists:[{id:'artist-doc',status:'published',name:'Artist',slug:'artist-route'}],albums:[{id:'album-doc',status:'published',title:'Album',slug:'album-route',artistId:'artist-doc'}],songs:[{id:'song',status:'published',details:{artistId:'artist-doc',albumId:'album-doc'}},{id:'future',status:'published',details:{releaseDate:'2999-01-01'}},{id:'private',status:'published',isPrivate:true}]});
+ assert.equal(records.songs.length,1); assert.equal(records.songs[0].artistSlug,'artist-route'); assert.equal(records.songs[0].albumSlug,'album-route');
+ assert.equal(catalogue.matchesAlbum({},{}),false);
+});
+
+test('initial view payloads preserve tracks and links while bounding unused song assets', () => {
+ const songs = Array.from({length:120},(_,i)=>({id:String(i),status:'published',title:'Song '+i,slug:'song-'+i,albumId:'album',artistId:'artist',previewUrl:'/public/previews/'+i+'.wav',trackNumber:i}));
+ const records = {artists:[],albums:[{id:'album',slug:'album',title:'Album'}],songs};
+ assert.equal(catalogue.initialCatalogueFor(records,'songs',songs[0]).songs.length,9);
+ assert.ok(catalogue.initialCatalogueFor(records,'discover').songs.length<=17);
+ const hub = catalogue.initialCatalogueFor(records,'music');
+ assert.equal(hub.songs.length,120); assert.equal(hub.songs[6].previewUrl,undefined);
+ assert.equal(catalogue.initialCatalogueFor(records,'albums',records.albums[0]).songs.length,120);
 });

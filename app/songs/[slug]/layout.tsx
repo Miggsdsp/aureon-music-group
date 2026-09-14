@@ -1,3 +1,5 @@
+import { publicAsset } from '@/lib/public-catalogue';
+import { getPreviewUrl } from '@/lib/get-preview-url';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { buildMetadata, breadcrumbSchema, getPublishedRecord, safeJsonLd, SITE_URL, text } from '@/lib/seo';
@@ -40,7 +42,7 @@ export default async function SongLayout({ children, params }: { children: React
     datePublished: song.releaseDate || details.releaseDate,
     byArtist: { '@type': 'MusicGroup', name: artist },
     inAlbum: song.albumTitle || details.albumTitle ? { '@type': 'MusicAlbum', name: song.albumTitle || details.albumTitle } : undefined,
-    audio: song.previewUrl || details.previewUrl ? { '@type': 'AudioObject', contentUrl: song.previewUrl || details.previewUrl } : undefined,
+    audio: publicAsset(getPreviewUrl(song)) ? { '@type': 'AudioObject', contentUrl: publicAsset(getPreviewUrl(song)) } : undefined,
   };
   const breadcrumbs = breadcrumbSchema([{ name: 'Home', path: '/' }, { name: 'Music', path: '/music' }, { name: title, path }]);
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([schema, breadcrumbs]) }} />{children}</>;

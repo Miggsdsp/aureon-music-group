@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
 import { adminFirestore } from '@/lib/firebase-admin';
-import { isPublicContent } from '@/lib/public-content';
+import { isPublicContent, normalizePublicRecord } from '@/lib/public-content';
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.aureonmusicgroup.com').replace(/\/$/, '');
 export const SITE_NAME = 'Aureon Music Group';
@@ -22,17 +22,17 @@ export function text(value: unknown, fallback = '') {
 export const getPublishedRecord = cache(async (collectionName: string, slug: string): Promise<SeoRecord | null> => {
   if (!slug || slug.includes('/')) return null;
   const direct = await adminFirestore.collection(collectionName).doc(slug).get();
-  if (direct.exists && isPublicContent(direct.data()!)) return { id: direct.id, ...direct.data() };
+  if (direct.exists && isPublicContent(direct.data()!)) return normalizePublicRecord(direct.data()!, direct.id);
   const snapshot = await adminFirestore.collection(collectionName).where('slug', '==', slug).where('status', '==', 'published').limit(1).get();
   if (snapshot.empty) return null;
   const record = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-  return isPublicContent(record) ? record : null;
+  return isPublicContent(record) ? normalizePublicRecord(record, snapshot.docs[0].id) : null;
 });
 
-export async function getPublishedRecords(collectionName: string): Promise<SeoRecord[]> {
+export const getPublishedRecords = cache(async (collectionName: string): Promise<SeoRecord[]> => {
   const snapshot = await adminFirestore.collection(collectionName).where('status', '==', 'published').get();
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(item => isPublicContent(item));
-}
+  return snapshot.docs.filter(doc => isPublicContent(doc.data())).map(doc => normalizePublicRecord(doc.data(), doc.id));
+});
 
 export function buildMetadata({ title, description, path, image, type = 'website' }: { title: string; description: string; path: string; image?: string; type?: 'website' | 'article' }) : Metadata {
   const canonical = `${SITE_URL}${path}`;

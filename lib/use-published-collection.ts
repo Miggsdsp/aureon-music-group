@@ -2,32 +2,36 @@
 
 import { collection, onSnapshot, query, where, type DocumentData } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
+import { useInitialPublicCatalogue } from '@/components/catalogue/PublicCatalogueProvider';
+import { matchesAlbum, matchesArtist } from '@/lib/public-catalogue';
+import { isPublicContent, normalizePublicRecord } from '@/lib/public-content';
 import { firestore } from '@/lib/firebase-client';
 
 export type PublicRecord = DocumentData & { id: string };
 
-function isReleased(record: DocumentData) {
-  const value = record.publishAt || record.scheduledAt;
-  if (!value) return true;
-  const date = value?.toDate?.() || new Date(value);
-  return Number.isNaN(date.getTime()) || date.getTime() <= Date.now();
-}
-
-export function usePublishedCollection<T extends PublicRecord>(collectionName: string, fallback: T[] = []) {
-  const [items, setItems] = useState<T[]>(fallback);
-  const [loading, setLoading] = useState(true);
+export function usePublishedCollection<T extends PublicRecord>(collectionName: string, fallback: T[] = [], useServerBaseline = false) {
+  const catalogue = useInitialPublicCatalogue();
+  const initial = useServerBaseline ? catalogue?.[collectionName] as T[] | undefined : undefined;
+  const [items, setItems] = useState<T[]>(initial ?? fallback);
+  const [loading, setLoading] = useState(initial === undefined);
 
   useEffect(() => {
     const publishedQuery = query(collection(firestore, collectionName), where('status', '==', 'published'));
     const unsubscribe = onSnapshot(
       publishedQuery,
       (snapshot) => {
-        const records = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() } as T)).filter(isReleased);
-        setItems(records.length ? records : fallback);
+        const records = snapshot.docs.filter(entry => isPublicContent(entry.data())).map(entry => normalizePublicRecord(entry.data(), entry.id) as T);
+        for (const record of records) {
+          const artist = catalogue?.artists?.find(item => matchesArtist(record, item));
+          if (artist) (record as Record<string, any>).artistSlug = artist.slug;
+          const album = catalogue?.albums?.find(item => matchesAlbum(record, item));
+          if (album && collectionName === 'songs') (record as Record<string, any>).albumSlug = album.slug;
+        }
+        setItems(records);
         setLoading(false);
       },
       () => {
-        setItems(fallback);
+        // A temporary network failure must not erase the server-rendered baseline.
         setLoading(false);
       }
     );

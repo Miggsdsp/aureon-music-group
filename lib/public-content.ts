@@ -38,3 +38,21 @@ export function contentLastModified(record: ContentRecord): Date | undefined {
   }
   return undefined;
 }
+
+/** Top-level values are authoritative; legacy nested details provide missing values only. */
+export function normalizePublicRecord(record: ContentRecord, id = record.id): ContentRecord {
+  const details = record.details && typeof record.details === 'object' ? record.details : {};
+  const merged: ContentRecord = { ...details, ...record, id };
+  for (const [key, value] of Object.entries(details)) {
+    if (merged[key] === undefined || merged[key] === null || merged[key] === '') merged[key] = value;
+  }
+  for (const key of ['releaseDate', 'publishedAt', 'publishDate', 'createdAt', 'updatedAt', 'publishAt', 'scheduledAt']) {
+    const date = contentDate(merged[key]);
+    if (date) merged[key] = date.toISOString();
+  }
+  // Legacy consumers still read details. Keep both views consistent, including false and zero.
+  merged.details = { ...details };
+  for (const key of Object.keys(details)) merged.details[key] = merged[key];
+  merged.id = id;
+  return merged;
+}

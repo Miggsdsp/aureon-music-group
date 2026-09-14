@@ -1,3 +1,4 @@
+import { matchesAlbum } from '@/lib/public-catalogue';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { buildMetadata, breadcrumbSchema, getPublishedRecord, getPublishedRecords, safeJsonLd, SITE_URL, text } from '@/lib/seo';
@@ -21,7 +22,7 @@ export default async function AlbumLayout({ children, params }: { children: Reac
   const artist = text(album.artistName || album.artist, 'Aureon Music Group');
   const path = `/music/${album.slug || slug}`;
   const allSongs = await getPublishedRecords('songs');
-  const songs = allSongs.filter(song => song.albumId === album.id || text(song.albumTitle).toLowerCase() === title.toLowerCase());
+  const songs = allSongs.filter(song => matchesAlbum(song, album));
   const recordings = songs.map(song => musicRecordingSchema({ ...song, artistName: song.artistName || artist, albumTitle: title }));
   const schema = {
     '@context': 'https://schema.org',
