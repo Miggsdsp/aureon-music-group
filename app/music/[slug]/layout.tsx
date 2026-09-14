@@ -1,4 +1,5 @@
 import { matchesAlbum } from '@/lib/public-catalogue';
+import { canonicalArtistIdentity } from '@/lib/artist-identity';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { buildMetadata, breadcrumbSchema, getPublishedRecord, getPublishedRecords, safeJsonLd, SITE_URL, text } from '@/lib/seo';
@@ -8,8 +9,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const album = await getPublishedRecord('albums', slug);
   if (!album) notFound();
+  const identity = canonicalArtistIdentity(album);
   const title = text(album.title || album.name, 'Aureon Album');
-  const artist = text(album.artistName || album.artist, 'Aureon Music Group');
+  const artist = identity?.name || text(album.artistName || album.artist, 'Aureon Music Group');
   const description = text(album.seoDescription || album.description, `Listen to ${title} by ${artist}. Discover the album, songs and artist on Aureon Music Group.`).slice(0, 160);
   return buildMetadata({ title: `${title} by ${artist}`, description, path: `/music/${album.slug || slug}`, image: album.coverImageUrl || album.coverUrl || album.imageUrl });
 }
@@ -18,9 +20,11 @@ export default async function AlbumLayout({ children, params }: { children: Reac
   const { slug } = await params;
   const album = await getPublishedRecord('albums', slug);
   if (!album) notFound();
+  const identity = canonicalArtistIdentity(album);
   const title = text(album.title || album.name, 'Aureon Album');
-  const artist = text(album.artistName || album.artist, 'Aureon Music Group');
+  const artist = identity?.name || text(album.artistName || album.artist, 'Aureon Music Group');
   const path = `/music/${album.slug || slug}`;
+  const artistPath = identity?.slug ? `/artists/${identity.slug}` : undefined;
   const allSongs = await getPublishedRecords('songs');
   const songs = allSongs.filter(song => matchesAlbum(song, album));
   const recordings = songs.map(song => musicRecordingSchema({ ...song, artistName: song.artistName || artist, albumTitle: title }));
@@ -34,7 +38,11 @@ export default async function AlbumLayout({ children, params }: { children: Reac
     description: text(album.description),
     genre: album.genre,
     datePublished: album.releaseDate || album.year,
-    byArtist: { '@type': 'MusicGroup', name: artist },
+    byArtist: {
+      '@type': 'MusicGroup',
+      name: artist,
+      ...(artistPath ? { '@id': `${SITE_URL}${artistPath}#artist`, url: `${SITE_URL}${artistPath}` } : {}),
+    },
     numTracks: songs.length || album.trackCount || (Array.isArray(album.tracks) ? album.tracks.length : undefined),
     track: recordings,
   };
