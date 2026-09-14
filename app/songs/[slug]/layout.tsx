@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const details = song.details || {};
   const title = text(song.title || song.name, 'Aureon song');
   const artist = text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');
-  const description = text(song.seoDescription || song.description || details.description || details.story, `Listen to ${title} by ${artist} and discover similar music on Aureon Music Group.`).slice(0, 160);
+  const description = text(song.seoDescription || song.description || details.description || song.story || details.story, `Listen to ${title} by ${artist} and discover similar music on Aureon Music Group.`).slice(0, 160);
   return buildMetadata({
     title: `${title} by ${artist}`,
     description,
@@ -36,7 +36,7 @@ export default async function SongLayout({ children, params }: { children: React
     name: title,
     url: `${SITE_URL}${path}`,
     image: song.coverImageUrl || details.coverImageUrl || song.imageUrl,
-    description: text(song.description || details.description || details.story),
+    description: text(song.description || details.description || song.story || details.story),
     genre: song.genre || details.genre,
     duration: song.duration || details.duration,
     datePublished: song.releaseDate || details.releaseDate,

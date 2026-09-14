@@ -3,10 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const ts = require('typescript');
 const vm = require('node:vm');
-function load(path, imports = {}) {
+function load(path, imports = {}, globals = {}) {
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  vm.runInNewContext(code, { module, exports: module.exports, require: name => name in imports ? imports[name] : require(name), process, Date, console, Headers }, { filename: path });
+  vm.runInNewContext(code, { module, exports: module.exports, require: name => name in imports ? imports[name] : require(name), process, Date, console, Headers, ...globals }, { filename: path });
   return module.exports;
 }
 const content = load('lib/public-content.ts');
@@ -147,4 +147,24 @@ test('initial view payloads preserve tracks and links while bounding unused song
  const hub = catalogue.initialCatalogueFor(records,'music');
  assert.equal(hub.songs.length,120); assert.equal(hub.songs[6].previewUrl,undefined);
  assert.equal(catalogue.initialCatalogueFor(records,'albums',records.albums[0]).songs.length,120);
+});
+
+test('initial footer playlist markup is identical across server and browser time zones', () => {
+ const React = require('react'); const {renderToStaticMarkup} = require('react-dom/server');
+ const imports = {
+  'next/link': {default:props=>React.createElement('a',props)}, 'next/navigation':{usePathname:()=>'/songs/test'},
+  'firebase/auth':{}, '@/components/ArtworkImage':{}, '@/components/LatestPlayButton':{}, '@/lib/firebase-client':{},
+  '@/lib/get-artwork':{}, '@/lib/get-preview-url':{}, '@/lib/recommendations':{recommendSongs:()=>[],recommendArtists:()=>[],recommendAlbums:()=>[]},
+  '@/lib/use-published-collection':{usePublishedCollection:()=>({items:[]})}, './InfiniteDiscovery.module.css':{default:{}}
+ };
+ const render = hour => { class Clock extends Date {getHours(){return hour}}; const module=load('components/discovery/InfiniteDiscovery.tsx',imports,{Date:Clock});return renderToStaticMarkup(React.createElement(module.InfiniteDiscovery)); };
+ assert.equal(render(5),render(13));
+});
+test('client slug lookup survives denied direct document reads and keeps server normalization', async () => {
+ const effects=[]; const states=[];
+ const react={useEffect:fn=>effects.push(fn),useState:value=>{const i=states.length;states.push(value);return[value,v=>{states[i]=v}];}};
+ const db={collection:()=>({}),doc:()=>({}),where:()=>({}),limit:()=>({}),query:()=>({}),getDoc:async()=>{throw Object.assign(Error('Document read denied'),{code:'permission-denied'})},getDocs:async()=>({empty:false,docs:[{id:'real-id',data:()=>({status:'published',slug:'song-route',title:'Current',details:{title:'Old',description:'Story'}})}]})};
+ const hook=load('lib/usePublishedDocument.ts', {react,'firebase/firestore':db,'@/lib/firebase-client':{firestore:{}},'@/components/catalogue/PublicCatalogueProvider':{useInitialPublicCatalogue:()=>null},'@/lib/public-content':content});
+ hook.usePublishedDocument('songs','song-route',null);effects[0]();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(states[0]?.id,'real-id');assert.equal(states[0]?.title,'Current');assert.equal(states[0]?.description,'Story');assert.equal(states[1],false);
 });

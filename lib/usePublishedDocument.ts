@@ -17,8 +17,14 @@ export function usePublishedDocument<T=any>(collectionName:string,slug:string|un
   const seed = catalogue?.[collectionName]?.find(record => record.slug === slug || record.id === slug);
   setData((seed as T) ?? fallback);setLoading(!seed);
   (async()=>{try{
-   const direct = await getDoc(doc(firestore,collectionName,slug));
-   let entry = direct.exists() && isPublicContent(direct.data()) ? direct : null;
+   let entry = null;
+   try {
+    const direct = await getDoc(doc(firestore,collectionName,slug));
+    entry = direct.exists() && isPublicContent(direct.data()) ? direct : null;
+   } catch (error) {
+    // Rules may deny a nonexistent ID while allowing the published slug query.
+    if ((error as {code?:string}).code !== 'permission-denied') throw error;
+   }
    if (!entry) {
     const snap=await getDocs(query(collection(firestore,collectionName),where('slug','==',slug),where('status','==','published'),limit(1)));
     entry = !snap.empty && isPublicContent(snap.docs[0].data()) ? snap.docs[0] : null;

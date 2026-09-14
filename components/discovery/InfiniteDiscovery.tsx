@@ -38,6 +38,14 @@ export function InfiniteDiscovery() {
   const [user, setUser] = useState<User | null>(null);
   const [library, setLibrary] = useState<MemberLibrary>({});
   const [trending, setTrending] = useState<RecordData[]>([]);
+  const [localHour, setLocalHour] = useState<number | null>(null);
+
+  useEffect(() => {
+    const update = () => setLocalHour(new Date().getHours());
+    update();
+    const timer = window.setInterval(update, 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => onAuthStateChanged(firebaseAuth, current => {
     setUser(current);
@@ -99,8 +107,8 @@ export function InfiniteDiscovery() {
 
   const continueItem = library.continueListening;
   const recent = (library.recentlyPlayed || []).slice(0, 4);
-  const hour = new Date().getHours();
-  const playlistNames = hour >= 21 || hour < 5 ? ['Late Night Drive', 'Relax', 'Acoustic Evenings'] : hour < 12 ? ['Sunday Morning', 'Focus', 'Acoustic Evenings'] : hour < 18 ? ['Workout', 'Road Trip', 'Country Roads'] : ['Deep House Essentials', 'Relax', 'Road Trip'];
+  const hour = localHour;
+  const playlistNames = hour === null ? ['Road Trip', 'Country Roads', 'Focus'] : hour >= 21 || hour < 5 ? ['Late Night Drive', 'Relax', 'Acoustic Evenings'] : hour < 12 ? ['Sunday Morning', 'Focus', 'Acoustic Evenings'] : hour < 18 ? ['Workout', 'Road Trip', 'Country Roads'] : ['Deep House Essentials', 'Relax', 'Road Trip'];
 
   const songCard = (item: RecordData, keyPrefix: string) => {
     const id = String(item.id || '');
