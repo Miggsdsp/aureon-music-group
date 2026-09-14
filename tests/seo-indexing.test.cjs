@@ -125,6 +125,8 @@ test('public normalization keeps authoritative top-level values, nested fallback
  const record = content.normalizePublicRecord({title:'Published title', price:0, promotional:false, details:{id:'forged',title:'Old title',price:1, promotional:true,description:'Story'}}, 'real-id');
  assert.equal(record.id,'real-id'); assert.equal(record.title,'Published title'); assert.equal(record.details.title,record.title);
  assert.equal(record.price,0); assert.equal(record.promotional,false); assert.equal(record.description,'Story');
+ const legacy = content.normalizePublicRecord({details:{slug:'not-a-top-level-slug'}}, 'document-id');
+ assert.equal(legacy.slug,'document-id'); assert.equal(legacy.details.slug,legacy.slug);
 });
 test('server catalogue payload whitelists display fields and public preview assets', () => {
  const record = catalogue.publicCatalogueRecord({id:'song',status:'published',title:'Song',details:{description:'Story',previewUrl:'/public/previews/song.wav',releaseDate:{seconds:0},fullTrackUrl:'private/full-tracks/master.wav'},streamUrl:'private/streams/song.aac',downloadToken:'secret',previewAudioUrl:'/private/master.wav'},true);
@@ -167,4 +169,14 @@ test('client slug lookup survives denied direct document reads and keeps server 
  const hook=load('lib/usePublishedDocument.ts', {react,'firebase/firestore':db,'@/lib/firebase-client':{firestore:{}},'@/components/catalogue/PublicCatalogueProvider':{useInitialPublicCatalogue:()=>null},'@/lib/public-content':content});
  hook.usePublishedDocument('songs','song-route',null);effects[0]();await new Promise(resolve=>setImmediate(resolve));
  assert.equal(states[0]?.id,'real-id');assert.equal(states[0]?.title,'Current');assert.equal(states[0]?.description,'Story');assert.equal(states[1],false);
+});
+
+test('seeded client refresh uses the authoritative server document ID', async () => {
+ const effects=[]; const states=[];let readId='';
+ const seed={id:'authoritative-id',slug:'public-slug',status:'published',title:'Server title'};
+ const react={useEffect:fn=>effects.push(fn),useState:value=>{const i=states.length;states.push(value);return[value,v=>{states[i]=v}];}};
+ const db={doc:(_db,_collection,id)=>{readId=id;return{}},getDoc:async()=>({exists:()=>true,id:seed.id,data:()=>({...seed,title:'Updated title'})})};
+ const hook=load('lib/usePublishedDocument.ts', {react,'firebase/firestore':db,'@/lib/firebase-client':{firestore:{}},'@/components/catalogue/PublicCatalogueProvider':{useInitialPublicCatalogue:()=>({songs:[seed]})},'@/lib/public-content':content});
+ hook.usePublishedDocument('songs','public-slug',null);effects[0]();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(readId,'authoritative-id');assert.equal(states[0].id,seed.id);assert.equal(states[0].title,'Updated title');
 });

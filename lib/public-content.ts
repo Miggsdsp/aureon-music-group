@@ -54,5 +54,8 @@ export function normalizePublicRecord(record: ContentRecord, id = record.id): Co
   merged.details = { ...details };
   for (const key of Object.keys(details)) merged.details[key] = merged[key];
   merged.id = id;
+  // Slug queries use the top-level field; missing slugs resolve through the real document ID.
+  merged.slug = typeof record.slug === 'string' && record.slug.trim() ? record.slug.trim() : String(id || '');
+  if ('slug' in details) merged.details.slug = merged.slug;
   return merged;
 }

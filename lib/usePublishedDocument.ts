@@ -19,15 +19,15 @@ export function usePublishedDocument<T=any>(collectionName:string,slug:string|un
   (async()=>{try{
    let entry = null;
    try {
-    const direct = await getDoc(doc(firestore,collectionName,slug));
+    const direct = await getDoc(doc(firestore,collectionName,seed?.id || slug));
     entry = direct.exists() && isPublicContent(direct.data()) ? direct : null;
    } catch (error) {
     // Rules may deny a nonexistent ID while allowing the published slug query.
     if ((error as {code?:string}).code !== 'permission-denied') throw error;
    }
    if (!entry) {
-    const snap=await getDocs(query(collection(firestore,collectionName),where('slug','==',slug),where('status','==','published'),limit(1)));
-    entry = !snap.empty && isPublicContent(snap.docs[0].data()) ? snap.docs[0] : null;
+    const snap=await getDocs(query(collection(firestore,collectionName),where('slug','==',seed?.slug || slug),where('status','==','published'),limit(1)));
+    entry = !snap.empty && isPublicContent(snap.docs[0].data()) && (!seed || snap.docs[0].id === seed.id) ? snap.docs[0] : null;
    }
    if(active) {
     const record = entry ? normalizePublicRecord(entry.data(), entry.id) : null;
