@@ -12,6 +12,7 @@ import { getPreviewUrl } from '@/lib/get-preview-url';
 import { useParams } from 'next/navigation';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
+import conversionStyles from '@/components/ConversionCta.module.css';
 
 type SongRecord = PublicRecord & {
   title?: string;
@@ -88,18 +89,19 @@ export default function SongPage() {
           <LatestPlayButton
             title={title}
             src={preview}
-            buttonLabel="Play preview"
+            buttonLabel="Listen now — 40s preview"
             purchase={{ id:song.id, title, artist, image:artwork, price, promotional, slug:song.slug || slug, artistSlug }}
             analytics={{ id:song.id, artistId:song.artistId || details.artistId, artistName:artist, albumId:song.albumId || details.albumId, albumTitle }}
           />
-          <div className="song-detail-links">
-            {artistSlug && <Link className="ghost-button" href={`/artists/${artistSlug}`}>View artist →</Link>}
-            {albumSlug && <Link className="ghost-button" href={`/music/${albumSlug}`}>View album →</Link>}
+          <div className={conversionStyles.actions}>
+            {artistSlug && <Link className="ghost-button" href={`/artists/${artistSlug}`}>More from {artist} →</Link>}
+            {albumSlug && <Link className="primary-button" href={`/music/${albumSlug}`}>Explore the album →</Link>}
+            <Link className="primary-button" href="/account?mode=signup">Create free account →</Link>
           </div>
+          <p className={conversionStyles.note}>Preview without an account. Create a free account to build playlists and save your favourites, or <Link href="/membership">compare full-listening memberships</Link>.</p>
         </div>
       </section>
-      <p><Link href="/discover">Discover more music</Link> · <Link href="/membership">Explore listening memberships</Link></p>
-    <SimilarSongs currentSong={song} songs={songs}/>
+      <SimilarSongs currentSong={song} songs={songs}/>
       <Footer/>
     </main>
   );

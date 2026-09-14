@@ -1,0 +1,5 @@
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:22px}
+.actions :global(.primary-button),.actions :global(.ghost-button){justify-content:center;min-height:46px;padding:13px 22px;line-height:1.25;text-align:center}
+.note{margin:14px 0 0!important;color:rgba(255,255,255,.65)!important;font-size:13px!important;line-height:1.55!important}
+.note a{color:#d9b45f;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:760px){.actions{display:grid;grid-template-columns:1fr;width:100%}.actions :global(.primary-button),.actions :global(.ghost-button){width:100%;min-width:0}}

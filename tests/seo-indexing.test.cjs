@@ -9,7 +9,8 @@ function load(path, imports = {}, globals = {}) {
   vm.runInNewContext(code, { module, exports: module.exports, require: name => name in imports ? imports[name] : require(name), process, Date, console, Headers, ...globals }, { filename: path });
   return module.exports;
 }
-const content = load('lib/public-content.ts');
+const artistIdentity = load('lib/artist-identity.ts');
+const content = load('lib/public-content.ts', { '@/lib/artist-identity': artistIdentity });
 const locales = load('lib/i18n/config.ts');
 const policy = load('lib/index-policy.ts', { '@/lib/i18n/config': locales });
 
@@ -66,7 +67,7 @@ test('genre allowlist preserves core and actual catalogue genres without arbitra
 test('missing artist, song and album records call Next notFound in metadata and layout', async () => {
   for (const route of ['artists','songs','music']) {
     const notFound = () => { throw new Error('NEXT_HTTP_ERROR_FALLBACK;404'); };
-    const layout = load(`app/${route}/[slug]/layout.tsx`, { 'next/navigation': { notFound }, '@/lib/seo': { getPublishedRecord: async () => null }, '@/lib/schema': {}, '@/lib/public-catalogue': {}, '@/lib/get-preview-url': {} });
+    const layout = load(`app/${route}/[slug]/layout.tsx`, { 'next/navigation': { notFound }, '@/lib/seo': { getPublishedRecord: async () => null }, '@/lib/schema': {}, '@/lib/public-catalogue': {}, '@/lib/get-preview-url': {}, '@/lib/artist-identity': artistIdentity });
     const props = { params:Promise.resolve({slug:'missing'}), children:null };
     await assert.rejects(layout.generateMetadata(props), /;404/);
     await assert.rejects(layout.default(props), /;404/);
@@ -78,7 +79,7 @@ test('SEO record lookup filters direct IDs and slug results without swallowing d
   let bySlug = null;
   const chain = { where: () => chain, limit: () => chain, get: async () => ({ empty:!bySlug, docs: bySlug ? [{id:'slug-id',data:()=>bySlug}] : [] }) };
   const db = { collection: () => ({ ...chain, doc: () => ({ get: async () => ({ exists:!!direct, id:'direct-id', data:()=>direct }) }) }) };
-  const seo = load('lib/seo.ts', { react:{cache:fn=>fn}, '@/lib/firebase-admin':{adminFirestore:db}, '@/lib/public-content':content });
+  const seo = load('lib/seo.ts', { react:{cache:fn=>fn}, '@/lib/firebase-admin':{adminFirestore:db}, '@/lib/public-content':content, '@/lib/artist-identity':artistIdentity });
   assert.equal((await seo.getPublishedRecord('songs','ok')).slug,'ok');
   direct = { status:'published',publishAt:'2999-01-01' };
   assert.equal(await seo.getPublishedRecord('songs','future'),null);
