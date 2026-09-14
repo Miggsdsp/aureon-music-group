@@ -1,7 +1,11 @@
+import { canonicalArtistIdentity } from '@/lib/artist-identity';
 import { SITE_URL, text } from '@/lib/seo';
 
 export function musicRecordingSchema(song: Record<string, any>) {
   const slug = song.slug || song.id;
+  const identity = canonicalArtistIdentity(song);
+  const artistName = identity?.name || text(song.artistName || song.artist);
+  const artistUrl = identity?.slug ? `${SITE_URL}/artists/${identity.slug}` : undefined;
   return {
     '@context': 'https://schema.org',
     '@type': 'MusicRecording',
@@ -12,7 +16,11 @@ export function musicRecordingSchema(song: Record<string, any>) {
     duration: song.isoDuration,
     datePublished: song.releaseDate,
     genre: song.genre,
-    byArtist: song.artistName ? { '@type': 'MusicGroup', name: song.artistName } : undefined,
+    byArtist: artistName ? {
+      '@type': 'MusicGroup',
+      name: artistName,
+      ...(artistUrl ? { '@id': `${artistUrl}#artist`, url: artistUrl } : {}),
+    } : undefined,
     inAlbum: song.albumTitle ? { '@type': 'MusicAlbum', name: song.albumTitle } : undefined,
     isrcCode: song.isrc || undefined,
   };
