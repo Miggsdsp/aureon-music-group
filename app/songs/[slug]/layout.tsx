@@ -1,5 +1,6 @@
 import { publicAsset } from '@/lib/public-catalogue';
 import { getPreviewUrl } from '@/lib/get-preview-url';
+import { canonicalArtistIdentity } from '@/lib/artist-identity';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { buildMetadata, breadcrumbSchema, getPublishedRecord, safeJsonLd, SITE_URL, text } from '@/lib/seo';
@@ -9,8 +10,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const song = await getPublishedRecord('songs', slug);
   if (!song) notFound();
   const details = song.details || {};
+  const identity = canonicalArtistIdentity(song);
   const title = text(song.title || song.name, 'Aureon song');
-  const artist = text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');
+  const artist = identity?.name || text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');
   const description = text(song.seoDescription || song.description || details.description || song.story || details.story, `Listen to ${title} by ${artist} and discover similar music on Aureon Music Group.`).slice(0, 160);
   return buildMetadata({
     title: `${title} by ${artist}`,
@@ -26,9 +28,11 @@ export default async function SongLayout({ children, params }: { children: React
   const song = await getPublishedRecord('songs', slug);
   if (!song) notFound();
   const details = song.details || {};
+  const identity = canonicalArtistIdentity(song);
   const title = text(song.title || song.name, 'Aureon song');
-  const artist = text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');
+  const artist = identity?.name || text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');
   const path = `/songs/${song.slug || slug}`;
+  const artistPath = identity?.slug ? `/artists/${identity.slug}` : undefined;
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'MusicRecording',
@@ -40,7 +44,11 @@ export default async function SongLayout({ children, params }: { children: React
     genre: song.genre || details.genre,
     duration: song.duration || details.duration,
     datePublished: song.releaseDate || details.releaseDate,
-    byArtist: { '@type': 'MusicGroup', name: artist },
+    byArtist: {
+      '@type': 'MusicGroup',
+      name: artist,
+      ...(artistPath ? { '@id': `${SITE_URL}${artistPath}#artist`, url: `${SITE_URL}${artistPath}` } : {}),
+    },
     inAlbum: song.albumTitle || details.albumTitle ? { '@type': 'MusicAlbum', name: song.albumTitle || details.albumTitle } : undefined,
     audio: publicAsset(getPreviewUrl(song)) ? { '@type': 'AudioObject', contentUrl: publicAsset(getPreviewUrl(song)) } : undefined,
   };
