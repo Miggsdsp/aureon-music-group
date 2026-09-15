@@ -61,7 +61,7 @@ export function TrustAnalyticsBridge(){
       const ctaPlacement=/membership|subscribe|choose/i.test(text)?'membership_cta':/buy|purchase|checkout/i.test(text)?'purchase_cta':/create account|join free/i.test(text)?'account_cta':'';
       const placement=directPlacement||ctaPlacement;
       if(!placement)return;
-      trackAnalytics({eventType:conversion?'trust_conversion':'trust_click',entityType:'trust',entityId:placement,title:text,metadata:{trustPlacement:placement,trustCategory:trust?.dataset.trustCategory||'cta',conversionType:conversion?(/account|join/i.test(text)?'account_creation':/buy|purchase|checkout/i.test(text)?'purchase':'membership'):'click',attributedTrustPlacement:String(recentExposure.placement||directPlacement||''),attributedTrustCategory:String(recentExposure.category||trust?.dataset.trustCategory||'')}});
+      trackAnalytics({eventType:'trust_click',entityType:'trust',entityId:placement,title:text,metadata:{trustPlacement:placement,trustCategory:trust?.dataset.trustCategory||'cta',intentType:conversion?(/account|join/i.test(text)?'account_creation':/buy|purchase|checkout/i.test(text)?'purchase':'membership'):'click',attributedTrustPlacement:String(recentExposure.placement||directPlacement||''),attributedTrustCategory:String(recentExposure.category||trust?.dataset.trustCategory||'')}});
     };
     document.addEventListener('click',click,true);
     return()=>{observer.disconnect();mutation.disconnect();document.removeEventListener('click',click,true);};

@@ -139,10 +139,10 @@ export function SimilarArtists({ currentArtist, artists, songs }: Props) {
       const reference = doc(firestore, 'members', user.uid, 'followingArtists', id);
       if (followed[id]) {
         await deleteDoc(reference);
-        trackAnalytics({ eventType: 'artist_unfollowed', entityType: 'artist', entityId: id, title: String(artist.name || artist.title || '') });
+        trackAnalytics({eventType:'artist_follow',entityType:'artist',entityId:id,slug:String(artist.slug||''),title:String(artist.name||artist.title||''),metadata:{action:'unfollowed'}});
       } else {
         await setDoc(reference, { artistId: id, artistSlug: artist.slug || '', artistName: artist.name || artist.title || '', followedAt: serverTimestamp() });
-        trackAnalytics({ eventType: 'artist_followed', entityType: 'artist', entityId: id, title: String(artist.name || artist.title || '') });
+        trackAnalytics({eventType:'artist_follow',entityType:'artist',entityId:id,slug:String(artist.slug||''),title:String(artist.name||artist.title||''),metadata:{action:'followed'}});
       }
     } finally {
       setBusy('');

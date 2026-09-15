@@ -30,7 +30,7 @@ const EVENT_BY_ACTION = {
   play: 'recommendation_play',
   complete: 'recommendation_complete',
   playlist_add: 'recommendation_playlist_add',
-  conversion: 'recommendation_conversion',
+  conversion: 'recommendation_click',
 } as const;
 
 function impressionKey(entity: DiscoveryEntity, context: DiscoveryContext) {

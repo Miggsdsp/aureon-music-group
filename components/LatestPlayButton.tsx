@@ -11,7 +11,7 @@ import { trackDiscovery } from '@/lib/discovery-analytics';
 import styles from './LatestPlayButton.module.css';
 
 type SongPurchase = { id:string; title:string; artist:string; image:string; price?:number; promotional?:boolean; slug?:string; artistSlug?:string };
-type SongAnalytics = { id?:string; artistId?:string; artistName?:string; albumId?:string; albumTitle?:string };
+type SongAnalytics = { id?:string; slug?:string; genre?:string; artistId?:string; artistSlug?:string; artistName?:string; albumId?:string; albumSlug?:string; albumTitle?:string };
 type DiscoveryAnalytics = { source:string; algorithm:string; position:number; confidence?:number };
 type CartProduct = { id:string; name:string; slug:string; category:string; artist:string; artistSlug:string; price:number; image:string; description:string; badge?:string; digital?:boolean };
 type LatestPlayButtonProps = { title:string; src?:string; purchase?:SongPurchase; analytics?:SongAnalytics; discovery?:DiscoveryAnalytics; buttonLabel?:string; showPurchase?:boolean; size?:'small'|'medium'|'large' };
@@ -19,6 +19,8 @@ type LatestPlayButtonProps = { title:string; src?:string; purchase?:SongPurchase
 export function LatestPlayButton({ title, src, purchase, analytics, discovery, buttonLabel, showPurchase = true, size = 'medium' }: LatestPlayButtonProps) {
   const audioRef=useRef<HTMLAudioElement|null>(null);
   const completionTracked=useRef(false);
+  const startTracked=useRef(false);
+  const milestonesTracked=useRef(new Set<number>());
   const metadataRequested=useRef(false);
   const [isPlaying,setIsPlaying]=useState(false);
   const [hasError,setHasError]=useState(false);
@@ -32,7 +34,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   const hasPreview=Boolean(src)&&!hasError;
   const entityId=analytics?.id||purchase?.id||'';
   const artistName=analytics?.artistName||purchase?.artist||'';
-  const eventBase={entityType:'song',entityId,title,artistId:analytics?.artistId||'',artistName,albumId:analytics?.albumId||'',albumTitle:analytics?.albumTitle||''};
+  const eventBase={entityType:'song',entityId,title,slug:analytics?.slug||purchase?.slug||'',genre:analytics?.genre||'',artistId:analytics?.artistId||'',artistSlug:analytics?.artistSlug||purchase?.artistSlug||'',artistName,albumId:analytics?.albumId||'',albumSlug:analytics?.albumSlug||'',albumTitle:analytics?.albumTitle||''};
   const discoveryEntity={id:entityId,type:'song' as const,title,artistId:analytics?.artistId||'',artistName,albumId:analytics?.albumId||'',albumTitle:analytics?.albumTitle||''};
   const songPath=purchase?.slug?`/songs/${purchase.slug}`:entityId?`/songs/${entityId}`:'/music';
 
@@ -40,6 +42,8 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   useEffect(()=>{
     metadataRequested.current=false;
     completionTracked.current=false;
+    startTracked.current=false;
+    milestonesTracked.current.clear();
     setHasError(false);
     setIsPlaying(false);
     setNearEnd(false);
@@ -72,7 +76,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     setPreviewFinished(true);
     if(completionTracked.current)return;
     completionTracked.current=true;
-    trackAnalytics({...eventBase,eventType:'preview_complete',listenedSeconds:Math.min(previewSeconds,audio.duration||previewSeconds),durationSeconds:audio.duration||previewSeconds,progressPercent:audio.duration?Math.min(100,previewSeconds/audio.duration*100):100});
+    trackAnalytics({...eventBase,eventType:'music_preview_complete',listenedSeconds:Math.min(previewSeconds,audio.duration||previewSeconds),durationSeconds:Math.min(previewSeconds,audio.duration||previewSeconds),progressPercent:100});
     if(discovery)trackDiscovery('complete',discoveryEntity,discovery,{listenedSeconds:Math.min(previewSeconds,audio.duration||previewSeconds)});
   }
 
@@ -89,13 +93,15 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     if(!promotional&&audio.currentTime>=previewSeconds){
       audio.currentTime=0;
       completionTracked.current=false;
+      startTracked.current=false;
+      milestonesTracked.current.clear();
     }
     try{
       await audio.play();
       setPreviewFinished(false);
       setNearEnd(false);
       setIsPlaying(true);
-      trackAnalytics({...eventBase,eventType:'song_play',listenedSeconds:audio.currentTime,durationSeconds:audio.duration||0});
+      if(!startTracked.current){startTracked.current=true;trackAnalytics({...eventBase,eventType:'music_preview_start',listenedSeconds:audio.currentTime,durationSeconds:Math.min(previewSeconds,audio.duration||previewSeconds)})}
       if(discovery)trackDiscovery('play',discoveryEntity,{...discovery,interaction:'button'});
     }catch(error){
       console.error('Aureon preview playback failed',error);
@@ -107,6 +113,8 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   function enforcePreviewLimit(){
     const audio=audioRef.current;
     if(!audio||promotional)return;
+    const percent=Math.min(100,audio.currentTime/previewSeconds*100);
+    for(const milestone of [25,50,75])if(percent>=milestone&&!milestonesTracked.current.has(milestone)){milestonesTracked.current.add(milestone);trackAnalytics({...eventBase,eventType:'music_preview_progress',listenedSeconds:audio.currentTime,durationSeconds:previewSeconds,progressPercent:milestone})}
     setNearEnd(audio.currentTime>=30&&audio.currentTime<previewSeconds);
     if(audio.currentTime>=previewSeconds)finishPreview(audio);
   }
@@ -116,7 +124,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     if(!audio)return;
     setIsPlaying(false);
     if(!promotional){finishPreview(audio);return;}
-    trackAnalytics({...eventBase,eventType:'song_complete',listenedSeconds:audio.duration||0,durationSeconds:audio.duration||0,progressPercent:100});
+    trackAnalytics({...eventBase,eventType:'music_preview_complete',listenedSeconds:audio.duration||0,durationSeconds:audio.duration||0,progressPercent:100});
     if(discovery)trackDiscovery('complete',discoveryEntity,discovery,{listenedSeconds:audio.duration||0});
   }
 

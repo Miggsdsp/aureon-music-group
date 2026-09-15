@@ -8,6 +8,7 @@ import { ChevronDown, Clock3, GripVertical, ImagePlus, ListPlus, Play, Search, T
 import { firebaseAuth, firestore } from '@/lib/firebase-client';
 import { type PlayerSong, useMusicPlayer } from '@/components/music/MusicPlayerProvider';
 import { getArtwork } from '@/lib/get-artwork';
+import {trackAnalytics} from '@/lib/track-analytics';
 import styles from './library.module.css';
 
 type Song = PlayerSong & {
@@ -243,7 +244,7 @@ export default function LibraryPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to add this song to your playlist.');
       if (!data.added) setMessage('That song is already in this playlist.');
-      else setMessage(`${song.title || 'Song'} added to ${playlist.name || 'playlist'}.`);
+      else{setMessage(`${song.title||'Song'} added to ${playlist.name||'playlist'}.`);trackAnalytics({eventType:'playlist_add',entityType:'song',entityId:song.id,title:song.title||'',artistId:String(song.details?.artistId||''),artistName:song.artistName||song.artist||'',playlistId:playlist.id,playlistName:playlist.name||''})}
       setSelectedPlaylists(current => ({ ...current, [song.id]: '' }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to add this song to your playlist.');

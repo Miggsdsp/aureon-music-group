@@ -5,6 +5,7 @@ import { getStripe } from '@/lib/stripe-server';
 import { memberError, requireMember, type MemberPlan } from '@/lib/member-server';
 import { getSubscriptionPlan, syncStripeSubscription } from '@/lib/subscription-sync';
 import { sendSubscriptionLifecycleEmail } from '@/lib/transactional-email';
+import {analyticsContextFromBody,recordTrustedAnalyticsEvent,stripeAnalyticsMetadata} from '@/lib/analytics-server';
 
 export const runtime = 'nodejs';
 
@@ -100,6 +101,8 @@ async function scheduleListenerDowngrade(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const analytics=analyticsContextFromBody(body);
+    const analyticsMetadata=stripeAnalyticsMetadata(analytics);
     const plan = String(body?.plan || '') as MemberPlan;
     if (!['listener', 'creator'].includes(plan)) {
       return NextResponse.json({ error: 'Choose a valid membership plan.' }, { status: 400 });
@@ -177,6 +180,7 @@ export async function POST(request: Request) {
             }
 
             await syncStripeSubscription(confirmed, 'account-paid-upgrade');
+            if(analytics.analyticsConsent)await recordTrustedAnalyticsEvent({...analytics,eventType:'subscription_complete',entityType:'subscription',entityId:plan,plan,revenueCents:invoice.amount_paid,currency:invoice.currency,memberId:uid},String(invoice.id||latestInvoiceId)).catch(error=>console.error('Creator upgrade analytics failed:',error));
 
             if (email) {
               try {
@@ -272,11 +276,12 @@ export async function POST(request: Request) {
       billing_address_collection: 'required',
       success_url: `${siteUrl}/account?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/membership?subscription=cancelled`,
-      metadata: { firebaseUid: uid, plan },
-      subscription_data: { metadata: { firebaseUid: uid, plan } },
+      metadata:{firebaseUid:uid,plan,...analyticsMetadata},
+      subscription_data:{metadata:{firebaseUid:uid,plan,...analyticsMetadata}},
     });
 
-    if (!session.url) return NextResponse.json({ error: 'Stripe did not return a checkout URL.' }, { status: 502 });
+    if(!session.url)return NextResponse.json({error:'Stripe did not return a checkout URL.'},{status:502});
+    if(analytics.analyticsConsent)await recordTrustedAnalyticsEvent({...analytics,eventType:'subscription_checkout_start',entityType:'subscription',entityId:plan,plan},session.id).catch(error=>console.error('Subscription checkout analytics failed:',error));
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error('Subscription checkout failed:', error);

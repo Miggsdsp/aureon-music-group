@@ -14,7 +14,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'aureon-music-group.firebasestorage.app',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '900726492701',
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:900726492701:web:60585a1d0774740ccc40f4',
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-P9CQ5RHT3K'
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);

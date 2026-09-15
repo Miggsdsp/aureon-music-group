@@ -12,6 +12,7 @@ import {
   type AureonPlan,
 } from '@/lib/subscription-sync';
 import { sendSubscriptionLifecycleEmail, type SubscriptionEmailKind } from '@/lib/transactional-email';
+import {analyticsContextFromStripe,recordTrustedAnalyticsEvent} from '@/lib/analytics-server';
 
 export const runtime = 'nodejs';
 
@@ -108,6 +109,10 @@ export async function POST(request: Request) {
         if (session.mode === 'subscription' && typeof session.subscription === 'string') {
           const subscription = await getStripe().subscriptions.retrieve(session.subscription);
           await syncStripeSubscription(subscription, event.type);
+          if(session.payment_status!=='unpaid'){
+            const context=analyticsContextFromStripe(session.metadata);
+            if(context.analyticsConsent)await recordTrustedAnalyticsEvent({...context,eventType:'subscription_complete',entityType:'subscription',entityId:getSubscriptionPlan(subscription),plan:getSubscriptionPlan(subscription),revenueCents:session.amount_total||0,currency:session.currency||'eur',memberId:await resolveFirebaseUid(subscription)},subscription.id);
+          }
           await sendMemberEmail(subscription, 'confirmed');
         }
         break;

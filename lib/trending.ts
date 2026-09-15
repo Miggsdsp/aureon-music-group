@@ -25,6 +25,8 @@ const WINDOW_MS: Record<TrendingWindow, number> = {
 };
 
 const WEIGHTS: Record<string, number> = {
+  music_preview_start: 1,
+  music_preview_complete: 2,
   song_play: 1,
   preview_complete: 2,
   song_complete: 4,
@@ -74,7 +76,7 @@ export async function getTrendingSongs(window: TrendingWindow = '24h', limit = 2
     const eventType = String(event.eventType);
     current.signals[eventType] = (current.signals[eventType] || 0) + 1;
     current.score += weight * decay;
-    if (eventType === 'song_play') {
+    if (eventType === 'song_play' || eventType === 'music_preview_start') {
       const prior = current.actors.get(actor) || 0;
       if (prior > 0) {
         current.score += 1.5 * decay;

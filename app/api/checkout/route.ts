@@ -5,6 +5,7 @@ import { adminAuth, adminFirestore } from '@/lib/firebase-admin';
 import { getStripe } from '@/lib/stripe-server';
 import { releaseMerchandiseReservation, reserveMerchandiseInventory } from '@/lib/merch-inventory-server';
 import { cleanText, clientIp, enforceRateLimit, validEmail, writeAuditLog } from '@/lib/server-security';
+import {analyticsContextFromBody,recordTrustedAnalyticsEvent,stripeAnalyticsMetadata} from '@/lib/analytics-server';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +15,7 @@ type CheckoutBody = {
   email?: string; firstName?: string; surname?: string; phone?: string; deliveryAddress?: DeliveryAddress;
   deviceType?: string; trafficSource?: string; utmSource?: string;
   utmMedium?: string; utmCampaign?: string; landingPath?: string; items?: CheckoutItem[];
+  [key:string]:unknown;
 };
 type ValidatedItem = { id: string; name: string; description: string; priceCents: number; quantity: number; digital: boolean; size?: string; colour?: string };
 
@@ -86,6 +88,8 @@ export async function POST(request: Request) {
     const allowed = await enforceRateLimit('checkout', ip, 20, 15 * 60 * 1000);
     if (!allowed) return NextResponse.json({ error: 'Too many checkout attempts. Please try again shortly.' }, { status: 429 });
     const body = (await request.json()) as CheckoutBody;
+    const analytics=analyticsContextFromBody(body);
+    const analyticsMetadata=stripeAnalyticsMetadata(analytics);
     const email = cleanText(body.email, 180).toLowerCase();
     const supplied = Array.isArray(body.items) ? body.items.filter(item => item?.id).slice(0, 30) : [];
     if (!validEmail(email) || !supplied.length) return NextResponse.json({ error: 'A valid email and at least one item are required.' }, { status: 400 });
@@ -157,7 +161,7 @@ export async function POST(request: Request) {
         songIds: songs.map(item => item.id).join(','), productIds: products.map(item => item.id).join(','), orderType: hasPhysical ? (songs.length ? 'mixed' : 'merchandise') : 'digital',
         inventoryReservationId: reservationId,
         memberUid: discount.uid, memberDiscountPercent: String(discount.percent), deviceType: safeMetadata(body.deviceType || 'Not captured', 50),
-        trafficSource: safeMetadata(body.trafficSource || 'Direct', 120), utmSource: safeMetadata(body.utmSource, 100), utmMedium: safeMetadata(body.utmMedium, 100), utmCampaign: safeMetadata(body.utmCampaign, 100), landingPath: safeMetadata(body.landingPath, 180), requestIp: ip,
+        trafficSource:safeMetadata(analytics.firstTouchSource||body.trafficSource||'Direct',120),...analyticsMetadata,
       },
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/checkout/cancelled`,
@@ -171,10 +175,11 @@ export async function POST(request: Request) {
       deliveryAddress: deliveryAddress || null,
       items: validated.map(item => ({ id:item.id, name:item.name, quantity:item.quantity, priceCents:item.priceCents, digital:item.digital, size:item.size || '', colour:item.colour || '' })),
       songIds: songs.map(item=>item.id), productIds: products.map(item=>item.id), orderType: hasPhysical ? (songs.length ? 'mixed' : 'merchandise') : 'digital',
-      memberUid: discount.uid, memberDiscountPercent: discount.percent, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
+      memberUid:discount.uid,memberDiscountPercent:discount.percent,...analyticsMetadata,createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp(),
     }, { merge: true });
 
     await writeAuditLog('checkout.created', { sessionId: session.id, reservationId, ip, email, itemIds: validated.map(item => item.id), memberDiscountPercent: discount.percent });
+    if(analytics.analyticsConsent)await recordTrustedAnalyticsEvent({...analytics,eventType:'purchase_checkout_start',entityType:songs.length?'song':'merchandise',entityId:songs[0]?.id||products[0]?.id||'checkout',title:songs[0]?.name||products[0]?.name||'Aureon order'},session.id).catch(error=>console.error('Purchase checkout analytics failed:',error));
     return NextResponse.json({ url: session.url, discountPercent: discount.percent });
   } catch (error) {
     console.error('Stripe checkout error:', error);

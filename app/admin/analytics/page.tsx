@@ -75,9 +75,9 @@ export default function AnalyticsPage() {
     const filteredEvents = events.filter(event => inRange(event.createdAt || event.receivedAt));
     for (const event of filteredEvents) {
       const country = countryLabel(event.country), type = String(event.eventType || event.type || 'page_view');
-      const field: keyof Metric = type === 'song_play' ? 'plays' : type === 'song_complete' ? 'completes' : type === 'preview_complete' ? 'previewCompletes' : type.includes('cart_add') ? 'cartAdds' : 'views';
+      const field:keyof Metric=['song_play','music_preview_start'].includes(type)?'plays':['song_complete','music_preview_complete'].includes(type)?'completes':['preview_complete','music_preview_complete'].includes(type)?'previewCompletes':type.includes('cart_add')?'cartAdds':'views';
       const song = String(event.title || event.entityId || 'Not captured'); const artist = String(event.artistName || event.artistId || 'Unknown artist'); const album = String(event.albumTitle || 'Singles / no album');
-      if (event.entityType === 'song' || type.startsWith('song_') || type === 'preview_complete') {
+      if(event.entityType==='song'||type.startsWith('song_')||type.startsWith('music_preview_')||type==='preview_complete'){
         bump(songMap, song, field, 1, country, { artistName: artist, albumTitle: album }); bump(songMap, song, 'listenedSeconds', Number(event.listenedSeconds || 0)); bump(artistMap, artist, field, 1, country); bump(albumMap, album, field, 1, country);
       }
       if (event.entityType === 'product' || type.startsWith('merch_')) bump(productMap, String(event.productName || event.title || event.productId || 'Product'), field, 1, country);

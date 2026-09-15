@@ -61,6 +61,7 @@ function harness() {
   const helper = load('lib/purchase-email-fulfilment.ts', { ...common, '@/lib/transactional-email': email });
   const webhook = load('app/api/stripe/webhook/route.ts', { ...common,
     '@/lib/purchase-email-fulfilment': helper,
+    '@/lib/analytics-server': { analyticsContextFromStripe: () => ({ analyticsConsent:false }), recordTrustedAnalyticsEvent: async () => ({ created:true }) },
     '@/lib/stripe-server': {},
     '@/lib/merch-inventory-server': {},
     'next/server': {}, stripe: {},

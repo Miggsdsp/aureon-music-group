@@ -28,10 +28,10 @@ export function FavouriteSongButton({ songId, title, artistName = '', artistId =
       const reference = doc(firestore, 'members', user.uid, 'favoriteSongs', songId);
       if (saved) {
         await deleteDoc(reference);
-        trackAnalytics({ eventType: 'song_unlike', entityType: 'song', entityId: songId, title, artistId, artistName });
+        trackAnalytics({eventType:'song_favourite',entityType:'song',entityId:songId,title,slug,artistId,artistName,metadata:{action:'removed'}});
       } else {
         await setDoc(reference, { songId, title, artistName, artistId, artwork, slug, savedAt: serverTimestamp() });
-        trackAnalytics({ eventType: 'song_like', entityType: 'song', entityId: songId, title, artistId, artistName });
+        trackAnalytics({eventType:'song_favourite',entityType:'song',entityId:songId,title,slug,artistId,artistName,metadata:{action:'added'}});
       }
     } finally { setBusy(false); }
   }
