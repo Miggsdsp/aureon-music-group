@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
-import {ANALYTICS_CONSENT_KEY,setAnalyticsConsent} from '@/lib/analytics-attribution';
+import {getAnalyticsConsentChoice,setAnalyticsConsent,type AnalyticsConsentChoice} from '@/lib/analytics-attribution';
 import styles from './AnalyticsConsent.module.css';
 
 export default function AnalyticsConsent(){
- const[choice,setChoice]=useState<string|null|undefined>(undefined);
- useEffect(()=>setChoice(localStorage.getItem(ANALYTICS_CONSENT_KEY)),[]);
+ const[choice,setChoice]=useState<AnalyticsConsentChoice|null|undefined>(undefined);
+ useEffect(()=>setChoice(getAnalyticsConsentChoice()),[]);
  if(choice===undefined)return null;
  if(choice)return <button type="button" className={styles.preferences} onClick={()=>setChoice(null)}>Privacy choices</button>;
  const choose=(granted:boolean)=>{setAnalyticsConsent(granted);setChoice(granted?'granted':'denied')};
