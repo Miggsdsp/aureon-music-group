@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Disc3, Globe2, Headphones, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
+import { ServerFooter } from '@/components/ServerFooter';
 import { EditablePageText } from '@/components/EditablePageText';
 
 const pillars = [
@@ -245,7 +245,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <Footer />
+      <ServerFooter />
     </main>
   );
 }
