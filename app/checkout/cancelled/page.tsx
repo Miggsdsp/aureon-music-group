@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
+import { ServerFooter } from '@/components/ServerFooter';
 
 export default function CheckoutCancelledPage() {
   return (
@@ -17,7 +17,7 @@ export default function CheckoutCancelledPage() {
           <Link className="ghost-button" href="/music">Browse music</Link>
         </div>
       </section>
-      <Footer />
+      <ServerFooter />
     </main>
   );
 }
