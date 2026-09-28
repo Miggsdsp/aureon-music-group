@@ -16,7 +16,7 @@ type Artist = PublicRecord & {
 };
 
 export function HomeArtistRotation() {
-  const { items } = usePublishedCollection<Artist>('artists', []);
+  const { items } = usePublishedCollection<Artist>('artists', [], true);
   const artists = useMemo(() => {
     const featured = items.filter(item => item.featured);
     return featured.length ? featured : items;
