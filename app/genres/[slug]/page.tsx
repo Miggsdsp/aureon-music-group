@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { getPublicGenre } from '@/lib/public-genres';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
+import { ServerFooter } from '@/components/ServerFooter';
 import { NewReleases } from '@/components/discovery/NewReleases';
 
 export default async function GenrePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -18,6 +18,6 @@ export default async function GenrePage({ params }: { params: Promise<{ slug: st
       <Link className="ghost-button" href="/discover">← Back to Discover</Link>
     </section>
     <NewReleases genre={genre} showFilters limit={48}/>
-    <Footer/>
+    <ServerFooter/>
   </main>;
 }
