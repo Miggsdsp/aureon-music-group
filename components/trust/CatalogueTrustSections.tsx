@@ -9,17 +9,29 @@ type Album = PublicRecord;
 type Artist = PublicRecord;
 type Video = PublicRecord;
 
-export function CatalogueTrustSections() {
-  const { items: songs } = usePublishedCollection<Song>('songs', []);
-  const { items: albums } = usePublishedCollection<Album>('albums', []);
-  const { items: artists } = usePublishedCollection<Artist>('artists', []);
-  const { items: videos } = usePublishedCollection<Video>('videos', []);
+type CatalogueCounts = {
+  songs: number;
+  albums: number;
+  artists: number;
+  videos: number;
+};
+
+const count = (items: PublicRecord[], loading: boolean, initial: number) => {
+  if (loading || items.length < initial) return initial;
+  return items.length;
+};
+
+export function CatalogueTrustSections({ initialCounts = { songs: 0, albums: 0, artists: 0, videos: 0 } }: { initialCounts?: CatalogueCounts }) {
+  const { items: songs, loading: songsLoading } = usePublishedCollection<Song>('songs', [], true);
+  const { items: albums, loading: albumsLoading } = usePublishedCollection<Album>('albums', [], true);
+  const { items: artists, loading: artistsLoading } = usePublishedCollection<Artist>('artists', [], true);
+  const { items: videos, loading: videosLoading } = usePublishedCollection<Video>('videos', [], true);
 
   const metrics = [
-    { value: songs.length, label: 'Official songs', Icon: Music2 },
-    { value: albums.length, label: 'Albums & EPs', Icon: LibraryBig },
-    { value: artists.length, label: 'Aureon artists', Icon: Headphones },
-    { value: videos.length, label: 'Official videos', Icon: RadioTower },
+    { value: count(songs, songsLoading, initialCounts.songs), label: 'Official songs', Icon: Music2 },
+    { value: count(albums, albumsLoading, initialCounts.albums), label: 'Albums & EPs', Icon: LibraryBig },
+    { value: count(artists, artistsLoading, initialCounts.artists), label: 'Aureon artists', Icon: Headphones },
+    { value: count(videos, videosLoading, initialCounts.videos), label: 'Official videos', Icon: RadioTower },
   ];
 
   return <section className={styles.wrap} aria-label="Aureon catalogue and global access">
