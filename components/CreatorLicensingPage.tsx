@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { CheckCircle2, FileText, ShieldCheck, Sparkles } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
+import { ServerFooter } from '@/components/ServerFooter';
 import { LatestPlayButton } from '@/components/LatestPlayButton';
 import { AnalyticsView } from '@/components/AnalyticsView';
 import { CreatorLicensingCta } from '@/components/CreatorLicensingCta';
@@ -20,11 +20,25 @@ function dateScore(song: Record<string, any>) {
 
 async function getPreviewSongs() {
   const songs = await getPublishedRecords('songs');
-  return songs
+  const eligible = songs
     .map(song => publicCatalogueRecord(song, true))
     .filter(song => song.previewUrl && song.slug && song.title)
-    .sort((a, b) => dateScore(b) - dateScore(a))
-    .slice(0, 3);
+    .sort((a, b) => dateScore(b) - dateScore(a) || String(a.title).localeCompare(String(b.title)));
+  const selected: Record<string, any>[] = [];
+  const selectedArtists = new Set<string>();
+  for (const song of eligible) {
+    const artistKey = String(song.artistSlug || song.artistId || song.artistName || song.artist || '').trim().toLowerCase();
+    if (artistKey && selectedArtists.has(artistKey)) continue;
+    selected.push(song);
+    if (artistKey) selectedArtists.add(artistKey);
+    if (selected.length === 3) return selected;
+  }
+  for (const song of eligible) {
+    if (selected.some(item => item.id === song.id)) continue;
+    selected.push(song);
+    if (selected.length === 3) break;
+  }
+  return selected;
 }
 
 export async function CreatorLicensingPage({ page }: { page: CreatorLicensingPageConfig }) {
@@ -171,7 +185,7 @@ export async function CreatorLicensingPage({ page }: { page: CreatorLicensingPag
         </div>
       </section>
 
-      <Footer />
+      <ServerFooter />
     </main>
   );
 }
