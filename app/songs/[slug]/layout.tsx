@@ -1,9 +1,9 @@
-import { publicAsset } from '@/lib/public-catalogue';
+import { matchesAlbum, publicAsset } from '@/lib/public-catalogue';
 import { getPreviewUrl } from '@/lib/get-preview-url';
 import { canonicalArtistIdentity } from '@/lib/artist-identity';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { buildMetadata, breadcrumbSchema, getPublishedRecord, safeJsonLd, SITE_URL, text } from '@/lib/seo';
+import { buildMetadata, breadcrumbSchema, getPublishedRecord, getPublishedRecords, safeJsonLd, SITE_URL, text } from '@/lib/seo';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -27,12 +27,19 @@ export default async function SongLayout({ children, params }: { children: React
   const { slug } = await params;
   const song = await getPublishedRecord('songs', slug);
   if (!song) notFound();
+  const canonicalSlug = song.slug || slug;
+  if (song.slug && slug !== canonicalSlug) permanentRedirect(`/songs/${canonicalSlug}`);
   const details = song.details || {};
   const identity = canonicalArtistIdentity(song);
   const title = text(song.title || song.name, 'Aureon song');
   const artist = identity?.name || text(song.artistName || details.artistName || song.artist, 'Aureon Music Group');
-  const path = `/songs/${song.slug || slug}`;
-  const artistPath = identity?.slug ? `/artists/${identity.slug}` : undefined;
+  const path = `/songs/${canonicalSlug}`;
+  const artistSlug = identity?.slug || song.artistSlug || details.artistSlug;
+  const artistPath = artistSlug ? `/artists/${artistSlug}` : undefined;
+  const albums = await getPublishedRecords('albums');
+  const album = albums.find(candidate => matchesAlbum(song, candidate));
+  const albumTitle = text(song.albumTitle || details.albumTitle || album?.title || album?.name);
+  const albumPath = album?.slug ? `/music/${album.slug}` : undefined;
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'MusicRecording',
@@ -49,9 +56,18 @@ export default async function SongLayout({ children, params }: { children: React
       name: artist,
       ...(artistPath ? { '@id': `${SITE_URL}${artistPath}#artist`, url: `${SITE_URL}${artistPath}` } : {}),
     },
-    inAlbum: song.albumTitle || details.albumTitle ? { '@type': 'MusicAlbum', name: song.albumTitle || details.albumTitle } : undefined,
+    inAlbum: albumTitle ? {
+      '@type': 'MusicAlbum',
+      name: albumTitle,
+      ...(albumPath ? { '@id': `${SITE_URL}${albumPath}#album`, url: `${SITE_URL}${albumPath}` } : {}),
+    } : undefined,
     audio: publicAsset(getPreviewUrl(song)) ? { '@type': 'AudioObject', contentUrl: publicAsset(getPreviewUrl(song)) } : undefined,
   };
-  const breadcrumbs = breadcrumbSchema([{ name: 'Home', path: '/' }, { name: 'Music', path: '/music' }, { name: title, path }]);
+  const breadcrumbs = breadcrumbSchema([
+    { name: 'Home', path: '/' },
+    artistPath ? { name: artist, path: artistPath } : { name: 'Music', path: '/music' },
+    ...(albumPath && albumTitle ? [{ name: albumTitle, path: albumPath }] : []),
+    { name: title, path },
+  ]);
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([schema, breadcrumbs]) }} />{children}</>;
 }

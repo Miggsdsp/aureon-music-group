@@ -1,6 +1,6 @@
 import { matchesAlbum } from '@/lib/public-catalogue';
 import { canonicalArtistIdentity } from '@/lib/artist-identity';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { buildMetadata, breadcrumbSchema, getPublishedRecord, getPublishedRecords, safeJsonLd, SITE_URL, text } from '@/lib/seo';
 import { faqSchema, musicRecordingSchema } from '@/lib/schema';
@@ -20,11 +20,14 @@ export default async function AlbumLayout({ children, params }: { children: Reac
   const { slug } = await params;
   const album = await getPublishedRecord('albums', slug);
   if (!album) notFound();
+  const canonicalSlug = album.slug || slug;
+  if (album.slug && slug !== canonicalSlug) permanentRedirect(`/music/${canonicalSlug}`);
   const identity = canonicalArtistIdentity(album);
   const title = text(album.title || album.name, 'Aureon Album');
   const artist = identity?.name || text(album.artistName || album.artist, 'Aureon Music Group');
-  const path = `/music/${album.slug || slug}`;
-  const artistPath = identity?.slug ? `/artists/${identity.slug}` : undefined;
+  const path = `/music/${canonicalSlug}`;
+  const artistSlug = identity?.slug || album.artistSlug || album.details?.artistSlug;
+  const artistPath = artistSlug ? `/artists/${artistSlug}` : undefined;
   const allSongs = await getPublishedRecords('songs');
   const songs = allSongs.filter(song => matchesAlbum(song, album));
   const recordings = songs.map(song => musicRecordingSchema({ ...song, artistName: song.artistName || artist, albumTitle: title }));
@@ -46,7 +49,11 @@ export default async function AlbumLayout({ children, params }: { children: Reac
     numTracks: songs.length || album.trackCount || (Array.isArray(album.tracks) ? album.tracks.length : undefined),
     track: recordings,
   };
-  const breadcrumbs = breadcrumbSchema([{ name: 'Home', path: '/' }, { name: 'Music', path: '/music' }, { name: title, path }]);
+  const breadcrumbs = breadcrumbSchema([
+    { name: 'Home', path: '/' },
+    artistPath ? { name: artist, path: artistPath } : { name: 'Music', path: '/music' },
+    { name: title, path },
+  ]);
   const faq = faqSchema(Array.isArray(album.faqs) ? album.faqs : []);
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([schema, ...recordings, breadcrumbs, faq].filter(Boolean)) }} />{children}</>;
 }
