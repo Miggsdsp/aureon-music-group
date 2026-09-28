@@ -7,7 +7,7 @@ const SITE_URL = 'https://www.aureonmusicgroup.com';
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticPaths = ['', '/artists', '/music', '/videos', '/news', '/merchandise', '/membership', '/about', '/contact', '/legal'];
+  const staticPaths = ['', '/artists', '/music', '/videos', '/news', '/merchandise', '/membership', '/about', '/contact', '/legal', '/music-for-content-creators', '/music-for-youtube', '/music-for-podcasts', '/music-for-social-media', '/music-for-commercial-videos'];
   const staticEntries: MetadataRoute.Sitemap = staticPaths.map(path => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: path === '' ? 'daily' : 'weekly',

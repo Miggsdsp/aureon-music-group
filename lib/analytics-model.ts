@@ -8,6 +8,7 @@ export const CLIENT_ANALYTICS_EVENTS = [
   'artist_followed','artist_unfollowed','referral_shared',
   'recommendation_impression','recommendation_click','recommendation_play','recommendation_complete','recommendation_playlist_add',
   'trust_impression','trust_click','merch_view','merch_cart_add','web_vital','core_web_vital',
+  'creator_landing_view','creator_cta_click',
 ] as const;
 
 export const TRUSTED_ANALYTICS_EVENTS = [
