@@ -22,6 +22,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   const startTracked=useRef(false);
   const milestonesTracked=useRef(new Set<number>());
   const metadataRequested=useRef(false);
+  const earlyEndedRetries=useRef(0);
   const [isPlaying,setIsPlaying]=useState(false);
   const [hasError,setHasError]=useState(false);
   const [previewFinished,setPreviewFinished]=useState(false);
@@ -44,6 +45,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     completionTracked.current=false;
     startTracked.current=false;
     milestonesTracked.current.clear();
+    earlyEndedRetries.current=0;
     setHasError(false);
     setIsPlaying(false);
     setNearEnd(false);
@@ -95,6 +97,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
       completionTracked.current=false;
       startTracked.current=false;
       milestonesTracked.current.clear();
+      earlyEndedRetries.current=0;
     }
     try{
       await audio.play();
@@ -122,6 +125,19 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   function ended(){
     const audio=audioRef.current;
     if(!audio)return;
+    if(!promotional&&audio.currentTime<previewSeconds-0.75){
+      setIsPlaying(false);
+      setNearEnd(false);
+      if(earlyEndedRetries.current<1&&(Number.isFinite(audio.duration)?audio.duration>=previewSeconds-0.75:true)){
+        earlyEndedRetries.current+=1;
+        const resumeAt=audio.currentTime;
+        audio.currentTime=resumeAt;
+        audio.play().then(()=>setIsPlaying(true)).catch(error=>{
+          console.error('Aureon preview resume failed after early ended event',error);
+        });
+      }
+      return;
+    }
     setIsPlaying(false);
     if(!promotional){finishPreview(audio);return;}
     trackAnalytics({...eventBase,eventType:'music_preview_complete',listenedSeconds:audio.duration||0,durationSeconds:audio.duration||0,progressPercent:100});

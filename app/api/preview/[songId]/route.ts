@@ -120,6 +120,31 @@ function legacyPublicPreview(data: Record<string, any>) {
   }
 }
 
+function previewResponse(body: Buffer, rangeHeader: string | null, headers: Record<string, string> = {}) {
+  const range = parseRange(rangeHeader, body.length);
+  const responseBody = range ? body.subarray(range.start, range.end + 1) : body;
+  return new Response(Readable.toWeb(Readable.from(responseBody)) as ReadableStream, {
+    status: range ? 206 : 200,
+    headers: {
+      'Content-Type': 'audio/wav',
+      'Content-Length': String(responseBody.length),
+      'Accept-Ranges': 'bytes',
+      ...(range ? {'Content-Range': `bytes ${range.start}-${range.end}/${body.length}`} : {}),
+      'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+      'X-Aureon-Preview-Seconds': String(PREVIEW_SECONDS),
+      'X-Content-Type-Options': 'nosniff',
+      ...headers,
+    },
+  });
+}
+
+async function legacyPreviewResponse(fallback: string, request: Request) {
+  const response = await fetch(new URL(fallback, request.url), {cache: 'no-store'});
+  if (!response.ok) throw new Error(`LEGACY_PREVIEW_FETCH_FAILED_${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return previewResponse(buffer, request.headers.get('range'), {'X-Aureon-Preview-Source': 'legacy-public-preview'});
+}
+
 export async function GET(request: Request, context: {params: Promise<{songId: string}>}) {
   try {
     const {songId} = await context.params;
@@ -141,7 +166,7 @@ export async function GET(request: Request, context: {params: Promise<{songId: s
       wav = parseWav(scan);
     } catch (error) {
       const fallback = legacyPublicPreview(songData);
-      if (fallback) return NextResponse.redirect(new URL(fallback, request.url), 307);
+      if (fallback) return legacyPreviewResponse(fallback, request);
       throw error;
     }
     const frames = Math.min(wav.frameCount, Math.floor(wav.sampleRate * PREVIEW_SECONDS));
@@ -150,21 +175,9 @@ export async function GET(request: Request, context: {params: Promise<{songId: s
     const header = previewHeader(formatChunk, dataSize);
     const previewData = await readFileRange(file, wav.dataOffset, wav.dataOffset + dataSize - 1);
     const body = Buffer.concat([header, previewData]);
-    const range = parseRange(request.headers.get('range'), body.length);
-    const responseBody = range ? body.subarray(range.start, range.end + 1) : body;
-
-    return new Response(Readable.toWeb(Readable.from(responseBody)) as ReadableStream, {
-      status: range ? 206 : 200,
-      headers: {
-        'Content-Type': 'audio/wav',
-        'Content-Length': String(responseBody.length),
-        'Accept-Ranges': 'bytes',
-        ...(range ? {'Content-Range': `bytes ${range.start}-${range.end}/${body.length}`} : {}),
-        'Cache-Control': 'public, max-age=3600, s-maxage=86400',
-        'Content-Disposition': `inline; filename="${encodeURIComponent(String(song.data()?.title || 'aureon-preview'))}-preview.wav"`,
-        'X-Aureon-Preview-Seconds': String(PREVIEW_SECONDS),
-        'X-Content-Type-Options': 'nosniff',
-      },
+    return previewResponse(body, request.headers.get('range'), {
+      'Content-Disposition': `inline; filename="${encodeURIComponent(String(song.data()?.title || 'aureon-preview'))}-preview.wav"`,
+      'X-Aureon-Preview-Source': 'private-master',
     });
   } catch (error) {
     console.error('Public preview failed:', error);
