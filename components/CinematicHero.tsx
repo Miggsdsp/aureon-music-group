@@ -38,6 +38,7 @@ export function CinematicHero() {
 
   return (
     <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'}>
+      <h1 className="sr-only">Aureon Music Group music discovery platform</h1>
       <div className={styles.videoLoadingBackground} aria-hidden="true" />
 
       {!platformLoading && videoUrl ? (
