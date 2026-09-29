@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const PREVIEW_SECONDS = 40;
-const HEADER_SCAN_BYTES = 512 * 1024;
+const HEADER_SCAN_BYTES = 16 * 1024 * 1024;
 
 type WavInfo = {
   formatOffset: number;
@@ -109,13 +109,25 @@ function songMasterPath(data: Record<string, any>) {
   return String(data.privateFilePath || details.privateFilePath || data.fullTrackPath || details.fullTrackPath || '').trim();
 }
 
+function legacyPublicPreview(data: Record<string, any>) {
+  const details = data.details && typeof data.details === 'object' ? data.details : {};
+  const value = String(data.previewUrl || details.previewUrl || data.previewAudioUrl || details.previewAudioUrl || '').trim();
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : '';
+  } catch {
+    return value.startsWith('/') && !value.startsWith('/api/member/') && !value.startsWith('/api/download/') ? value : '';
+  }
+}
+
 export async function GET(request: Request, context: {params: Promise<{songId: string}>}) {
   try {
     const {songId} = await context.params;
     const song = await adminFirestore.collection('songs').doc(songId).get();
     if (!song.exists || song.data()?.status !== 'published') return NextResponse.json({error: 'Song not found.'}, {status: 404});
+    const songData = song.data() || {};
 
-    const path = songMasterPath(song.data() || {});
+    const path = songMasterPath(songData);
     if (!path.startsWith('private/full-tracks/')) return NextResponse.json({error: 'Preview unavailable.'}, {status: 404});
 
     const file = adminStorage.bucket().file(path);
@@ -124,7 +136,14 @@ export async function GET(request: Request, context: {params: Promise<{songId: s
     if (!fileSize) return NextResponse.json({error: 'Preview unavailable.'}, {status: 404});
 
     const scan = await readFileRange(file, 0, Math.min(fileSize - 1, HEADER_SCAN_BYTES - 1));
-    const wav = parseWav(scan);
+    let wav: WavInfo;
+    try {
+      wav = parseWav(scan);
+    } catch (error) {
+      const fallback = legacyPublicPreview(songData);
+      if (fallback) return NextResponse.redirect(new URL(fallback, request.url), 307);
+      throw error;
+    }
     const frames = Math.min(wav.frameCount, Math.floor(wav.sampleRate * PREVIEW_SECONDS));
     const dataSize = frames * wav.blockAlign;
     const formatChunk = scan.subarray(wav.formatOffset, wav.formatOffset + wav.formatSize);
