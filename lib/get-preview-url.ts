@@ -1,5 +1,12 @@
 type PreviewRecord = Record<string, any> | null | undefined;
 
+function privatePreviewUrl(record: Record<string, any>, details: Record<string, unknown>) {
+  const id = String(record.id || record.songId || '').trim();
+  const privateFilePath = String(record.privateFilePath || details.privateFilePath || record.fullTrackPath || details.fullTrackPath || '').trim();
+  if (!id || !privateFilePath.startsWith('private/full-tracks/')) return '';
+  return `/api/preview/${encodeURIComponent(id)}`;
+}
+
 const PREVIEW_FIELDS = [
   'previewUrl',
   'previewAudioUrl',
@@ -33,6 +40,8 @@ export function getPreviewUrl(record: PreviewRecord): string {
   if (!record) return '';
   const details = record.details && typeof record.details === 'object' ? record.details : {};
   const media = record.media && typeof record.media === 'object' ? record.media : {};
+  const boundedPreview = privatePreviewUrl(record, details);
+  if (boundedPreview) return boundedPreview;
 
   for (const field of PREVIEW_FIELDS) {
     const direct = usable(record[field]) || fromObject(record[field]);
