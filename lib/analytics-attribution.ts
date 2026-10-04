@@ -5,8 +5,11 @@ import type { AnalyticsContext, AttributionTouch, ContentAttribution } from './a
 export const ANALYTICS_CONSENT_KEY = 'aureon-analytics-consent';
 export const ANALYTICS_CONSENT_COOKIE = 'aureon_analytics_consent';
 export type AnalyticsConsentChoice = 'granted'|'denied';
+declare global{interface Window{gtag?:(...args:unknown[])=>void}}
 const FIRST_TOUCH_KEY='aureon-analytics-first-touch', SESSION_TOUCH_KEY='aureon-analytics-session-touch', CONTENT_KEY='aureon-analytics-content';
 const VISITOR_KEY='aureon-analytics-visitor', SESSION_KEY='aureon-analytics-session', LAST_VISIT_KEY='aureon-analytics-last-visit';
+const deniedGoogleConsent={analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'} as const;
+const grantedGoogleConsent={analytics_storage:'granted',ad_storage:'granted',ad_user_data:'granted',ad_personalization:'denied'} as const;
 const emptyTouch=():AttributionTouch=>({source:'direct',medium:'none',campaign:'',content:'',term:'',referrer:'',landingPage:'/'});
 const safe=(value:unknown,max=180)=>String(value||'').trim().slice(0,max);
 const campaignValue=(value:unknown)=>safe(value,100).toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9._-]/g,'');
@@ -25,4 +28,4 @@ export function initialiseAttribution(){if(!analyticsConsent())return{returning:
 export function recordContentView(kind:'song'|'artist',slug:string){if(!analyticsConsent()||!slug)return;const current=parse<ContentAttribution>(localStorage,CONTENT_KEY,{});if(kind==='song'){current.firstSongViewed||=slug;current.lastSongViewed=slug}else{current.firstArtistViewed||=slug;current.lastArtistViewed=slug}localStorage.setItem(CONTENT_KEY,JSON.stringify(current))}
 export function getAnalyticsContext():AnalyticsContext|null{if(!analyticsConsent())return null;initialiseAttribution();return{consent:true,visitorId:id(localStorage,VISITOR_KEY),sessionId:id(sessionStorage,SESSION_KEY),firstTouch:parse(localStorage,FIRST_TOUCH_KEY,emptyTouch()),sessionTouch:parse(sessionStorage,SESSION_TOUCH_KEY,emptyTouch()),content:parse(localStorage,CONTENT_KEY,{})}}
 export function analyticsCheckoutContext(){const context=getAnalyticsContext();return context?{analyticsConsent:true,analyticsClientId:context.visitorId,analyticsSessionId:context.sessionId,firstTouch:context.firstTouch,sessionTouch:context.sessionTouch,contentAttribution:context.content}:{analyticsConsent:false}}
-export function setAnalyticsConsent(granted:boolean){const choice:AnalyticsConsentChoice=granted?'granted':'denied';localStorage.setItem(ANALYTICS_CONSENT_KEY,choice);writeConsentCookie(choice);if(!granted){for(const key of [FIRST_TOUCH_KEY,CONTENT_KEY,VISITOR_KEY,LAST_VISIT_KEY])localStorage.removeItem(key);for(const key of [SESSION_TOUCH_KEY,SESSION_KEY])sessionStorage.removeItem(key);window.gtag?.('consent','update',{analytics_storage:'denied'})}window.dispatchEvent(new CustomEvent('aureon-consent-change',{detail:{granted}}))}
+export function setAnalyticsConsent(granted:boolean){const choice:AnalyticsConsentChoice=granted?'granted':'denied';localStorage.setItem(ANALYTICS_CONSENT_KEY,choice);writeConsentCookie(choice);if(!granted){for(const key of [FIRST_TOUCH_KEY,CONTENT_KEY,VISITOR_KEY,LAST_VISIT_KEY])localStorage.removeItem(key);for(const key of [SESSION_TOUCH_KEY,SESSION_KEY])sessionStorage.removeItem(key);window.gtag?.('consent','update',deniedGoogleConsent)}else window.gtag?.('consent','update',grantedGoogleConsent);window.dispatchEvent(new CustomEvent('aureon-consent-change',{detail:{granted}}))}
