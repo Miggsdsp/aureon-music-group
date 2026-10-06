@@ -38,6 +38,30 @@ test('browser endpoint cannot accept trusted conversions or revenue',()=>{const 
 
 test('paid conversions are server-authoritative and deduplicated',()=>{const purchase=read('app/api/stripe/webhook/route.ts'),subscriptions=read('app/api/stripe/subscriptions/route.ts'),analytics=read('lib/analytics-server.ts'),checkout=read('app/api/checkout/route.ts'),subscriptionCheckout=read('app/api/subscriptions/checkout/route.ts');assert.match(purchase,/payment_status!=='paid'/);assert.match(purchase,/eventType:'purchase_complete'/);assert.match(subscriptions,/eventType:'subscription_complete'/);assert.match(subscriptions,/session\.payment_status!=='unpaid'/);assert.match(analytics,/createHash\('sha256'\)/);assert.match(analytics,/transaction\.get\(eventRef\)/);assert.match(checkout,/checkout\.sessions\.create/);assert.match(checkout,/eventType:'purchase_checkout_start'/);assert.match(subscriptionCheckout,/checkout\.sessions\.create/);assert.match(subscriptionCheckout,/eventType:'subscription_checkout_start'/)});
 
+test('successful paid subscription is recorded once even when GA4 consent delivery is skipped',()=>{
+ const subscriptions=read('app/api/stripe/subscriptions/route.ts'),checkout=read('app/api/subscriptions/checkout/route.ts'),analytics=read('lib/analytics-server.ts');
+ const completedBlock=subscriptions.match(/case 'checkout\.session\.completed': \{[\s\S]*?case 'customer\.subscription\.created'/)?.[0]||'';
+ assert.match(completedBlock,/session\.payment_status!=='unpaid'/);
+ assert.match(completedBlock,/recordTrustedAnalyticsEvent\(\{\.\.\.context,eventType:'subscription_complete'/);
+ assert.doesNotMatch(completedBlock,/if\(context\.analyticsConsent\)await recordTrustedAnalyticsEvent\(\{\.\.\.context,eventType:'subscription_complete'/);
+ assert.match(completedBlock,/subscription\.id\)/);
+ assert.match(checkout,/recordTrustedAnalyticsEvent\(\{\.\.\.analytics,eventType:'subscription_complete'/);
+ assert.doesNotMatch(checkout,/if\(analytics\.analyticsConsent\)await recordTrustedAnalyticsEvent\(\{\.\.\.analytics,eventType:'subscription_complete'/);
+ assert.match(analytics,/if\(!result\.created\)\{trustedLog\('duplicate_suppressed'/);
+ assert.match(analytics,/skipped_no_consent/);
+ assert.match(analytics,/skipped_no_client_id/);
+ assert.match(analytics,/not_configured/);
+ assert.match(analytics,/ga4_delivery_result/);
+ assert.doesNotMatch(analytics,/console\.(?:info|warn|error)\([^)]*apiSecret/);
+});
+
+test('monthly renewal does not create acquisition subscription_complete conversion',()=>{
+ const subscriptions=read('app/api/stripe/subscriptions/route.ts');
+ const invoicePaidBlock=subscriptions.match(/case 'invoice\.paid': \{[\s\S]*?break;\s*\}/)?.[0]||'';
+ assert.match(invoicePaidBlock,/billing_reason/);
+ assert.doesNotMatch(invoicePaidBlock,/subscription_complete/);
+});
+
 test('preview analytics uses bounded milestones and never includes audio URLs',()=>{const player=read('components/LatestPlayButton.tsx');for(const event of ['music_preview_start','music_preview_progress','music_preview_complete'])assert.match(player,new RegExp(`eventType:'${event}'`));assert.match(player,/\[25,50,75\]/);assert.doesNotMatch(read('lib/track-analytics.ts'),/protectedUrl|previewUrl|audioUrl|\bsrc:/)});
 
 test('GA4 is single, consent-gated and strips sensitive return parameters',()=>{const bridge=read('components/AnalyticsBridge.tsx'),layout=read('app/layout.tsx'),firebase=read('lib/firebase-client.ts');assert.match(bridge,/NEXT_PUBLIC_GA_MEASUREMENT_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_TAG_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_ADS_ID/);assert.match(bridge,/send_page_view:false/);assert.match(bridge,/process\.env\.NODE_ENV==='production'/);assert.match(bridge,/if\(!granted\)/);assert.match(bridge,/ad_storage:'denied'/);assert.match(bridge,/ad_user_data:'granted'/);assert.match(bridge,/ad_personalization:'denied'/);assert.doesNotMatch(bridge,/session_id/);assert.doesNotMatch(layout,/googletagmanager|gtag\('config'/);assert.doesNotMatch(firebase,/G-[A-Z0-9]+/)});
