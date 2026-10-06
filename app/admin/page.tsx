@@ -5,12 +5,21 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase-client';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { useAdminAuth } from '@/components/admin/AdminAuthProvider';
+import {
+  buildRevenueSummary,
+  isIrelandBusinessDay,
+  isPaidOrder,
+  merchandiseQuantity,
+  money,
+  songQuantity,
+} from '@/lib/admin-reporting';
 
 type Row = Record<string, any>;
 
 type Metrics = {
   revenueToday: number;
   paidOrders: number;
+  subscriptionPaymentsToday: number;
   songSales: number;
   merchandiseSales: number;
   customers: number;
@@ -20,48 +29,18 @@ type Metrics = {
 const initialMetrics: Metrics = {
   revenueToday: 0,
   paidOrders: 0,
+  subscriptionPaymentsToday: 0,
   songSales: 0,
   merchandiseSales: 0,
   customers: 0,
   downloads: 0,
 };
 
-const asDate = (value: any) => value?.toDate?.() || new Date(value || 0);
-const startOfToday = () => {
-  const value = new Date();
-  value.setHours(0, 0, 0, 0);
-  return value.getTime();
-};
-
-function isPaid(order: Row) {
-  return String(order.status || order.paymentStatus || '').toLowerCase() === 'paid';
-}
-
-function orderTotal(order: Row) {
-  return Number(order.amountTotal ?? order.total ?? order.amount ?? 0);
-}
-
-function songQuantity(order: Row) {
-  if (Array.isArray(order.songs)) {
-    return order.songs.reduce((total: number, song: Row) => total + Number(song.quantity || 1), 0);
-  }
-  if (order.type === 'song' || order.orderType === 'song') return Number(order.quantity || 1);
-  return 0;
-}
-
-function merchandiseQuantity(order: Row) {
-  if (Array.isArray(order.items)) {
-    return order.items
-      .filter((item: Row) => !item.digital)
-      .reduce((total: number, item: Row) => total + Number(item.quantity || 1), 0);
-  }
-  if (order.type === 'merchandise' || order.orderType === 'merchandise') return Number(order.quantity || 1);
-  return 0;
-}
-
 export default function AdminDashboardPage() {
   const { authorised, loading } = useAdminAuth();
   const [orders, setOrders] = useState<Row[]>([]);
+  const [subscriptionPayments, setSubscriptionPayments] = useState<Row[]>([]);
+  const [refunds, setRefunds] = useState<Row[]>([]);
   const [customers, setCustomers] = useState<Row[]>([]);
   const [downloads, setDownloads] = useState<Row[]>([]);
   const [connectedCollections, setConnectedCollections] = useState(0);
@@ -74,7 +53,7 @@ export default function AdminDashboardPage() {
     setConnectedCollections(0);
 
     const markLive = () => {
-      setConnectedCollections(current => Math.min(current + 1, 3));
+      setConnectedCollections(current => Math.min(current + 1, 5));
       setLastUpdated(new Date());
       setDashboardError('');
     };
@@ -86,31 +65,14 @@ export default function AdminDashboardPage() {
       );
     };
 
+    const rows = (snapshot: any) => snapshot.docs.map((entry: any) => ({ id: entry.id, ...entry.data() }));
+
     const unsubscribers = [
-      onSnapshot(
-        collection(firestore, 'orders'),
-        snapshot => {
-          setOrders(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() })));
-          markLive();
-        },
-        handleError,
-      ),
-      onSnapshot(
-        collection(firestore, 'customers'),
-        snapshot => {
-          setCustomers(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() })));
-          markLive();
-        },
-        handleError,
-      ),
-      onSnapshot(
-        collection(firestore, 'downloads'),
-        snapshot => {
-          setDownloads(snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() })));
-          markLive();
-        },
-        handleError,
-      ),
+      onSnapshot(collection(firestore, 'orders'), snapshot => { setOrders(rows(snapshot)); markLive(); }, handleError),
+      onSnapshot(collection(firestore, 'subscriptionPayments'), snapshot => { setSubscriptionPayments(rows(snapshot)); markLive(); }, handleError),
+      onSnapshot(collection(firestore, 'refunds'), snapshot => { setRefunds(rows(snapshot)); markLive(); }, handleError),
+      onSnapshot(collection(firestore, 'customers'), snapshot => { setCustomers(rows(snapshot)); markLive(); }, handleError),
+      onSnapshot(collection(firestore, 'downloads'), snapshot => { setDownloads(rows(snapshot)); markLive(); }, handleError),
     ];
 
     return () => unsubscribers.forEach(unsubscribe => unsubscribe());
@@ -119,32 +81,31 @@ export default function AdminDashboardPage() {
   const metrics = useMemo<Metrics>(() => {
     if (!authorised) return initialMetrics;
 
-    const paidOrders = orders.filter(isPaid);
-    const todayStart = startOfToday();
-    const revenueToday = paidOrders
-      .filter(order => asDate(order.paidAt || order.createdAt).getTime() >= todayStart)
-      .reduce((total, order) => total + orderTotal(order), 0);
-
-    const songSales = paidOrders.reduce((total, order) => total + songQuantity(order), 0);
-    const merchandiseSales = paidOrders.reduce((total, order) => total + merchandiseQuantity(order), 0);
+    const todayOrders = orders.filter(order => isIrelandBusinessDay(order.paidAt || order.createdAt));
+    const todaySubscriptions = subscriptionPayments.filter(payment => isIrelandBusinessDay(payment.paidAt || payment.createdAt || payment.recordedAt));
+    const todayRefunds = refunds.filter(refund => isIrelandBusinessDay(refund.refundedAt || refund.createdAt || refund.updatedAt));
+    const todayRevenue = buildRevenueSummary(todayOrders, todaySubscriptions, todayRefunds);
+    const paidOrders = orders.filter(isPaidOrder);
     const usedDownloads = downloads.filter(download => {
       return Number(download.downloadCount || 0) > 0 || Boolean(download.usedAt);
     }).length;
 
     return {
-      revenueToday,
+      revenueToday: todayRevenue.net,
       paidOrders: paidOrders.length,
-      songSales,
-      merchandiseSales,
+      subscriptionPaymentsToday: todayRevenue.subscriptionPaymentCount,
+      songSales: paidOrders.reduce((total, order) => total + songQuantity(order), 0),
+      merchandiseSales: paidOrders.reduce((total, order) => total + merchandiseQuantity(order), 0),
       customers: customers.length,
       downloads: usedDownloads,
     };
-  }, [authorised, orders, customers, downloads]);
+  }, [authorised, orders, subscriptionPayments, refunds, customers, downloads]);
 
   const cards = useMemo(
     () => [
-      ['Revenue today', `€${(metrics.revenueToday / 100).toFixed(2)}`],
+      ['Revenue today', money(metrics.revenueToday)],
       ['Paid orders', String(metrics.paidOrders)],
+      ['Subscription payments today', String(metrics.subscriptionPaymentsToday)],
       ['Song sales', String(metrics.songSales)],
       ['Merchandise sales', String(metrics.merchandiseSales)],
       ['Customers', String(metrics.customers)],
@@ -153,7 +114,7 @@ export default function AdminDashboardPage() {
     [metrics],
   );
 
-  const dashboardLive = connectedCollections === 3;
+  const dashboardLive = connectedCollections === 5;
 
   return (
     <AdminShell>
@@ -179,14 +140,14 @@ export default function AdminDashboardPage() {
           <h2>{dashboardLive ? 'Live connection active' : 'Connecting securely'}</h2>
           <p>
             {dashboardLive
-              ? 'Orders, customers and completed downloads are subscribed to Firestore in real time.'
-              : `Connected to ${connectedCollections} of 3 live data sources…`}
+              ? 'Orders, subscription payments, refunds, customers and completed downloads are subscribed to Firestore in real time.'
+              : `Connected to ${connectedCollections} of 5 live data sources…`}
           </p>
           {lastUpdated && <p>Last update: {lastUpdated.toLocaleString()}</p>}
         </article>
         <article>
           <h2>Metrics update automatically</h2>
-          <p>New paid orders, song sales, merchandise sales, customers and completed downloads appear without refreshing the page.</p>
+          <p>New paid orders, subscription charges, song sales, merchandise sales, customers and completed downloads appear without refreshing the page.</p>
         </article>
       </section>
     </AdminShell>
