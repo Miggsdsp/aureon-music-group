@@ -180,7 +180,7 @@ export async function POST(request: Request) {
             }
 
             await syncStripeSubscription(confirmed, 'account-paid-upgrade');
-            if(analytics.analyticsConsent)await recordTrustedAnalyticsEvent({...analytics,eventType:'subscription_complete',entityType:'subscription',entityId:plan,plan,revenueCents:invoice.amount_paid,currency:invoice.currency,memberId:uid},String(invoice.id||latestInvoiceId)).catch(error=>console.error('Creator upgrade analytics failed:',error));
+            await recordTrustedAnalyticsEvent({...analytics,eventType:'subscription_complete',entityType:'subscription',entityId:plan,plan,revenueCents:invoice.amount_paid,currency:invoice.currency,memberId:uid},String(invoice.id||latestInvoiceId)).catch(error=>console.error('Creator upgrade analytics failed:',error));
 
             if (email) {
               try {
