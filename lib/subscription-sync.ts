@@ -53,6 +53,7 @@ async function resolveInvoiceMember(invoice: Stripe.Invoice, subscription: Strip
 }
 
 export async function recordSubscriptionPayment(invoice: Stripe.Invoice, subscription: Stripe.Subscription | null, source: string) {
+  if (!invoice.id) return { recorded: false, reason: 'missing_invoice_id' };
   const invoiceAny = invoice as Stripe.Invoice & { amount_refunded?: number | null };
   const amountPaid = Number(invoice.amount_paid || 0);
   if (String(invoice.status || '').toLowerCase() !== 'paid') return { recorded: false, reason: 'invoice_not_paid' };
