@@ -62,7 +62,7 @@ export default function AnalyticsPage() {
     const fail = (snapshotError: unknown) => { console.error(snapshotError); setError('Unable to read analytics. Confirm administrator permissions.'); };
     const unsubscribers = [
       onSnapshot(collection(firestore, 'orders'), snapshot => setOrders(rows(snapshot)), fail),
-      onSnapshot(collection(firestore, 'subscriptionPayments'), snapshot => setSubscriptionPayments(rows(snapshot)), fail),
+      onSnapshot(collection(firestore, 'payments'), snapshot => setSubscriptionPayments(rows(snapshot).filter((row: Row) => String(row.kind || row.purchaseType || '').toLowerCase() === 'subscription')), fail),
       onSnapshot(collection(firestore, 'refunds'), snapshot => setRefunds(rows(snapshot)), fail),
       onSnapshot(collection(firestore, 'downloads'), snapshot => setDownloads(rows(snapshot)), fail),
       onSnapshot(collection(firestore, 'customers'), snapshot => setCustomers(rows(snapshot)), fail),
