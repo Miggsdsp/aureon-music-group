@@ -48,9 +48,12 @@ function finish(map: Map<string, Metric>) { return [...map.values()].map(item =>
 function downloadBlob(blob: Blob, filename: string) { const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.style.display = 'none'; document.body.appendChild(anchor); anchor.click(); window.setTimeout(() => { anchor.remove(); URL.revokeObjectURL(url); }, 1500); }
 
 export default function AnalyticsPage() {
-  const { authorised, loading } = useAdminAuth();
+  const { authorised, loading, user, admin } = useAdminAuth();
   const [period, setPeriod] = useState<Period>('month'); const [customStart, setCustomStart] = useState(''); const [customEnd, setCustomEnd] = useState('');
   const [orders, setOrders] = useState<Row[]>([]); const [downloads, setDownloads] = useState<Row[]>([]); const [customers, setCustomers] = useState<Row[]>([]); const [events, setEvents] = useState<Row[]>([]); const [members, setMembers] = useState<Row[]>([]); const [error, setError] = useState(''); const [exporting, setExporting] = useState(false);
+  const [repairEventId, setRepairEventId] = useState('');
+  const [repairing, setRepairing] = useState(false);
+  const [repairMessage, setRepairMessage] = useState('');
 
   useEffect(() => {
     if (loading || !authorised) return;
@@ -94,9 +97,42 @@ export default function AnalyticsPage() {
     return { gross, fees, net: gross - fees, orders: paid.length, active, eventCount: filteredEvents.length, songs: finish(songMap), artists: finish(artistMap), albums: finish(albumMap), products: finish(productMap), countries: finish(countryMap), regions: finish(regionMap), cities: finish(cityMap), devices: finish(deviceMap), referrers: finish(referrerMap), newCustomers: customers.filter(customer => inRange(customer.createdAt)).length, downloads: downloads.filter(download => inRange(download.usedAt) && Number(download.downloadCount || 0) > 0).length };
   }, [paid, events, members, customers, downloads, range]);
 
+  async function repairSubscriptionConversion() {
+    const stripeEventId = repairEventId.trim();
+    if (!stripeEventId) { setRepairMessage('Enter the verified Stripe event ID before running repair.'); return; }
+    if (!user) { setRepairMessage('Administrator session expired. Sign in again.'); return; }
+    setRepairing(true);
+    setRepairMessage('');
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/analytics/repair-subscription-conversion', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ stripeEventId, confirm: true }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.code || data.error || 'Subscription conversion repair failed.');
+      const repair = data.repair || {};
+      const parts = [
+        `Result: ${repair.status || 'unknown'}`,
+        `Plan: ${data.plan || 'unknown'}`,
+        `Amount: ${money(Number(data.amountTotal || 0))}`,
+        `Consent: ${data.analyticsConsent ? 'yes' : 'no'}`,
+        `Client ID: ${data.hasAnalyticsClientId ? 'yes' : 'no'}`,
+      ];
+      if (repair.httpStatus) parts.push(`GA4 HTTP ${repair.httpStatus}`);
+      if (repair.reason) parts.push(`Reason: ${repair.reason}`);
+      setRepairMessage(parts.join(' · '));
+    } catch (repairError) {
+      setRepairMessage(repairError instanceof Error ? repairError.message : 'Subscription conversion repair failed.');
+    } finally {
+      setRepairing(false);
+    }
+  }
+
   async function exportExcel() { setExporting(true); setError(''); try { await exportLiveAnalyticsWorkbook({ report, orders, members, events, customers, downloads, start: range.start, end: range.end }); } catch (exportError) { console.error(exportError); setError(exportError instanceof Error ? exportError.message : 'Unable to generate the Excel analytics workbook.'); } finally { setExporting(false); } }
   function exportCsv() { const rows: unknown[][] = [['AUREON MUSIC GROUP ANALYTICS'], ['Reporting period', range.label], ['Generated', new Date().toLocaleString('en-IE')], ['Gross revenue EUR', report.gross / 100], ['Net revenue EUR', report.net / 100], ['Orders', report.orders], ['Active subscriptions', report.active], ['Tracked events', report.eventCount], ['Song plays', report.songs.reduce((sum: number, item: any) => sum + item.plays, 0)], [], ['SONGS'], ['Song', 'Artist', 'Album', 'Plays', 'Completed', 'Sales', 'Revenue EUR'], ...report.songs.map((item: any) => [item.name, item.artistName, item.albumTitle, item.plays, item.completes, item.sales, item.revenue / 100])]; downloadBlob(new Blob(['\ufeff', rows.map(row => row.map(csvEscape).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }), `Aureon-Analytics-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`); }
   const table = (title: string, data: any[], label: string) => <article><h2>{title}</h2><div className="admin-table-wrap"><table><thead><tr><th>{label}</th><th>Plays / Views</th><th>Sales</th><th>Revenue</th></tr></thead><tbody>{data.length ? data.slice(0, 20).map((item: any) => <tr key={item.name}><td>{item.name}</td><td>{item.plays || item.views || 0}</td><td>{item.sales}</td><td>{money(item.revenue)}</td></tr>) : <tr><td colSpan={4}>No data for this period.</td></tr>}</tbody></table></div></article>;
 
-  return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Business intelligence</p><h1>Analytics</h1><p>Live first-party analytics for sales, listening, customers, catalogue performance, geography, devices, traffic sources and campaign attribution. Excel exports are generated from the latest loaded data at the moment you click download.</p></div>{error && <div className="admin-cms-message">{error}</div>}<div className="admin-toolbar"><label>Period <select value={period} onChange={event => setPeriod(event.target.value as Period)}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="month">This month</option><option value="lastMonth">Last month</option><option value="quarter">Quarter</option><option value="year">Year</option><option value="all">All recorded data</option><option value="custom">Custom range</option></select></label>{period === 'custom' && <><label>From <input type="date" value={customStart} onChange={event => setCustomStart(event.target.value)} /></label><label>To <input type="date" value={customEnd} onChange={event => setCustomEnd(event.target.value)} /></label></>}<button className="primary-button" disabled={exporting} onClick={() => void exportExcel()}><FileSpreadsheet size={16} /> {exporting ? 'Building live workbook…' : 'Download Live Excel'}</button><button onClick={exportCsv}><Download size={16} /> CSV</button><button onClick={() => window.print()}><Printer size={16} /> Print</button></div><section className="admin-stat-grid">{[['Gross revenue', money(report.gross)], ['Stripe fees', money(report.fees)], ['Net revenue', money(report.net)], ['Orders', report.orders], ['Customers', report.newCustomers], ['Downloads', report.downloads], ['Active subscriptions', report.active], ['Tracked events', report.eventCount]].map(([label, value]) => <article key={String(label)}><span>{label}</span><strong>{value}</strong></article>)}</section><section className="admin-dashboard-grid">{table('Song performance', report.songs, 'Song')}{table('Artist performance', report.artists, 'Artist')}{table('Album performance', report.albums, 'Album')}{table('Merchandise performance', report.products, 'Product')}{table('Geographic performance', report.countries, 'Country')}{table('Device types', report.devices, 'Device')}{table('Traffic sources', report.referrers, 'Source')}</section></AdminShell>;
+  return <AdminShell><div className="admin-page-heading"><p className="admin-kicker">Business intelligence</p><h1>Analytics</h1><p>Live first-party analytics for sales, listening, customers, catalogue performance, geography, devices, traffic sources and campaign attribution. Excel exports are generated from the latest loaded data at the moment you click download.</p></div>{error && <div className="admin-cms-message">{error}</div>}<div className="admin-toolbar"><label>Period <select value={period} onChange={event => setPeriod(event.target.value as Period)}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="month">This month</option><option value="lastMonth">Last month</option><option value="quarter">Quarter</option><option value="year">Year</option><option value="all">All recorded data</option><option value="custom">Custom range</option></select></label>{period === 'custom' && <><label>From <input type="date" value={customStart} onChange={event => setCustomStart(event.target.value)} /></label><label>To <input type="date" value={customEnd} onChange={event => setCustomEnd(event.target.value)} /></label></>}<button className="primary-button" disabled={exporting} onClick={() => void exportExcel()}><FileSpreadsheet size={16} /> {exporting ? 'Building live workbook…' : 'Download Live Excel'}</button><button onClick={exportCsv}><Download size={16} /> CSV</button><button onClick={() => window.print()}><Printer size={16} /> Print</button></div>{admin?.role === 'superAdmin' && <section className="admin-dashboard-grid" style={{ gridTemplateColumns: '1fr', marginBottom: 16 }}><article><p className="admin-kicker">Trusted conversion repair</p><h2>Subscription conversion repair</h2><p>Re-deliver GA4 conversion analytics for one verified Stripe checkout.session.completed subscription event. This does not create payments, subscriptions, invoices, memberships or duplicate financial records.</p><div className="admin-toolbar" style={{ marginTop: 16 }}><label>Stripe event ID <input value={repairEventId} onChange={event => setRepairEventId(event.target.value)} placeholder="evt_..." /></label><button className="primary-button" disabled={repairing} onClick={() => void repairSubscriptionConversion()}>{repairing ? 'Repairing…' : 'Run repair'}</button></div>{repairMessage && <div className="admin-cms-message" role="status">{repairMessage}</div>}</article></section>}<section className="admin-stat-grid">{[['Gross revenue', money(report.gross)], ['Stripe fees', money(report.fees)], ['Net revenue', money(report.net)], ['Orders', report.orders], ['Customers', report.newCustomers], ['Downloads', report.downloads], ['Active subscriptions', report.active], ['Tracked events', report.eventCount]].map(([label, value]) => <article key={String(label)}><span>{label}</span><strong>{value}</strong></article>)}</section><section className="admin-dashboard-grid">{table('Song performance', report.songs, 'Song')}{table('Artist performance', report.artists, 'Artist')}{table('Album performance', report.albums, 'Album')}{table('Merchandise performance', report.products, 'Product')}{table('Geographic performance', report.countries, 'Country')}{table('Device types', report.devices, 'Device')}{table('Traffic sources', report.referrers, 'Source')}</section></AdminShell>;
 }
