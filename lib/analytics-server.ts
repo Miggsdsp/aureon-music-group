@@ -30,7 +30,7 @@ type Ga4DeliveryStatus='sent'|'skipped_no_consent'|'skipped_no_client_id'|'not_c
 type Ga4DeliveryResult={attempted:boolean;sent:boolean;status:Ga4DeliveryStatus;httpStatus?:number;reason?:string};
 const shortId=(value:string)=>value.slice(0,12);
 const trustedLog=(message:string,details:Record<string,Primitive>)=>console.info(`[Aureon trusted analytics] ${message}`,details);
-const trustedDedupeId=(eventType:TrustedAnalyticsEventName,dedupeKey:string)=>createHash('sha256').update(`${eventType}:${dedupeKey}`).digest('hex');
+export const trustedDedupeId=(eventType:TrustedAnalyticsEventName,dedupeKey:string)=>createHash('sha256').update(`${eventType}:${dedupeKey}`).digest('hex');
 
 export function analyticsContextFromBody(body:any):Partial<ServerAnalyticsEvent>{
  const first=body?.firstTouch||{},session=body?.sessionTouch||{},content=body?.contentAttribution||{};
