@@ -7,7 +7,7 @@ import { firestore } from '@/lib/firebase-client';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { useAdminAuth } from '@/components/admin/AdminAuthProvider';
 import { exportLiveAnalyticsWorkbook } from '@/lib/export-live-analytics-workbook';
-import { buildRevenueSummary, inRange as inReportingRange, isPaidOrder, orderTotal, stripeFeeCents, subscriptionPaymentTotal } from '@/lib/admin-reporting';
+import { buildRevenueSummary, inRange as inReportingRange, isPaidOrder, money, orderTotal, subscriptionPaymentTotal } from '@/lib/admin-reporting';
 
 type Period = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'lastMonth' | 'quarter' | 'year' | 'all' | 'custom';
 type Row = Record<string, any>;
