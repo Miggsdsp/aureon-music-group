@@ -52,7 +52,7 @@ async function resolveInvoiceMember(invoice: Stripe.Invoice, subscription: Strip
   return { uid: member.id, data: member.data() || {}, ref: member.ref };
 }
 
-export async function recordSubscriptionPayment(invoice: Stripe.Invoice, subscription: Stripe.Subscription | null, source: string) {
+export async function recordSubscriptionPayment(invoice: Stripe.Invoice, subscription: Stripe.Subscription | null, source: string, finance: { stripeFee?: number; netAmount?: number; stripeBalanceTransactionId?: string } = {}) {
   if (!invoice.id) return { recorded: false, reason: 'missing_invoice_id' };
   const invoiceAny = invoice as Stripe.Invoice & { amount_refunded?: number | null };
   const amountPaid = Number(invoice.amount_paid || 0);
@@ -68,6 +68,8 @@ export async function recordSubscriptionPayment(invoice: Stripe.Invoice, subscri
   const paymentIntentId = invoicePaymentIntentId(invoice);
   const paidAt = invoicePaidAt(invoice);
   const amountRefunded = Number(invoiceAny.amount_refunded || 0);
+  const stripeFee = Number(finance.stripeFee || 0);
+  const netAmount = Number(finance.netAmount ?? Math.max(0, amountPaid - stripeFee));
   const status = amountRefunded > 0 && amountRefunded >= amountPaid ? 'refunded' : 'paid';
 
   const payload = {
@@ -87,6 +89,10 @@ export async function recordSubscriptionPayment(invoice: Stripe.Invoice, subscri
     amountPaid,
     amountTotal: amountPaid,
     amountRefunded,
+    stripeFee,
+    feeAmount: stripeFee,
+    netAmount,
+    stripeBalanceTransactionId: finance.stripeBalanceTransactionId || '',
     currency: (invoice.currency || 'eur').toLowerCase(),
     paidAt,
     recordedAt: FieldValue.serverTimestamp(),
