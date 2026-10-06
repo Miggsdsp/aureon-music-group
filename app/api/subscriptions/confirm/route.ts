@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe-server';
+import { stripeFeeFromInvoice } from '@/lib/stripe-fees';
 import { memberError, requireMember } from '@/lib/member-server';
 import { recordSubscriptionPayment, syncStripeSubscription } from '@/lib/subscription-sync';
 
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       const invoiceId = typeof invoiceValue === 'string' ? invoiceValue : invoiceValue.id;
       if (invoiceId) {
         const invoice = await stripe.invoices.retrieve(invoiceId);
-        await recordSubscriptionPayment(invoice, subscription, 'checkout-confirmation');
+        await recordSubscriptionPayment(invoice, subscription, 'checkout-confirmation', await stripeFeeFromInvoice(stripe, invoice) || {});
       }
     }
     return NextResponse.json(result);
