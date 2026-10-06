@@ -69,7 +69,7 @@ export default function AdminDashboardPage() {
 
     const unsubscribers = [
       onSnapshot(collection(firestore, 'orders'), snapshot => { setOrders(rows(snapshot)); markLive(); }, handleError),
-      onSnapshot(collection(firestore, 'subscriptionPayments'), snapshot => { setSubscriptionPayments(rows(snapshot)); markLive(); }, handleError),
+      onSnapshot(collection(firestore, 'payments'), snapshot => { setSubscriptionPayments(rows(snapshot).filter((row: Row) => String(row.kind || row.purchaseType || '').toLowerCase() === 'subscription')); markLive(); }, handleError),
       onSnapshot(collection(firestore, 'refunds'), snapshot => { setRefunds(rows(snapshot)); markLive(); }, handleError),
       onSnapshot(collection(firestore, 'customers'), snapshot => { setCustomers(rows(snapshot)); markLive(); }, handleError),
       onSnapshot(collection(firestore, 'downloads'), snapshot => { setDownloads(rows(snapshot)); markLive(); }, handleError),
@@ -140,7 +140,7 @@ export default function AdminDashboardPage() {
           <h2>{dashboardLive ? 'Live connection active' : 'Connecting securely'}</h2>
           <p>
             {dashboardLive
-              ? 'Orders, subscription payments, refunds, customers and completed downloads are subscribed to Firestore in real time.'
+              ? 'Orders, payments, refunds, customers and completed downloads are subscribed to Firestore in real time.'
               : `Connected to ${connectedCollections} of 5 live data sources…`}
           </p>
           {lastUpdated && <p>Last update: {lastUpdated.toLocaleString()}</p>}
