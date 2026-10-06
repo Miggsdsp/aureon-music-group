@@ -62,6 +62,20 @@ test('monthly renewal does not create acquisition subscription_complete conversi
  assert.doesNotMatch(invoicePaidBlock,/subscription_complete/);
 });
 
+test('manual subscription conversion repair is admin-only and read-only against Stripe billing',()=>{
+ const route=read('app/api/admin/analytics/repair-subscription-conversion/route.ts'),analytics=read('lib/analytics-server.ts');
+ assert.match(route,/requireAdminApi\(request\)/);
+ assert.match(route,/stripe\.events\.retrieve\(stripeEventId\)/);
+ assert.match(route,/event\.type !== 'checkout\.session\.completed'/);
+ assert.match(route,/checkoutSession\.mode !== 'subscription'/);
+ assert.match(route,/checkoutSession\.payment_status === 'unpaid'/);
+ assert.match(route,/repairTrustedAnalyticsDelivery\(analyticsInput, subscription\.id\)/);
+ assert.doesNotMatch(route,/syncStripeSubscription|checkout\.sessions\.create|subscriptions\.create|invoices\.create|sendSubscriptionLifecycleEmail/);
+ assert.match(analytics,/repairTrustedAnalyticsDelivery/);
+ assert.match(analytics,/current\.ga4Status==='sent'/);
+ assert.match(analytics,/duplicate_suppressed/);
+});
+
 test('preview analytics uses bounded milestones and never includes audio URLs',()=>{const player=read('components/LatestPlayButton.tsx');for(const event of ['music_preview_start','music_preview_progress','music_preview_complete'])assert.match(player,new RegExp(`eventType:'${event}'`));assert.match(player,/\[25,50,75\]/);assert.doesNotMatch(read('lib/track-analytics.ts'),/protectedUrl|previewUrl|audioUrl|\bsrc:/)});
 
 test('GA4 is single, consent-gated and strips sensitive return parameters',()=>{const bridge=read('components/AnalyticsBridge.tsx'),layout=read('app/layout.tsx'),firebase=read('lib/firebase-client.ts');assert.match(bridge,/NEXT_PUBLIC_GA_MEASUREMENT_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_TAG_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_ADS_ID/);assert.match(bridge,/send_page_view:false/);assert.match(bridge,/process\.env\.NODE_ENV==='production'/);assert.match(bridge,/if\(!granted\)/);assert.match(bridge,/ad_storage:'denied'/);assert.match(bridge,/ad_user_data:'granted'/);assert.match(bridge,/ad_personalization:'denied'/);assert.doesNotMatch(bridge,/session_id/);assert.doesNotMatch(layout,/googletagmanager|gtag\('config'/);assert.doesNotMatch(firebase,/G-[A-Z0-9]+/)});
