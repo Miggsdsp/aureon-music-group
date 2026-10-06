@@ -7,6 +7,7 @@ import {
   getSubscriptionPlan,
   markInvoicePaymentFailure,
   recordInvoicePaid,
+  recordSubscriptionPayment,
   resolveFirebaseUid,
   syncStripeSubscription,
   type AureonPlan,
@@ -109,6 +110,11 @@ export async function POST(request: Request) {
         if (session.mode === 'subscription' && typeof session.subscription === 'string') {
           const subscription = await getStripe().subscriptions.retrieve(session.subscription);
           await syncStripeSubscription(subscription, event.type);
+          if (session.invoice) {
+            const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id;
+            const invoice = await getStripe().invoices.retrieve(invoiceId);
+            await recordSubscriptionPayment(invoice, subscription, event.type);
+          }
           if(session.payment_status!=='unpaid'){
             const context=analyticsContextFromStripe(session.metadata);
             await recordTrustedAnalyticsEvent({...context,eventType:'subscription_complete',entityType:'subscription',entityId:getSubscriptionPlan(subscription),plan:getSubscriptionPlan(subscription),revenueCents:session.amount_total||0,currency:session.currency||'eur',memberId:await resolveFirebaseUid(subscription)},subscription.id);
@@ -148,7 +154,7 @@ export async function POST(request: Request) {
         const invoice = event.data.object as Stripe.Invoice;
         const subscription = await subscriptionFromInvoice(invoice);
         const before = subscription ? await memberState(subscription) : null;
-        await recordInvoicePaid(invoice);
+        await recordInvoicePaid(invoice, subscription);
         if (subscription) {
           await syncStripeSubscription(subscription, event.type);
           if (before && ['past_due', 'unpaid', 'incomplete'].includes(before.status)) {
