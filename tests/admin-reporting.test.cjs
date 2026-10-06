@@ -17,10 +17,10 @@ assert(subscriptionSync.includes("collection('subscriptionPayments').doc(invoice
 assert(subscriptionSync.includes("collection('payments').doc(`subscription_${invoice.id}`)"), 'subscription payments must mirror into payments with a stable subscription invoice key');
 assert(subscriptionSync.includes("recordSubscriptionPayment(invoice, subscription, 'invoice.paid', finance)"), 'invoice.paid must record subscription revenue with fee data');
 assert(subscriptionSync.includes('stripeFee'), 'subscription payment ledger must preserve Stripe fees where available');
-assert(subscriptionWebhook.includes('recordSubscriptionPayment(invoice, subscription, event.type)'), 'checkout.session.completed must record initial subscription revenue without waiting for a success-page visit');
+assert(subscriptionWebhook.includes('recordSubscriptionPayment(invoice, subscription, event.type,'), 'checkout.session.completed must record initial subscription revenue without waiting for a success-page visit');
 assert(subscriptionWebhook.includes('recordInvoicePaid(invoice, subscription)'), 'invoice.paid must pass the resolved subscription into invoice payment recording');
 assert(checkoutRoute.includes("recordSubscriptionPayment(invoice, confirmed, 'account-paid-upgrade')"), 'paid Listener to Creator upgrades must be counted as subscription revenue');
-assert(confirmRoute.includes("recordSubscriptionPayment(invoice, subscription, 'checkout-confirmation')"), 'checkout confirmation must repair/report completed subscription invoice revenue idempotently');
+assert(confirmRoute.includes("recordSubscriptionPayment(invoice, subscription, 'checkout-confirmation',"), 'checkout confirmation must repair/report completed subscription invoice revenue idempotently');
 
 assert(adminReporting.includes('Europe/Dublin'), 'admin revenue today must use the Ireland business day');
 assert(adminReporting.includes('listenerRevenue'), 'reporting must separate Listener revenue');
