@@ -27,11 +27,11 @@ assert(adminReporting.includes('creatorRevenue'), 'reporting must separate Creat
 assert(adminReporting.includes('refunds: refundAmount'), 'reporting must subtract refunds from net revenue');
 assert(adminReporting.includes('transactionCount: orderRows.length + subscriptionRows.length'), 'Admin Analytics transactions must include orders and subscription payments');
 
-assert(adminDashboard.includes("collection(firestore, 'subscriptionPayments')"), 'Admin Dashboard must read subscriptionPayments');
+assert(adminDashboard.includes("collection(firestore, 'payments')"), 'Admin Dashboard must read the authorized payments ledger');
 assert(adminDashboard.includes("collection(firestore, 'refunds')"), 'Admin Dashboard must read refunds');
 assert(adminDashboard.includes('buildRevenueSummary(todayOrders, todaySubscriptions, todayRefunds)'), 'Revenue Today must aggregate orders, subscriptions and refunds');
 
-assert(adminAnalytics.includes("collection(firestore, 'subscriptionPayments')"), 'Admin Analytics must read subscriptionPayments');
+assert(adminAnalytics.includes("collection(firestore, 'payments')"), 'Admin Analytics must read the authorized payments ledger');
 assert(adminAnalytics.includes("collection(firestore, 'refunds')"), 'Admin Analytics must read refunds');
 assert(adminAnalytics.includes('Listener revenue'), 'Admin Analytics must display Listener revenue');
 assert(adminAnalytics.includes('Creator revenue'), 'Admin Analytics must display Creator revenue');
