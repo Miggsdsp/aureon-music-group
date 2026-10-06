@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe-server';
+import { stripeFeeFromInvoice } from '@/lib/stripe-fees';
 import { memberError, requireMember, type MemberPlan } from '@/lib/member-server';
 import { getSubscriptionPlan, recordSubscriptionPayment, syncStripeSubscription } from '@/lib/subscription-sync';
 import { sendSubscriptionLifecycleEmail } from '@/lib/transactional-email';
@@ -180,7 +181,7 @@ export async function POST(request: Request) {
             }
 
             await syncStripeSubscription(confirmed, 'account-paid-upgrade');
-            await recordSubscriptionPayment(invoice, confirmed, 'account-paid-upgrade');
+            await recordSubscriptionPayment(invoice, confirmed, 'account-paid-upgrade', await stripeFeeFromInvoice(stripe, invoice) || {});
             await recordTrustedAnalyticsEvent({...analytics,eventType:'subscription_complete',entityType:'subscription',entityId:plan,plan,revenueCents:invoice.amount_paid,currency:invoice.currency,memberId:uid},String(invoice.id||latestInvoiceId)).catch(error=>console.error('Creator upgrade analytics failed:',error));
 
             if (email) {
