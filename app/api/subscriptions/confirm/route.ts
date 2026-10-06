@@ -37,8 +37,10 @@ export async function POST(request: Request) {
     const invoiceValue = session.invoice;
     if (invoiceValue) {
       const invoiceId = typeof invoiceValue === 'string' ? invoiceValue : invoiceValue.id;
-      const invoice = await stripe.invoices.retrieve(invoiceId);
-      await recordSubscriptionPayment(invoice, subscription, 'checkout-confirmation');
+      if (invoiceId) {
+        const invoice = await stripe.invoices.retrieve(invoiceId);
+        await recordSubscriptionPayment(invoice, subscription, 'checkout-confirmation');
+      }
     }
     return NextResponse.json(result);
   } catch (error) {
