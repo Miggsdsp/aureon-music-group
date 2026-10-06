@@ -156,7 +156,7 @@ export async function markInvoicePaymentFailure(invoice: Stripe.Invoice) {
   await recordAnalyticsEvent({eventType:'membership_payment_failed',entityType:'subscription',entityId:String(data.plan||'subscription'),memberId:member.id,revenueCents:0,currency:invoice.currency,plan:String(data.plan||''),metadata:{status:'failed'}});
 }
 
-export async function recordInvoicePaid(invoice: Stripe.Invoice, subscription: Stripe.Subscription | null = null) {
+export async function recordInvoicePaid(invoice: Stripe.Invoice, subscription: Stripe.Subscription | null = null, finance: { stripeFee?: number; netAmount?: number; stripeBalanceTransactionId?: string } = {}) {
   const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
   if (!customerId) return;
   const members = await adminFirestore.collection('members').where('stripeCustomerId', '==', customerId).limit(1).get();
@@ -175,6 +175,6 @@ export async function recordInvoicePaid(invoice: Stripe.Invoice, subscription: S
     lastPaidInvoiceId: invoice.id,
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
-  await recordSubscriptionPayment(invoice, subscription, 'invoice.paid');
+  await recordSubscriptionPayment(invoice, subscription, 'invoice.paid', finance);
   if(invoice.billing_reason==='subscription_cycle')await recordAnalyticsEvent({eventType:'membership_renewed',entityType:'subscription',entityId:String(data.plan||'subscription'),memberId:member.id,plan:String(data.plan||''),revenueCents:invoice.amount_paid||0,currency:invoice.currency,metadata:{status:'paid'}});
 }
