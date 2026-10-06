@@ -26,10 +26,11 @@ const keyPart=(value:string)=>value.toLowerCase().replace(/[^a-z0-9_-]+/g,'-').r
 const privateMetadataKey=/email|phone|address|full.?name|customer|stripe|payment.?intent|subscription.?id/i;
 const cleanSearch=(value:unknown)=>{const text=clean(value,100);return /@|\+?\d[\d\s().-]{7,}/.test(text)?'[redacted]':text};
 function cleanMetadata(value:unknown){if(!value||typeof value!=='object'||Array.isArray(value))return{};return Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key,item])=>!privateMetadataKey.test(key)&&['string','number','boolean'].includes(typeof item)).slice(0,30).map(([key,item])=>[clean(key,60),typeof item==='string'?clean(item,180):item])) as Record<string,Primitive>}
-type Ga4DeliveryStatus='sent'|'skipped_no_consent'|'skipped_no_client_id'|'not_configured'|'rejected'|'failed';
+type Ga4DeliveryStatus='sent'|'skipped_no_consent'|'skipped_no_client_id'|'not_configured'|'rejected'|'failed'|'duplicate_suppressed';
 type Ga4DeliveryResult={attempted:boolean;sent:boolean;status:Ga4DeliveryStatus;httpStatus?:number;reason?:string};
 const shortId=(value:string)=>value.slice(0,12);
 const trustedLog=(message:string,details:Record<string,Primitive>)=>console.info(`[Aureon trusted analytics] ${message}`,details);
+const trustedDedupeId=(eventType:TrustedAnalyticsEventName,dedupeKey:string)=>createHash('sha256').update(`${eventType}:${dedupeKey}`).digest('hex');
 
 export function analyticsContextFromBody(body:any):Partial<ServerAnalyticsEvent>{
  const first=body?.firstTouch||{},session=body?.sessionTouch||{},content=body?.contentAttribution||{};
@@ -75,4 +76,13 @@ export async function recordTrustedAnalyticsEvent(input:ServerAnalyticsEvent&{ev
  if(!result.created){trustedLog('duplicate_suppressed',{eventType:input.eventType,eventId:shortId(result.eventId),plan:clean(input.plan,40)});return result}
  trustedLog('event_recorded',{eventType:input.eventType,eventId:shortId(result.eventId),plan:clean(input.plan,40),hasConsent:input.analyticsConsent===true,hasClientId:Boolean(input.visitorId),hasRevenue:Boolean(input.revenueCents),currency:clean(input.currency||'eur',12)});
  try{const delivery=await sendGa4(input,result.eventId);await ref.set({ga4Status:delivery.status,ga4Attempted:delivery.attempted,ga4HttpStatus:delivery.httpStatus||null,ga4Reason:clean(delivery.reason,300),ga4UpdatedAt:FieldValue.serverTimestamp()},{merge:true});trustedLog('ga4_delivery_result',{eventType:input.eventType,eventId:shortId(result.eventId),plan:clean(input.plan,40),status:delivery.status,attempted:delivery.attempted,httpStatus:delivery.httpStatus||0})}catch(error){await ref.set({ga4Status:'failed',ga4Attempted:true,ga4Reason:error instanceof Error?clean(error.message,300):'unknown_error',ga4UpdatedAt:FieldValue.serverTimestamp()},{merge:true});console.error('Trusted GA4 event delivery failed:',input.eventType,{eventId:shortId(result.eventId),message:error instanceof Error?error.message:'unknown_error'})}return result;
+}
+
+export async function repairTrustedAnalyticsDelivery(input:ServerAnalyticsEvent&{eventType:TrustedAnalyticsEventName},dedupeKey:string){
+ const eventId=trustedDedupeId(input.eventType,dedupeKey),ref=adminFirestore.collection('analyticsEvents').doc(eventId),snapshot=await ref.get();
+ if(!snapshot.exists){const result=await recordTrustedAnalyticsEvent(input,dedupeKey);const repaired=await ref.get();const data=repaired.data()||{};return{eventId:result.eventId,created:result.created,status:String(data.ga4Status||'pending'),attempted:Boolean(data.ga4Attempted),httpStatus:Number(data.ga4HttpStatus||0)||undefined,reason:clean(data.ga4Reason,300)}}
+ const current=snapshot.data()||{};
+ if(current.ga4Status==='sent'){trustedLog('duplicate_suppressed',{eventType:input.eventType,eventId:shortId(eventId),plan:clean(input.plan,40)});return{eventId,created:false,status:'duplicate_suppressed',attempted:false,reason:'already_sent'}};
+ trustedLog('repair_attempt',{eventType:input.eventType,eventId:shortId(eventId),plan:clean(input.plan,40),previousStatus:clean(current.ga4Status,40),hasConsent:input.analyticsConsent===true,hasClientId:Boolean(input.visitorId)});
+ try{const delivery=await sendGa4(input,eventId);await ref.set({ga4Status:delivery.status,ga4Attempted:delivery.attempted,ga4HttpStatus:delivery.httpStatus||null,ga4Reason:clean(delivery.reason,300),ga4RepairAttemptedAt:FieldValue.serverTimestamp(),ga4UpdatedAt:FieldValue.serverTimestamp()},{merge:true});trustedLog('ga4_delivery_result',{eventType:input.eventType,eventId:shortId(eventId),plan:clean(input.plan,40),status:delivery.status,attempted:delivery.attempted,httpStatus:delivery.httpStatus||0});return{eventId,created:false,status:delivery.status,attempted:delivery.attempted,httpStatus:delivery.httpStatus,reason:delivery.reason}}catch(error){const reason=error instanceof Error?clean(error.message,300):'unknown_error';await ref.set({ga4Status:'failed',ga4Attempted:true,ga4Reason:reason,ga4RepairAttemptedAt:FieldValue.serverTimestamp(),ga4UpdatedAt:FieldValue.serverTimestamp()},{merge:true});console.error('Trusted GA4 event repair failed:',input.eventType,{eventId:shortId(eventId),message:reason});return{eventId,created:false,status:'failed',attempted:true,reason}}
 }
