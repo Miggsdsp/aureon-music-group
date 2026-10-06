@@ -112,8 +112,10 @@ export async function POST(request: Request) {
           await syncStripeSubscription(subscription, event.type);
           if (session.invoice) {
             const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id;
-            const invoice = await getStripe().invoices.retrieve(invoiceId);
-            await recordSubscriptionPayment(invoice, subscription, event.type);
+            if (invoiceId) {
+              const invoice = await getStripe().invoices.retrieve(invoiceId);
+              await recordSubscriptionPayment(invoice, subscription, event.type);
+            }
           }
           if(session.payment_status!=='unpaid'){
             const context=analyticsContextFromStripe(session.metadata);
