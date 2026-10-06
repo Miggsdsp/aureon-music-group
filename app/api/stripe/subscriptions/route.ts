@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { adminFirestore } from '@/lib/firebase-admin';
 import { getStripe } from '@/lib/stripe-server';
+import { stripeFeeFromInvoice } from '@/lib/stripe-fees';
 import {
   getSubscriptionPeriodEnd,
   getSubscriptionPlan,
@@ -113,8 +114,9 @@ export async function POST(request: Request) {
           if (session.invoice) {
             const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id;
             if (invoiceId) {
-              const invoice = await getStripe().invoices.retrieve(invoiceId);
-              await recordSubscriptionPayment(invoice, subscription, event.type);
+              const stripe = getStripe();
+              const invoice = await stripe.invoices.retrieve(invoiceId);
+              await recordSubscriptionPayment(invoice, subscription, event.type, await stripeFeeFromInvoice(stripe, invoice) || {});
             }
           }
           if(session.payment_status!=='unpaid'){
@@ -156,7 +158,7 @@ export async function POST(request: Request) {
         const invoice = event.data.object as Stripe.Invoice;
         const subscription = await subscriptionFromInvoice(invoice);
         const before = subscription ? await memberState(subscription) : null;
-        await recordInvoicePaid(invoice, subscription);
+        await recordInvoicePaid(invoice, subscription, await stripeFeeFromInvoice(getStripe(), invoice) || {});
         if (subscription) {
           await syncStripeSubscription(subscription, event.type);
           if (before && ['past_due', 'unpaid', 'incomplete'].includes(before.status)) {
