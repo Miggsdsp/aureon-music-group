@@ -26,6 +26,10 @@ const keyPart=(value:string)=>value.toLowerCase().replace(/[^a-z0-9_-]+/g,'-').r
 const privateMetadataKey=/email|phone|address|full.?name|customer|stripe|payment.?intent|subscription.?id/i;
 const cleanSearch=(value:unknown)=>{const text=clean(value,100);return /@|\+?\d[\d\s().-]{7,}/.test(text)?'[redacted]':text};
 function cleanMetadata(value:unknown){if(!value||typeof value!=='object'||Array.isArray(value))return{};return Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key,item])=>!privateMetadataKey.test(key)&&['string','number','boolean'].includes(typeof item)).slice(0,30).map(([key,item])=>[clean(key,60),typeof item==='string'?clean(item,180):item])) as Record<string,Primitive>}
+type Ga4DeliveryStatus='sent'|'skipped_no_consent'|'skipped_no_client_id'|'not_configured'|'rejected'|'failed';
+type Ga4DeliveryResult={attempted:boolean;sent:boolean;status:Ga4DeliveryStatus;httpStatus?:number;reason?:string};
+const shortId=(value:string)=>value.slice(0,12);
+const trustedLog=(message:string,details:Record<string,Primitive>)=>console.info(`[Aureon trusted analytics] ${message}`,details);
 
 export function analyticsContextFromBody(body:any):Partial<ServerAnalyticsEvent>{
  const first=body?.firstTouch||{},session=body?.sessionTouch||{},content=body?.contentAttribution||{};
@@ -54,14 +58,21 @@ export async function recordAnalyticsEvent(input:ServerAnalyticsEvent,options:{d
  const batch=adminFirestore.batch();batch.set(eventRef,event);batch.set(dayRef,{day,...delta,createdAt:FieldValue.serverTimestamp()},{merge:true});batch.set(totalRef,delta,{merge:true});await batch.commit();return{eventId:eventRef.id,created:true};
 }
 
-async function sendGa4(event:ServerAnalyticsEvent,eventId:string){
+async function sendGa4(event:ServerAnalyticsEvent,eventId:string):Promise<Ga4DeliveryResult>{
  const measurementId=process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID||process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID||'',apiSecret=process.env.GA4_API_SECRET||'';
- if(!event.analyticsConsent||!event.visitorId||!measurementId||!apiSecret)return false;
+ if(!event.analyticsConsent)return{attempted:false,sent:false,status:'skipped_no_consent',reason:'analytics_consent_not_granted'};
+ if(!event.visitorId)return{attempted:false,sent:false,status:'skipped_no_client_id',reason:'missing_analytics_client_id'};
+ if(!measurementId||!apiSecret)return{attempted:false,sent:false,status:'not_configured',reason:!measurementId?'missing_measurement_id':'missing_api_secret'};
  const params:Record<string,string|number>={event_id:eventId,content_type:clean(event.entityType,30),content_id:clean(event.entityId,100),content_name:clean(event.title,100),plan:clean(event.plan,40),source:clean(event.firstTouchSource,100),medium:clean(event.firstTouchMedium,100),campaign:clean(event.firstTouchCampaign,100),first_song_viewed:clean(event.firstSongViewed,100),last_song_viewed:clean(event.lastSongViewed,100),first_artist_viewed:clean(event.firstArtistViewed,100),last_artist_viewed:clean(event.lastArtistViewed,100),currency:clean(event.currency||'eur',12).toUpperCase()};if(event.revenueCents)params.value=event.revenueCents/100;Object.keys(params).forEach(key=>params[key]===''&&delete params[key]);
- const response=await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(measurementId)}&api_secret=${encodeURIComponent(apiSecret)}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({client_id:event.visitorId,events:[{name:event.eventType,params}]})});return response.ok;
+ const response=await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(measurementId)}&api_secret=${encodeURIComponent(apiSecret)}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({client_id:event.visitorId,events:[{name:event.eventType,params}]})});
+ if(response.ok)return{attempted:true,sent:true,status:'sent',httpStatus:response.status};
+ const responseText=clean(await response.text().catch(()=>''),300);
+ return{attempted:true,sent:false,status:'rejected',httpStatus:response.status,reason:responseText||`GA4 HTTP ${response.status}`};
 }
 
 export async function recordTrustedAnalyticsEvent(input:ServerAnalyticsEvent&{eventType:TrustedAnalyticsEventName},dedupeKey:string){
- const result=await recordAnalyticsEvent(input,{dedupeKey,trusted:true});const ref=adminFirestore.collection('analyticsEvents').doc(result.eventId);const snapshot=await ref.get();if(snapshot.data()?.ga4Status==='sent')return result;
- try{const sent=await sendGa4(input,result.eventId);await ref.set({ga4Status:sent?'sent':'not_configured_or_no_consent',ga4UpdatedAt:FieldValue.serverTimestamp()},{merge:true})}catch(error){await ref.set({ga4Status:'failed',ga4UpdatedAt:FieldValue.serverTimestamp()},{merge:true});console.error('Trusted GA4 event delivery failed:',input.eventType,error)}return result;
+ const result=await recordAnalyticsEvent(input,{dedupeKey,trusted:true});const ref=adminFirestore.collection('analyticsEvents').doc(result.eventId);
+ if(!result.created){trustedLog('duplicate_suppressed',{eventType:input.eventType,eventId:shortId(result.eventId),plan:clean(input.plan,40)});return result}
+ trustedLog('event_recorded',{eventType:input.eventType,eventId:shortId(result.eventId),plan:clean(input.plan,40),hasConsent:input.analyticsConsent===true,hasClientId:Boolean(input.visitorId),hasRevenue:Boolean(input.revenueCents),currency:clean(input.currency||'eur',12)});
+ try{const delivery=await sendGa4(input,result.eventId);await ref.set({ga4Status:delivery.status,ga4Attempted:delivery.attempted,ga4HttpStatus:delivery.httpStatus||null,ga4Reason:clean(delivery.reason,300),ga4UpdatedAt:FieldValue.serverTimestamp()},{merge:true});trustedLog('ga4_delivery_result',{eventType:input.eventType,eventId:shortId(result.eventId),plan:clean(input.plan,40),status:delivery.status,attempted:delivery.attempted,httpStatus:delivery.httpStatus||0})}catch(error){await ref.set({ga4Status:'failed',ga4Attempted:true,ga4Reason:error instanceof Error?clean(error.message,300):'unknown_error',ga4UpdatedAt:FieldValue.serverTimestamp()},{merge:true});console.error('Trusted GA4 event delivery failed:',input.eventType,{eventId:shortId(result.eventId),message:error instanceof Error?error.message:'unknown_error'})}return result;
 }
