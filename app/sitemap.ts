@@ -1,12 +1,12 @@
 import type { MetadataRoute } from 'next';
 import { getPublishedRecords, SITE_URL } from '@/lib/seo';
 import { contentLastModified } from '@/lib/public-content';
-import { genreSlug } from '@/lib/public-genres';
+import { getControlledGenres } from '@/lib/public-genres';
 
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticPaths = ['', '/artists', '/music', '/videos', '/news', '/merchandise', '/membership', '/about', '/contact', '/legal', '/discover', '/music-for-content-creators', '/music-for-youtube', '/music-for-podcasts', '/music-for-social-media', '/music-for-commercial-videos'];
+  const staticPaths = ['', '/artists', '/music', '/videos', '/news', '/merchandise', '/membership', '/about', '/contact', '/licensing', '/legal', '/terms', '/privacy', '/cookie-policy', '/refund-policy', '/digital-download-policy', '/copyright', '/ai-disclosure', '/discover', '/music-for-content-creators', '/music-for-youtube', '/music-for-podcasts', '/music-for-social-media', '/music-for-commercial-videos'];
   const staticEntries: MetadataRoute.Sitemap = staticPaths.map(path => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: path === '' ? 'daily' : 'weekly',
@@ -22,22 +22,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getPublishedRecords('legalDocuments'),
   ]);
 
-  const genreValues = new Map<string, Date | string | undefined>();
-  for (const item of [...albums, ...songs]) {
-    const genre = item.genre || item.details?.genre || item.primaryGenre || item.details?.primaryGenre;
-    if (typeof genre !== 'string' || !genre.trim()) continue;
-    const slug = genreSlug(genre);
-    if (!slug) continue;
-    const modified = contentLastModified(item);
-    const previous = genreValues.get(slug);
-    if (!previous || (modified && new Date(modified).getTime() > new Date(previous).getTime())) genreValues.set(slug, modified);
-  }
-
   const dynamic: MetadataRoute.Sitemap = [
     ...artists.map(item => ({ url: `${SITE_URL}/artists/${item.slug || item.id}`, lastModified: contentLastModified(item), changeFrequency: 'weekly' as const, priority: 0.9 })),
     ...albums.map(item => ({ url: `${SITE_URL}/music/${item.slug || item.id}`, lastModified: contentLastModified(item), changeFrequency: 'weekly' as const, priority: 0.9 })),
     ...songs.filter(item => typeof item.slug === 'string' && item.slug.trim() && !/[/?#]/.test(item.slug)).map(item => ({ url: `${SITE_URL}/songs/${encodeURIComponent(item.slug)}`, lastModified: contentLastModified(item), changeFrequency: 'weekly' as const, priority: 0.8 })),
-    ...[...genreValues.entries()].map(([slug, lastModified]) => ({ url: `${SITE_URL}/genres/${slug}`, lastModified, changeFrequency: 'weekly' as const, priority: 0.75 })),
+    ...getControlledGenres().map(genre => ({ url: `${SITE_URL}/genres/${genre.slug}`, changeFrequency: 'weekly' as const, priority: 0.75 })),
     ...videos.map(item => ({ url: `${SITE_URL}/videos/${item.slug || item.id}`, lastModified: contentLastModified(item), changeFrequency: 'weekly' as const, priority: 0.8 })),
     ...news.map(item => ({ url: `${SITE_URL}/news/${item.slug || item.id}`, lastModified: contentLastModified(item), changeFrequency: 'monthly' as const, priority: 0.75 })),
     ...legal.map(item => ({ url: `${SITE_URL}/legal/${item.slug || item.id}`, lastModified: contentLastModified(item), changeFrequency: 'yearly' as const, priority: 0.4 })),
