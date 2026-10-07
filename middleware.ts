@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { defaultLocale, isLocale } from '@/lib/i18n/config';
 import { shouldNoIndex } from '@/lib/index-policy';
+import { genreRedirectTarget } from '@/lib/public-genres';
 
 const PUBLIC_FILE = /\.[^/]+$/;
 
@@ -17,6 +18,16 @@ export function middleware(request: NextRequest) {
   // indexing headers before these early returns (including dotted API paths).
   if (pathname.startsWith('/api') || pathname.startsWith('/admin') || pathname.startsWith('/_next') || PUBLIC_FILE.test(pathname)) {
     return withIndexPolicy(NextResponse.next({ request: { headers } }));
+  }
+
+  const genreMatch = pathname.match(/^\/genres\/([^/]+)\/?$/);
+  if (genreMatch) {
+    const target = genreRedirectTarget(decodeURIComponent(genreMatch[1]));
+    if (target) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/genres/${target}`;
+      return NextResponse.redirect(url, 308);
+    }
   }
 
   const first = pathname.split('/')[1] || '';
