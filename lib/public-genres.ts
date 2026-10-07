@@ -63,6 +63,7 @@ export function genreSlug(value: string): string {
 }
 
 export function canonicalGenreSlug(slug: string): string | null {
+  if (!slug || /[\\/]/.test(slug) || slug.includes('..')) return null;
   const clean = genreSlug(slug);
   if (genreMap.has(clean)) return clean;
   return aliasMap.get(clean) || null;
