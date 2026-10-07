@@ -49,18 +49,27 @@ test('private/search policy covers bare, nested, dotted and all supported locale
 
 test('sitemap includes only eligible slugged songs, canonical host, deduplication and honest dates', async () => {
   const records = [{ status:'published', slug:'live', updatedAt:'2026-09-01' }, { status:'published', slug:'live' }, { status:'draft',slug:'draft' }, { status:'published',slug:'private',isPublic:false }, { status:'published',slug:'future',publishAt:'2999-01-01' }, { status:'published',id:'without-slug' }];
-  const sitemap = load('app/sitemap.ts', { '@/lib/seo': { getPublishedRecords: async name => name === 'songs' ? records.filter(x => content.isPublicContent(x)) : [] }, '@/lib/public-content':content });
+  const genres = load('lib/public-genres.ts', { react:{cache:fn=>fn} });
+  const sitemap = load('app/sitemap.ts', { '@/lib/seo': { SITE_URL:'https://www.aureonmusicgroup.com', getPublishedRecords: async name => name === 'songs' ? records.filter(x => content.isPublicContent(x)) : [] }, '@/lib/public-content':content, '@/lib/public-genres':genres });
   const rows = await sitemap.default();
   const songs = rows.filter(x => x.url.includes('/songs/'));
   assert.deepEqual(Array.from(songs, x => x.url), ['https://www.aureonmusicgroup.com/songs/live']);
   assert.equal(rows[0].lastModified, undefined);
   assert.equal(songs[0].lastModified.toISOString(), '2026-09-01T00:00:00.000Z');
   assert.equal(rows.some(x => /localhost|future|private|draft/.test(x.url)), false);
+  assert.equal(rows.some(x => x.url.endsWith('/licensing')), true);
+  assert.equal(rows.some(x => x.url.endsWith('/privacy')), true);
+  assert.equal(JSON.stringify(rows.filter(x => x.url.includes('/genres/')).map(x => x.url.replace('https://www.aureonmusicgroup.com/genres/','')).sort()), JSON.stringify(['afrobeats','country-pop','deep-house','latin-pop','modern-pop','reggae']));
+  assert.equal(rows.some(x => x.url.includes('afro-beats') || x.url.includes('latin-pop-dance-pop')), false);
 });
 
-test('genre allowlist preserves core and actual catalogue genres without arbitrary pages', async () => {
-  const genres = load('lib/public-genres.ts', { '@/lib/seo': { getPublishedRecords: async () => [{ genre:'Afro-Beats' }, { details:{genre:'Modern Country-Pop'} }] } });
+test('genre allowlist preserves controlled genres and redirects aliases without arbitrary pages', async () => {
+  const genres = load('lib/public-genres.ts', { react:{cache:fn=>fn} });
   for (const slug of ['all','country-pop','afrobeats','deep-house','latin-pop','reggae','modern-pop','afro-beats','modern-country-pop']) assert.notEqual(await genres.getPublicGenre(slug), null);
+  assert.equal(genres.genreRedirectTarget('afro-beats'), 'afrobeats');
+  assert.equal(genres.genreRedirectTarget('modern-country-pop'), 'country-pop');
+  assert.equal(genres.genreRedirectTarget('latin-pop-dance-pop-smooth-r-b-melodic-house-and-portuguese-influences'), 'latin-pop');
+  assert.equal(genres.genreRedirectTarget('afrobeats'), null);
   for (const slug of ['invented-genre','__proto__','constructor','../country-pop','']) assert.equal(await genres.getPublicGenre(slug), null);
 });
 
@@ -97,7 +106,8 @@ test('SEO record lookup filters direct IDs and slug results without swallowing d
 
 test('middleware sets noindex on API early returns and locale rewrites while preserving routing', () => {
   const { NextRequest, NextResponse } = require('next/server');
-  const middleware = load('middleware.ts', { 'next/server':{NextRequest,NextResponse}, '@/lib/i18n/config':locales, '@/lib/index-policy':policy }).middleware;
+  const genres = load('lib/public-genres.ts', { react:{cache:fn=>fn} });
+  const middleware = load('middleware.ts', { 'next/server':{NextRequest,NextResponse}, '@/lib/i18n/config':locales, '@/lib/index-policy':policy, '@/lib/public-genres':genres }).middleware;
   for (const path of ['/admin','/admin/login','/api/download/file.wav','/checkout/success?session_id=test','/en/account','/pt/admin','/de/search?q=test','/fr/api/member/access']) {
     const response = middleware(new NextRequest('https://www.aureonmusicgroup.com'+path));
     assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow',path);
@@ -109,14 +119,27 @@ test('middleware sets noindex on API early returns and locale rewrites while pre
   }
 });
 
+test('middleware redirects obsolete genre aliases to canonical controlled genre urls', () => {
+  const { NextRequest, NextResponse } = require('next/server');
+  const genres = load('lib/public-genres.ts', { react:{cache:fn=>fn} });
+  const middleware = load('middleware.ts', { 'next/server':{NextRequest,NextResponse}, '@/lib/i18n/config':locales, '@/lib/index-policy':policy, '@/lib/public-genres':genres }).middleware;
+  for (const [from, to] of [['/genres/afro-beats','/genres/afrobeats'], ['/genres/modern-country-pop','/genres/country-pop'], ['/genres/latin-pop-dance-pop-smooth-r-b-melodic-house-and-portuguese-influences','/genres/latin-pop']]) {
+    const response = middleware(new NextRequest('https://www.aureonmusicgroup.com' + from));
+    assert.equal(response.status, 308);
+    assert.equal(response.headers.get('location'), 'https://www.aureonmusicgroup.com' + to);
+  }
+});
+
 test('genre server layout rejects missing genres before rendering children', async () => {
   const layout = load('app/genres/[slug]/layout.tsx', {
     'next/navigation': { notFound: () => { throw Error('NEXT_HTTP_ERROR_FALLBACK;404'); } },
     '@/lib/public-genres': { getPublicGenre: async slug => slug === 'all' ? '' : null },
+    '@/lib/seo': { SITE_URL:'https://www.aureonmusicgroup.com', buildMetadata: props => props, breadcrumbSchema: items => ({ items }), safeJsonLd: value => JSON.stringify(value) },
   });
   await assert.rejects(layout.default({ params:Promise.resolve({slug:'missing'}), children:'content' }), /;404/);
   await assert.rejects(layout.generateMetadata({ params:Promise.resolve({slug:'missing'}) }), /;404/);
-  assert.equal(await layout.default({ params:Promise.resolve({slug:'all'}), children:'content' }), 'content');
+  const rendered = await layout.default({ params:Promise.resolve({slug:'all'}), children:'content' });
+  assert.equal(rendered.props.children[1], 'content');
 });
 
 const catalogue = load('lib/public-catalogue.ts', {
