@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminFirestore } from '@/lib/firebase-admin';
+import { adminFirestore, adminStorage } from '@/lib/firebase-admin';
 import { hasActivePlan, memberError, requireMember } from '@/lib/member-server';
 import { createPlaybackTicket, PLAYBACK_TICKET_TTL_SECONDS } from '@/lib/playback-ticket';
 
@@ -29,13 +29,31 @@ export async function GET(request: Request, context: { params: Promise<{ songId:
       return NextResponse.json({ error: 'Full track is unavailable.' }, { status: 404 });
     }
 
-    const ticket = createPlaybackTicket(uid, songId);
-    const url = `/api/member/audio/${encodeURIComponent(songId)}?ticket=${encodeURIComponent(ticket)}`;
+    // Keep objects private. Authorized subscribers receive a temporary signed
+    // Cloud Storage URL, so audio bytes bypass Vercel. Retain the original
+    // protected proxy as a fallback when URL signing is unavailable.
+    let url: string;
+    let delivery: 'firebase-storage' | 'vercel-fallback' = 'firebase-storage';
+    try {
+      const [signedUrl] = await adminStorage.bucket().file(path).getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: Date.now() + PLAYBACK_TICKET_TTL_SECONDS * 1000,
+        responseDisposition: 'inline',
+      });
+      url = signedUrl;
+    } catch (signingError) {
+      console.error('Direct audio URL signing unavailable; using protected fallback:', signingError);
+      const ticket = createPlaybackTicket(uid, songId);
+      url = `/api/member/audio/${encodeURIComponent(songId)}?ticket=${encodeURIComponent(ticket)}`;
+      delivery = 'vercel-fallback';
+    }
     return NextResponse.json({
       url,
       expiresIn: PLAYBACK_TICKET_TTL_SECONDS,
+      delivery,
       format: path.startsWith('private/streams/') ? 'aac' : 'legacy',
-    });
+    }, {headers: {'Cache-Control': 'private, no-store, max-age=0'}});
   } catch (error) {
     console.error('Member stream failed:', error);
     const result = memberError(error);
