@@ -40,9 +40,9 @@ export function getPreviewUrl(record: PreviewRecord): string {
   if (!record) return '';
   const details = record.details && typeof record.details === 'object' ? record.details : {};
   const media = record.media && typeof record.media === 'object' ? record.media : {};
-  const boundedPreview = privatePreviewUrl(record, details);
-  if (boundedPreview) return boundedPreview;
-
+  // New uploads already include a public, pre-generated 40-second preview in
+  // Firebase Storage. Prefer it over generating a WAV preview through Vercel
+  // on every request; keep the private-master route for legacy catalogue items.
   for (const field of PREVIEW_FIELDS) {
     const direct = usable(record[field]) || fromObject(record[field]);
     if (direct) return direct;
@@ -52,5 +52,5 @@ export function getPreviewUrl(record: PreviewRecord): string {
     if (mediaValue) return mediaValue;
   }
 
-  return '';
+  return privatePreviewUrl(record, details);
 }
