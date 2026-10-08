@@ -20,7 +20,7 @@ export function trackAnalytics(event: AnalyticsEvent) {
   if(typeof window==='undefined'||!analyticsConsent()||!CLIENT_ANALYTICS_EVENTS.includes(event.eventType))return;
   const context=getAnalyticsContext();if(!context)return;
   const searchQuery=event.searchQuery&&(/@|\+?\d[\d\s().-]{7,}/.test(event.searchQuery)?'[redacted]':event.searchQuery.slice(0,100));
-  const payload={...event,searchQuery,visitorId:context.visitorId,sessionId:context.sessionId,firstTouch:context.firstTouch,sessionTouch:context.sessionTouch,contentAttribution:context.content,locale:navigator.language,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,deviceType:deviceType(),pathname:window.location.pathname};
+  const payload={...event,searchQuery,analyticsConsent:true,visitorId:context.visitorId,sessionId:context.sessionId,firstTouch:context.firstTouch,sessionTouch:context.sessionTouch,contentAttribution:context.content,locale:navigator.language,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,deviceType:deviceType(),pathname:window.location.pathname};
   const gaParams:Record<string,unknown>={content_type:event.entityType,content_id:event.entityId,content_name:event.title,song_slug:event.slug,artist_slug:event.artistSlug,artist_name:event.artistName,album_slug:event.albumSlug,genre:event.genre,progress_percent:event.progressPercent,search_term:searchQuery,plan:event.plan,source:context.firstTouch.source,medium:context.firstTouch.medium,campaign:context.firstTouch.campaign,...event.metadata};
   Object.keys(gaParams).forEach(key=>(gaParams[key]===''||gaParams[key]===undefined||gaParams[key]===null)&&delete gaParams[key]);
   window.gtag?.('event',event.eventType,gaParams);
