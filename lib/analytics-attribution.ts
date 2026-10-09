@@ -34,7 +34,7 @@ function ga4ClientId():string{
  const match=document.cookie.split(';').map(part=>part.trim()).find(part=>part.startsWith('_ga='));
  if(!match)return '';
  const value=decodeURIComponent(match.slice(4));
- const parsed=/^GA\\d+\\.\\d+\\.(\\d+\\.\\d+)$/.exec(value);
+ const parsed=/^GA\d+\.\d+\.(\d+\.\d+)$/.exec(value);
  return parsed?.[1]||'';
 }
 function ga4SessionId():string{
@@ -45,8 +45,8 @@ function ga4SessionId():string{
  if(!part)return '';
  const value=decodeURIComponent(part.slice(key.length+1));
  // Current GS2 and legacy GS1 formats; never fabricate a GA4 session identifier.
- const gs2=/^GS2\\.\\d+\\.s(\\d+)(?:\\.|$)/.exec(value);
- const gs1=/^GS1\\.\\d+\\.(\\d+)(?:\\.|$)/.exec(value);
+ const gs2=/^GS2\.\d+\.s(\d+)(?:\.|$)/.exec(value);
+ const gs1=/^GS1\.\d+\.(\d+)(?:\.|$)/.exec(value);
  return gs2?.[1]||gs1?.[1]||'';
 }
 export function analyticsCheckoutContext(){const context=getAnalyticsContext();return context?{analyticsConsent:true,analyticsClientId:ga4ClientId(),analyticsSessionId:ga4SessionId(),firstTouch:context.firstTouch,sessionTouch:context.sessionTouch,contentAttribution:context.content}:{analyticsConsent:false}}
