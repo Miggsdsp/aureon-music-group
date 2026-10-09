@@ -27,5 +27,27 @@ function id(storage:Storage,key:string){let value=storage.getItem(key)||'';if(!v
 export function initialiseAttribution(){if(!analyticsConsent())return{returning:false};const touch=landingTouch();if(!localStorage.getItem(FIRST_TOUCH_KEY))localStorage.setItem(FIRST_TOUCH_KEY,JSON.stringify(touch));if(!sessionStorage.getItem(SESSION_TOUCH_KEY))sessionStorage.setItem(SESSION_TOUCH_KEY,JSON.stringify(touch));const returning=Boolean(localStorage.getItem(LAST_VISIT_KEY));localStorage.setItem(LAST_VISIT_KEY,new Date().toISOString());id(localStorage,VISITOR_KEY);id(sessionStorage,SESSION_KEY);return{returning}}
 export function recordContentView(kind:'song'|'artist',slug:string){if(!analyticsConsent()||!slug)return;const current=parse<ContentAttribution>(localStorage,CONTENT_KEY,{});if(kind==='song'){current.firstSongViewed||=slug;current.lastSongViewed=slug}else{current.firstArtistViewed||=slug;current.lastArtistViewed=slug}localStorage.setItem(CONTENT_KEY,JSON.stringify(current))}
 export function getAnalyticsContext():AnalyticsContext|null{if(!analyticsConsent())return null;initialiseAttribution();return{consent:true,visitorId:id(localStorage,VISITOR_KEY),sessionId:id(sessionStorage,SESSION_KEY),firstTouch:parse(localStorage,FIRST_TOUCH_KEY,emptyTouch()),sessionTouch:parse(sessionStorage,SESSION_TOUCH_KEY,emptyTouch()),content:parse(localStorage,CONTENT_KEY,{})}}
-export function analyticsCheckoutContext(){const context=getAnalyticsContext();return context?{analyticsConsent:true,analyticsClientId:context.visitorId,analyticsSessionId:context.sessionId,firstTouch:context.firstTouch,sessionTouch:context.sessionTouch,contentAttribution:context.content}:{analyticsConsent:false}}
+// GA4 Measurement Protocol requires the actual browser client_id, not Aureon's UUID.
+// Read only Google's first-party cookie after explicit analytics consent.
+function ga4ClientId():string{
+ if(!analyticsConsent()||typeof document==='undefined')return '';
+ const match=document.cookie.split(';').map(part=>part.trim()).find(part=>part.startsWith('_ga='));
+ if(!match)return '';
+ const value=decodeURIComponent(match.slice(4));
+ const parsed=/^GA\\d+\\.\\d+\\.(\\d+\\.\\d+)$/.exec(value);
+ return parsed?.[1]||'';
+}
+function ga4SessionId():string{
+ if(!analyticsConsent()||typeof document==='undefined')return '';
+ const measurementId=process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID||process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID||'G-TN4LEXL6CB';
+ const key='_ga_'+measurementId.replace(/^G-/,'');
+ const part=document.cookie.split(';').map(value=>value.trim()).find(value=>value.startsWith(key+'='));
+ if(!part)return '';
+ const value=decodeURIComponent(part.slice(key.length+1));
+ // Current GS2 and legacy GS1 formats; never fabricate a GA4 session identifier.
+ const gs2=/^GS2\\.\\d+\\.s(\\d+)(?:\\.|$)/.exec(value);
+ const gs1=/^GS1\\.\\d+\\.(\\d+)(?:\\.|$)/.exec(value);
+ return gs2?.[1]||gs1?.[1]||'';
+}
+export function analyticsCheckoutContext(){const context=getAnalyticsContext();return context?{analyticsConsent:true,analyticsClientId:ga4ClientId(),analyticsSessionId:ga4SessionId(),firstTouch:context.firstTouch,sessionTouch:context.sessionTouch,contentAttribution:context.content}:{analyticsConsent:false}}
 export function setAnalyticsConsent(granted:boolean){const choice:AnalyticsConsentChoice=granted?'granted':'denied';localStorage.setItem(ANALYTICS_CONSENT_KEY,choice);writeConsentCookie(choice);if(!granted){for(const key of [FIRST_TOUCH_KEY,CONTENT_KEY,VISITOR_KEY,LAST_VISIT_KEY])localStorage.removeItem(key);for(const key of [SESSION_TOUCH_KEY,SESSION_KEY])sessionStorage.removeItem(key);window.gtag?.('consent','update',deniedGoogleConsent)}else window.gtag?.('consent','update',grantedGoogleConsent);window.dispatchEvent(new CustomEvent('aureon-consent-change',{detail:{granted}}))}
