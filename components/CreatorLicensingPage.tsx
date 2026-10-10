@@ -133,6 +133,7 @@ export async function CreatorLicensingPage({ page }: { page: CreatorLicensingPag
                 <LatestPlayButton
                   title={title}
                   src={song.previewUrl}
+                  artwork={song.coverImageUrl}
                   showPurchase={false}
                   buttonLabel="Preview track"
                   analytics={{

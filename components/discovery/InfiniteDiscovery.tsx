@@ -119,7 +119,7 @@ export function InfiniteDiscovery() {
     return <article className={styles.miniCard} key={`${keyPrefix}-${id}`}>
       <Link className={styles.artwork} href={`/songs/${slug}`}><ArtworkImage src={getArtwork(item)} alt={`${title} artwork`} fill sizes="72px" /></Link>
       <div className={styles.copy}><strong><Link href={`/songs/${slug}`}>{title}</Link></strong><span>{artist}</span></div>
-      {preview ? <LatestPlayButton size="small" title={title} src={preview} buttonLabel="Play" showPurchase={false} analytics={{ id, artistId: text(item, ['artistId']), artistName: artist }} /> : <Link className={styles.arrow} href={`/songs/${slug}`}>→</Link>}
+      {preview ? <LatestPlayButton size="small" title={title} src={preview} artwork={getArtwork(item)} buttonLabel="Play" showPurchase={false} analytics={{ id, artistId: text(item, ['artistId']), artistName: artist }} /> : <Link className={styles.arrow} href={`/songs/${slug}`}>→</Link>}
     </article>;
   };
 

@@ -14,10 +14,33 @@ type SongPurchase = { id:string; title:string; artist:string; image:string; pric
 type SongAnalytics = { id?:string; slug?:string; genre?:string; artistId?:string; artistSlug?:string; artistName?:string; albumId?:string; albumSlug?:string; albumTitle?:string };
 type DiscoveryAnalytics = { source:string; algorithm:string; position:number; confidence?:number };
 type CartProduct = { id:string; name:string; slug:string; category:string; artist:string; artistSlug:string; price:number; image:string; description:string; badge?:string; digital?:boolean };
-type LatestPlayButtonProps = { title:string; src?:string; purchase?:SongPurchase; analytics?:SongAnalytics; discovery?:DiscoveryAnalytics; buttonLabel?:string; showPurchase?:boolean; size?:'small'|'medium'|'large' };
+type LatestPlayButtonProps = { title:string; src?:string; artwork?:string; purchase?:SongPurchase; analytics?:SongAnalytics; discovery?:DiscoveryAnalytics; buttonLabel?:string; showPurchase?:boolean; size?:'small'|'medium'|'large' };
 
-export function LatestPlayButton({ title, src, purchase, analytics, discovery, buttonLabel, showPurchase = true, size = 'medium' }: LatestPlayButtonProps) {
+const DEFAULT_MEDIA_ARTWORK = '/images/branding/Aureon_Header_Logo.png';
+
+function mediaArtwork(source?: string) {
+  if (typeof window === 'undefined') return DEFAULT_MEDIA_ARTWORK;
+  const raw = source || DEFAULT_MEDIA_ARTWORK;
+  let absolute = '';
+  try { absolute = new URL(raw, window.location.origin).href; }
+  catch { absolute = new URL(DEFAULT_MEDIA_ARTWORK, window.location.origin).href; }
+  return new URL(`/api/media/artwork?src=${encodeURIComponent(absolute)}`, window.location.origin).href;
+}
+
+function clickAdjacentPreview(button: HTMLButtonElement | null, direction: 1 | -1) {
+  if (typeof document === 'undefined' || !button) return false;
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-aureon-preview-button="true"]')).filter(item => !item.disabled);
+  const current = buttons.indexOf(button);
+  if (current === -1 || buttons.length < 2) return false;
+  const next = buttons[current + direction] || buttons[direction > 0 ? 0 : buttons.length - 1];
+  next.click();
+  try { next.focus({ preventScroll: true }); } catch {}
+  return true;
+}
+
+export function LatestPlayButton({ title, src, artwork, purchase, analytics, discovery, buttonLabel, showPurchase = true, size = 'medium' }: LatestPlayButtonProps) {
   const audioRef=useRef<HTMLAudioElement|null>(null);
+  const buttonRef=useRef<HTMLButtonElement|null>(null);
   const completionTracked=useRef(false);
   const startTracked=useRef(false);
   const milestonesTracked=useRef(new Set<number>());
@@ -35,6 +58,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
   const hasPreview=Boolean(src)&&!hasError;
   const entityId=analytics?.id||purchase?.id||'';
   const artistName=analytics?.artistName||purchase?.artist||'';
+  const mediaArtworkSource=artwork||purchase?.image||'';
   const eventBase={entityType:'song',entityId,title,slug:analytics?.slug||purchase?.slug||'',genre:analytics?.genre||'',artistId:analytics?.artistId||'',artistSlug:analytics?.artistSlug||purchase?.artistSlug||'',artistName,albumId:analytics?.albumId||'',albumSlug:analytics?.albumSlug||'',albumTitle:analytics?.albumTitle||''};
   const discoveryEntity={id:entityId,type:'song' as const,title,artistId:analytics?.artistId||'',artistName,albumId:analytics?.albumId||'',albumTitle:analytics?.albumTitle||''};
   const songPath=purchase?.slug?`/songs/${purchase.slug}`:entityId?`/songs/${entityId}`:'/music';
@@ -70,11 +94,54 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     if(discovery)trackDiscovery('conversion',discoveryEntity,{...discovery,conversionType});
   }
 
+  function updateMediaSession(state: MediaSessionPlaybackState = 'playing'){
+    if(typeof navigator==='undefined'||!('mediaSession' in navigator))return;
+    try{
+      const mediaSession=navigator.mediaSession;
+      const image=mediaArtwork(mediaArtworkSource);
+      mediaSession.metadata=new MediaMetadata({
+        title:title||'Aureon Music Group',
+        artist:artistName||'Aureon Music Group',
+        album:analytics?.albumTitle||'Aureon Music Group',
+        artwork:[
+          {src:image,sizes:'512x512'},
+          {src:image,sizes:'256x256'},
+          {src:image,sizes:'128x128'},
+          {src:image,sizes:'96x96'},
+        ],
+      });
+      mediaSession.playbackState=state;
+      const setHandler=(action:MediaSessionAction,handler:MediaSessionActionHandler|null)=>{
+        try{mediaSession.setActionHandler(action,handler)}catch{}
+      };
+      setHandler('play',async()=>{const audio=audioRef.current;if(!audio)return;try{await audio.play();setIsPlaying(true);updateMediaSession('playing')}catch{}});
+      setHandler('pause',()=>{audioRef.current?.pause();setIsPlaying(false);updateMediaSession('paused')});
+      setHandler('previoustrack',()=>{if(!clickAdjacentPreview(buttonRef.current,-1)){const audio=audioRef.current;if(audio)audio.currentTime=0;}});
+      setHandler('nexttrack',()=>{clickAdjacentPreview(buttonRef.current,1)});
+      setHandler('seekbackward',null);
+      setHandler('seekforward',null);
+      setHandler('seekto',null);
+    }catch{}
+  }
+
+  function pauseMediaSession(){
+    if(typeof navigator==='undefined'||!('mediaSession' in navigator))return;
+    try{navigator.mediaSession.playbackState='paused'}catch{}
+  }
+
+  function pauseOtherPreviews(audio: HTMLAudioElement){
+    if(typeof document==='undefined')return;
+    document.querySelectorAll<HTMLAudioElement>('audio[data-aureon-preview-audio="true"]').forEach(item=>{
+      if(item!==audio)item.pause();
+    });
+  }
+
   function finishPreview(audio:HTMLAudioElement){
     audio.pause();
     if(audio.currentTime>previewSeconds)audio.currentTime=previewSeconds;
     setIsPlaying(false);
     setNearEnd(false);
+    pauseMediaSession();
     setPreviewFinished(true);
     if(completionTracked.current)return;
     completionTracked.current=true;
@@ -89,6 +156,7 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     if(isPlaying){
       audio.pause();
       setIsPlaying(false);
+      updateMediaSession('paused');
       trackAnalytics({...eventBase,eventType:'song_pause',listenedSeconds:audio.currentTime,durationSeconds:audio.duration||0,progressPercent:audio.duration?audio.currentTime/audio.duration*100:0});
       return;
     }
@@ -100,7 +168,9 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
       earlyEndedRetries.current=0;
     }
     try{
+      pauseOtherPreviews(audio);
       await audio.play();
+      updateMediaSession('playing');
       setPreviewFinished(false);
       setNearEnd(false);
       setIsPlaying(true);
@@ -128,17 +198,19 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
     if(!promotional&&audio.currentTime<previewSeconds-0.75){
       setIsPlaying(false);
       setNearEnd(false);
+      pauseMediaSession();
       if(earlyEndedRetries.current<1&&(Number.isFinite(audio.duration)?audio.duration>=previewSeconds-0.75:true)){
         earlyEndedRetries.current+=1;
         const resumeAt=audio.currentTime;
         audio.currentTime=resumeAt;
-        audio.play().then(()=>setIsPlaying(true)).catch(error=>{
+        audio.play().then(()=>{setIsPlaying(true);updateMediaSession('playing')}).catch(error=>{
           console.error('Aureon preview resume failed after early ended event',error);
         });
       }
       return;
     }
     setIsPlaying(false);
+    pauseMediaSession();
     if(!promotional){finishPreview(audio);return;}
     trackAnalytics({...eventBase,eventType:'music_preview_complete',listenedSeconds:audio.duration||0,durationSeconds:audio.duration||0,progressPercent:100});
     if(discovery)trackDiscovery('complete',discoveryEntity,discovery,{listenedSeconds:audio.duration||0});
@@ -180,9 +252,9 @@ export function LatestPlayButton({ title, src, purchase, analytics, discovery, b
 
   const defaultLabel=promotional?`Play: ${title}`:`40s Preview: ${title}`;
   return <div className="song-commerce-control">
-    {hasPreview?<button className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onPointerEnter={requestMetadata} onFocus={requestMetadata} onTouchStart={requestMetadata} onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
+    {hasPreview?<button ref={buttonRef} data-aureon-preview-button="true" className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onPointerEnter={requestMetadata} onFocus={requestMetadata} onTouchStart={requestMetadata} onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
     {showPurchase&&!promotional&&purchase&&<div className="song-buy-row"><button type="button" className="song-buy-button" onClick={addSongToCart}><ShoppingCart size={14}/> {added?'Added to cart':`Buy full song €${price.toFixed(2)}`}</button>{added&&<Link href="/checkout">Checkout →</Link>}</div>}
-    {src?<audio ref={audioRef} src={src} preload="none" playsInline onCanPlay={()=>setHasError(false)} onTimeUpdate={enforcePreviewLimit} onEnded={ended} onError={()=>setHasError(true)}/>:null}
+    {src?<audio ref={audioRef} data-aureon-preview-audio="true" src={src} preload="none" playsInline onCanPlay={()=>setHasError(false)} onTimeUpdate={enforcePreviewLimit} onEnded={ended} onPause={()=>setIsPlaying(false)} onError={()=>setHasError(true)}/>:null}
     {nearEnd&&!previewFinished&&!promotional&&<div className={styles.benefitCue} role="status"><Sparkles size={15}/><div><strong>Keep the music going</strong><span>Premium unlocks the complete Aureon catalogue.</span></div></div>}
     {conversionModal}
   </div>;

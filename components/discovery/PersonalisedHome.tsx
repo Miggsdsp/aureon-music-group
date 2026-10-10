@@ -151,6 +151,7 @@ export function PersonalisedHome() {
               size="small"
               title={title}
               src={preview}
+              artwork={artwork}
               buttonLabel="Play preview"
               showPurchase={false}
               purchase={{ id: song.id, title, artist, image: artwork, price: Number(song.price ?? details.price ?? .99), promotional: Boolean(song.promotional ?? details.promotional), slug, artistSlug }}

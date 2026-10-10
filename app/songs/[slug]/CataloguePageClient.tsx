@@ -89,6 +89,7 @@ export default function SongPage() {
           <LatestPlayButton
             title={title}
             src={preview}
+            artwork={artwork}
             buttonLabel="Listen now — 40s preview"
             purchase={{ id:song.id, title, artist, image:artwork, price, promotional, slug:song.slug || slug, artistSlug }}
             analytics={{ id:song.id, artistId:song.artistId || details.artistId, artistName:artist, albumId:song.albumId || details.albumId, albumTitle }}

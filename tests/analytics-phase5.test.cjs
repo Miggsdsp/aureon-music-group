@@ -78,6 +78,19 @@ test('manual subscription conversion repair is admin-only and read-only against 
 
 test('preview analytics uses bounded milestones and never includes audio URLs',()=>{const player=read('components/LatestPlayButton.tsx');for(const event of ['music_preview_start','music_preview_progress','music_preview_complete'])assert.match(player,new RegExp(`eventType:'${event}'`));assert.match(player,/\[25,50,75\]/);assert.doesNotMatch(read('lib/track-analytics.ts'),/protectedUrl|previewUrl|audioUrl|\bsrc:/)});
 
+test('public preview media session sends artwork and track controls to external displays',()=>{
+ const player=read('components/LatestPlayButton.tsx');
+ assert.match(player,/new MediaMetadata/);
+ assert.match(player,/artwork:\[/);
+ assert.match(player,/\/api\/media\/artwork\?src=/);
+ assert.match(player,/setHandler\('previoustrack'/);
+ assert.match(player,/setHandler\('nexttrack'/);
+ assert.match(player,/setHandler\('seekbackward',null\)/);
+ assert.match(player,/setHandler\('seekforward',null\)/);
+ assert.match(player,/data-aureon-preview-button="true"/);
+ assert.match(player,/data-aureon-preview-audio="true"/);
+});
+
 test('GA4 is single, consent-gated and strips sensitive return parameters',()=>{const bridge=read('components/AnalyticsBridge.tsx'),layout=read('app/layout.tsx'),firebase=read('lib/firebase-client.ts');assert.match(bridge,/NEXT_PUBLIC_GA_MEASUREMENT_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_TAG_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_ADS_ID/);assert.match(bridge,/send_page_view:false/);assert.match(bridge,/process\.env\.NODE_ENV==='production'/);assert.match(bridge,/if\(!granted\)/);assert.match(bridge,/ad_storage:'denied'/);assert.match(bridge,/ad_user_data:'granted'/);assert.match(bridge,/ad_personalization:'denied'/);assert.doesNotMatch(bridge,/session_id/);assert.doesNotMatch(layout,/googletagmanager|gtag\('config'/);assert.doesNotMatch(firebase,/G-[A-Z0-9]+/)});
 test('GA4 page views wait for Google tag readiness after consent',()=>{const bridge=read('components/AnalyticsBridge.tsx');assert.match(bridge,/gaReady/);assert.match(bridge,/document\.createElement\('script'\)/);assert.match(bridge,/addEventListener\('load'/);assert.match(bridge,/dataset\.loaded/);assert.match(bridge,/!granted\|\|!gaReady\|\|!pathname/);assert.match(bridge,/aureon-ga4/);});
 test('public preview playback uses bounded API route when a private master exists',()=>{const ts=require('typescript'),vm=require('node:vm');const code=ts.transpileModule(read('lib/get-preview-url.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const module={exports:{}};vm.runInNewContext(code,{module,exports:module.exports,require},{filename:'lib/get-preview-url.ts'});assert.equal(module.exports.getPreviewUrl({id:'song-1',privateFilePath:'private/full-tracks/artist/song.wav',previewUrl:'https://storage.googleapis.com/legacy-short.wav'}),'/api/preview/song-1');assert.equal(module.exports.getPreviewUrl({id:'song-2',details:{privateFilePath:'private/full-tracks/artist/song two.wav'}}),'/api/preview/song-2');assert.equal(module.exports.getPreviewUrl({id:'song-3',previewUrl:'https://example.com/public-preview.wav'}),'https://example.com/public-preview.wav')});
