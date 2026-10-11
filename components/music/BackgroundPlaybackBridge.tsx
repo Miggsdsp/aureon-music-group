@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { DEFAULT_ARTWORK, getArtwork } from '@/lib/get-artwork';
+import { claimMediaSession, ownsMediaSession, releaseMediaSession } from '@/lib/media-session-owner';
 import { useMusicPlayer } from './MusicPlayerProvider';
 
 function getAudio() {
@@ -17,84 +18,63 @@ function mediaArtwork(source: string) {
 }
 
 export default function BackgroundPlaybackBridge() {
-  const { currentSong, isPlaying, next, previous, seekTo } = useMusicPlayer();
-
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-    const mediaSession = navigator.mediaSession;
-    if (!currentSong) {
-      mediaSession.metadata = null;
-      return;
-    }
-    const artwork = mediaArtwork(getArtwork(currentSong));
-    try {
-      mediaSession.metadata = new MediaMetadata({
-        title: currentSong.title || 'Aureon Music Group',
-        artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
-        album: 'Aureon Music Group',
-        artwork: [
-          { src: artwork, sizes: '512x512' },
-          { src: artwork, sizes: '256x256' },
-          { src: artwork, sizes: '128x128' },
-          { src: artwork, sizes: '96x96' },
-        ],
-      });
-    } catch {}
-  }, [currentSong]);
-
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-    try { navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'; } catch {}
-  }, [isPlaying]);
+  const player = useMusicPlayer();
+  const latest = useRef(player);
+  latest.current = player;
+  const refreshRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const audio = getAudio();
-    if (audio) {
-      audio.preload = 'auto';
-      audio.setAttribute('playsinline', 'true');
-      audio.setAttribute('webkit-playsinline', 'true');
-      audio.setAttribute('x-webkit-airplay', 'allow');
-    }
+    if (!audio) return;
+    audio.preload = 'auto';
+    audio.setAttribute('playsinline', 'true');
+    audio.setAttribute('webkit-playsinline', 'true');
+    audio.setAttribute('x-webkit-airplay', 'allow');
     if (!('mediaSession' in navigator)) return;
-
     const mediaSession = navigator.mediaSession;
     const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
       try { mediaSession.setActionHandler(action, handler); } catch {}
     };
-
-    setHandler('play', async () => {
-      const activeAudio = getAudio();
-      if (!activeAudio) return;
-      try { await activeAudio.play(); } catch {}
-    });
-    setHandler('pause', () => getAudio()?.pause());
-
-    // These are the standard AVRCP/MediaSession track actions consumed by
-    // Bluetooth head units, CarPlay, Android Auto and lock-screen media UIs.
-    setHandler('previoustrack', () => { void previous(); });
-    setHandler('nexttrack', () => { void next(); });
-
-    // Do NOT advertise +/-10-second actions. Registering these makes several
-    // iOS/vehicle surfaces choose seek buttons instead of previous/next track.
-    setHandler('seekbackward', null);
-    setHandler('seekforward', null);
-
-    // Timeline scrubbing can remain supported independently of skip buttons.
-    setHandler('seekto', details => {
-      if (details.seekTime == null) return;
-      seekTo(details.seekTime);
-    });
-
-    return () => {
-      setHandler('play', null);
-      setHandler('pause', null);
-      setHandler('previoustrack', null);
-      setHandler('nexttrack', null);
+    const refresh = () => {
+      const { currentSong } = latest.current;
+      if (!ownsMediaSession(audio) || !currentSong) return;
+      try {
+        mediaSession.metadata = new MediaMetadata({
+          title: currentSong.title || 'Aureon Music Group',
+          artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
+          album: 'Aureon Music Group',
+          artwork: [{ src: mediaArtwork(getArtwork(currentSong)), sizes: 'any' }],
+        });
+        mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
+      } catch {}
+      setHandler('play', () => { if (audio.paused) void latest.current.toggle(); });
+      setHandler('pause', () => audio.pause());
+      setHandler('previoustrack', () => { void latest.current.previous(); });
+      setHandler('nexttrack', () => { void latest.current.next(); });
       setHandler('seekbackward', null);
       setHandler('seekforward', null);
-      setHandler('seekto', null);
+      setHandler('seekto', details => {
+        if (details.seekTime != null) latest.current.seekTo(details.seekTime);
+      });
     };
-  }, [next, previous, seekTo]);
+    const onPlay = () => { claimMediaSession(audio); refresh(); };
+    const onPause = () => {
+      if (ownsMediaSession(audio)) mediaSession.playbackState = 'paused';
+    };
+    refreshRef.current = refresh;
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('playing', refresh);
+    audio.addEventListener('pause', onPause);
+    refresh();
+    return () => {
+      refreshRef.current = null;
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('playing', refresh);
+      audio.removeEventListener('pause', onPause);
+      releaseMediaSession(audio);
+    };
+  }, []);
 
+  useEffect(() => { refreshRef.current?.(); }, [player.currentSong, player.isPlaying]);
   return null;
 }

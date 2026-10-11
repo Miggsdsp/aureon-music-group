@@ -5,6 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { ListMusic, Pause, Play, Repeat1, Repeat2, Shuffle, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
 import { ArtworkImage } from '@/components/ArtworkImage';
 import { firebaseAuth } from '@/lib/firebase-client';
+import { claimMediaSession, releaseMediaSession } from '@/lib/media-session-owner';
 import './music-player.css';
 
 export type PlayerSong = {
@@ -52,23 +53,18 @@ function mediaArtwork(song: PlayerSong) {
   return `${window.location.origin}/api/media/artwork?src=${encodeURIComponent(absolute)}`;
 }
 
-function updateNativeMetadata(song: PlayerSong | null) {
+function updateNativeMetadata(song: PlayerSong, audio: HTMLAudioElement | null) {
+  if (!audio) return;
+  claimMediaSession(audio);
   if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
   try {
-    if (!song) {
-      navigator.mediaSession.metadata = null;
-      return;
-    }
     const artwork = mediaArtwork(song);
     navigator.mediaSession.metadata = new MediaMetadata({
       title: song.title || 'Aureon Music Group',
       artist: song.artistName || song.artist || 'Aureon Music Group',
       album: 'Aureon Music Group',
       artwork: [
-        { src: artwork, sizes: '512x512' },
-        { src: artwork, sizes: '256x256' },
-        { src: artwork, sizes: '128x128' },
-        { src: artwork, sizes: '96x96' },
+        { src: artwork, sizes: 'any' },
       ],
     });
   } catch {}
@@ -135,7 +131,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     setDuration(0);
     setQueueOpen(false);
     setError('');
-    updateNativeMetadata(null);
+    releaseMediaSession(audio);
     if (removeSavedState && typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
   }, []);
 
@@ -177,7 +173,6 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     return () => document.body.classList.remove('aureon-player-visible');
   }, [currentSong]);
 
-  useEffect(() => { updateNativeMetadata(currentSong); }, [currentSong]);
 
   const memberActivity = useCallback(async (action: 'played' | 'progress', song: PlayerSong, progressSeconds = 0, durationSeconds = 0) => {
     const user = firebaseAuth.currentUser;
@@ -255,7 +250,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
       setQueue(nextQueue);
       setIndex(nextIndex);
       setAudioUrl(url);
-      updateNativeMetadata(song);
+      updateNativeMetadata(song, audioRef.current);
       void memberActivity('played', song, pendingSeek.current, Number(song.duration || 0));
       warmQueue(nextQueue, nextIndex);
     } catch (err) {
@@ -281,7 +276,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     setCurrentTime(0);
     setDuration(0);
     setError('');
-    updateNativeMetadata(song);
+    updateNativeMetadata(song, audioRef.current);
 
     audio.pause();
     audio.src = url;

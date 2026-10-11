@@ -90,7 +90,8 @@ test('public preview media session sends artwork and track controls to external 
  assert.match(player,/getSharedPreviewAudio/);
  assert.match(player,/sharedPreviewAudio = new Audio\(\)/);
  assert.match(player,/document\.body\.appendChild\(sharedPreviewAudio\)/);
- assert.match(player,/prepareSharedPreviewAudio\(audio\);\s*requestMetadata\(\);/);
+ assert.match(player,/prepareSharedPreviewAudio\(audio\);/);
+ assert.doesNotMatch(player,/requestMetadata|onPointerEnter=|onFocus=|onTouchStart=/);
  assert.match(player,/updateMediaSession\('playing'\);\s*await audio\.play\(\)/);
  assert.match(player,/audio\.title =/);
  assert.match(player,/data-aureon-current-title/);
