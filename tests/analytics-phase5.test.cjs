@@ -89,6 +89,7 @@ test('public preview media session sends artwork and track controls to external 
  assert.match(player,/setHandler\('seekforward',null\)/);
  assert.match(player,/getSharedPreviewAudio/);
  assert.match(player,/sharedPreviewAudio = new Audio\(\)/);
+ assert.match(player,/document\.body\.appendChild\(sharedPreviewAudio\)/);
  assert.match(player,/prepareSharedPreviewAudio\(audio\);\s*requestMetadata\(\);/);
  assert.match(player,/updateMediaSession\('playing'\);\s*await audio\.play\(\)/);
  assert.match(player,/audio\.title =/);

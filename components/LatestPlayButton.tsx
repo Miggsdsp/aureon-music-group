@@ -52,6 +52,10 @@ function getSharedPreviewAudio() {
     sharedPreviewAudio.setAttribute('webkit-playsinline', 'true');
     sharedPreviewAudio.setAttribute('x-webkit-airplay', 'allow');
   }
+  if (typeof document !== 'undefined' && document.body && !sharedPreviewAudio.isConnected) {
+    sharedPreviewAudio.style.display = 'none';
+    document.body.appendChild(sharedPreviewAudio);
+  }
   return sharedPreviewAudio;
 }
 
