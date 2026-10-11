@@ -5,7 +5,7 @@ import { DEFAULT_ARTWORK, getArtwork } from '@/lib/get-artwork';
 import { useMusicPlayer } from './MusicPlayerProvider';
 
 function getAudio() {
-  return document.querySelector('audio') as HTMLAudioElement | null;
+  return document.querySelector('audio[data-aureon-member-audio="true"]') as HTMLAudioElement | null;
 }
 
 function mediaArtwork(source: string) {

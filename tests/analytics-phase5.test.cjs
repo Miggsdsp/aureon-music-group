@@ -87,8 +87,16 @@ test('public preview media session sends artwork and track controls to external 
  assert.match(player,/setHandler\('nexttrack'/);
  assert.match(player,/setHandler\('seekbackward',null\)/);
  assert.match(player,/setHandler\('seekforward',null\)/);
+ assert.match(player,/updateMediaSession\('playing'\);\s*pauseOtherPreviews\(audio\);\s*await audio\.play\(\)/);
+ assert.match(player,/webkit-playsinline/);
+ assert.match(player,/x-webkit-airplay/);
  assert.match(player,/data-aureon-preview-button="true"/);
  assert.match(player,/data-aureon-preview-audio="true"/);
+ assert.match(player,/onPlay=\{\(\)=>\{setIsPlaying\(true\);updateMediaSession\('playing'\)\}\}/);
+ const bridge=read('components/music/BackgroundPlaybackBridge.tsx');
+ const provider=read('components/music/MusicPlayerProvider.tsx');
+ assert.match(bridge,/audio\[data-aureon-member-audio="true"\]/);
+ assert.match(provider,/data-aureon-member-audio="true"/);
 });
 
 test('GA4 is single, consent-gated and strips sensitive return parameters',()=>{const bridge=read('components/AnalyticsBridge.tsx'),layout=read('app/layout.tsx'),firebase=read('lib/firebase-client.ts');assert.match(bridge,/NEXT_PUBLIC_GA_MEASUREMENT_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_TAG_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_ADS_ID/);assert.match(bridge,/send_page_view:false/);assert.match(bridge,/process\.env\.NODE_ENV==='production'/);assert.match(bridge,/if\(!granted\)/);assert.match(bridge,/ad_storage:'denied'/);assert.match(bridge,/ad_user_data:'granted'/);assert.match(bridge,/ad_personalization:'denied'/);assert.doesNotMatch(bridge,/session_id/);assert.doesNotMatch(layout,/googletagmanager|gtag\('config'/);assert.doesNotMatch(firebase,/G-[A-Z0-9]+/)});

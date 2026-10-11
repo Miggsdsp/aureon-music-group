@@ -464,6 +464,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     {currentSong && <div className="aureon-player-spacer" aria-hidden="true" />}
     <audio
       ref={audioRef}
+      data-aureon-member-audio="true"
       preload="auto"
       playsInline
       onPlay={() => setIsPlaying(true)}

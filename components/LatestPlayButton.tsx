@@ -87,6 +87,10 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     if(!audio||metadataRequested.current)return;
     metadataRequested.current=true;
     audio.preload='metadata';
+    audio.setAttribute('playsinline','true');
+    audio.setAttribute('webkit-playsinline','true');
+    audio.setAttribute('x-webkit-airplay','allow');
+    updateMediaSession(isPlaying?'playing':'paused');
     audio.load();
   }
 
@@ -114,7 +118,7 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
       const setHandler=(action:MediaSessionAction,handler:MediaSessionActionHandler|null)=>{
         try{mediaSession.setActionHandler(action,handler)}catch{}
       };
-      setHandler('play',async()=>{const audio=audioRef.current;if(!audio)return;try{await audio.play();setIsPlaying(true);updateMediaSession('playing')}catch{}});
+      setHandler('play',async()=>{const audio=audioRef.current;if(!audio)return;try{updateMediaSession('playing');await audio.play();setIsPlaying(true);updateMediaSession('playing')}catch{}});
       setHandler('pause',()=>{audioRef.current?.pause();setIsPlaying(false);updateMediaSession('paused')});
       setHandler('previoustrack',()=>{if(!clickAdjacentPreview(buttonRef.current,-1)){const audio=audioRef.current;if(audio)audio.currentTime=0;}});
       setHandler('nexttrack',()=>{clickAdjacentPreview(buttonRef.current,1)});
@@ -168,6 +172,7 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
       earlyEndedRetries.current=0;
     }
     try{
+      updateMediaSession('playing');
       pauseOtherPreviews(audio);
       await audio.play();
       updateMediaSession('playing');
@@ -254,7 +259,7 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
   return <div className="song-commerce-control">
     {hasPreview?<button ref={buttonRef} data-aureon-preview-button="true" className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onPointerEnter={requestMetadata} onFocus={requestMetadata} onTouchStart={requestMetadata} onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
     {showPurchase&&!promotional&&purchase&&<div className="song-buy-row"><button type="button" className="song-buy-button" onClick={addSongToCart}><ShoppingCart size={14}/> {added?'Added to cart':`Buy full song €${price.toFixed(2)}`}</button>{added&&<Link href="/checkout">Checkout →</Link>}</div>}
-    {src?<audio ref={audioRef} data-aureon-preview-audio="true" src={src} preload="none" playsInline onCanPlay={()=>setHasError(false)} onTimeUpdate={enforcePreviewLimit} onEnded={ended} onPause={()=>setIsPlaying(false)} onError={()=>setHasError(true)}/>:null}
+    {src?<audio ref={audioRef} data-aureon-preview-audio="true" src={src} preload="none" playsInline onPlay={()=>{setIsPlaying(true);updateMediaSession('playing')}} onCanPlay={()=>setHasError(false)} onTimeUpdate={enforcePreviewLimit} onEnded={ended} onPause={()=>setIsPlaying(false)} onError={()=>setHasError(true)}/>:null}
     {nearEnd&&!previewFinished&&!promotional&&<div className={styles.benefitCue} role="status"><Sparkles size={15}/><div><strong>Keep the music going</strong><span>Premium unlocks the complete Aureon catalogue.</span></div></div>}
     {conversionModal}
   </div>;
