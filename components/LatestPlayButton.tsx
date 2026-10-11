@@ -38,9 +38,27 @@ function clickAdjacentPreview(button: HTMLButtonElement | null, direction: 1 | -
   return true;
 }
 
+let sharedPreviewAudio: HTMLAudioElement | null = null;
+let activePreviewOwner: symbol | null = null;
+let stopActivePreview: (() => void) | null = null;
+
+function getSharedPreviewAudio() {
+  if (typeof Audio === 'undefined') return null;
+  if (!sharedPreviewAudio) {
+    sharedPreviewAudio = new Audio();
+    sharedPreviewAudio.preload = 'none';
+    sharedPreviewAudio.setAttribute('data-aureon-preview-audio', 'true');
+    sharedPreviewAudio.setAttribute('playsinline', 'true');
+    sharedPreviewAudio.setAttribute('webkit-playsinline', 'true');
+    sharedPreviewAudio.setAttribute('x-webkit-airplay', 'allow');
+  }
+  return sharedPreviewAudio;
+}
+
 export function LatestPlayButton({ title, src, artwork, purchase, analytics, discovery, buttonLabel, showPurchase = true, size = 'medium' }: LatestPlayButtonProps) {
   const audioRef=useRef<HTMLAudioElement|null>(null);
   const buttonRef=useRef<HTMLButtonElement|null>(null);
+  const ownerRef=useRef(Symbol('aureon-preview'));
   const completionTracked=useRef(false);
   const startTracked=useRef(false);
   const milestonesTracked=useRef(new Set<number>());
@@ -74,6 +92,11 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     setIsPlaying(false);
     setNearEnd(false);
     setPreviewFinished(false);
+    if(activePreviewOwner===ownerRef.current){
+      sharedPreviewAudio?.pause();
+      activePreviewOwner=null;
+      stopActivePreview=null;
+    }
   },[src]);
   useEffect(()=>{
     if(!previewFinished||typeof document==='undefined')return;
@@ -83,8 +106,9 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
   },[previewFinished]);
 
   function requestMetadata(){
-    const audio=audioRef.current;
+    const audio=getSharedPreviewAudio();
     if(!audio||metadataRequested.current)return;
+    audioRef.current=audio;
     metadataRequested.current=true;
     audio.preload='metadata';
     audio.setAttribute('playsinline','true');
@@ -92,6 +116,38 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     audio.setAttribute('x-webkit-airplay','allow');
     updateMediaSession(isPlaying?'playing':'paused');
     audio.load();
+  }
+
+  function prepareSharedPreviewAudio(audio: HTMLAudioElement) {
+    if (activePreviewOwner && activePreviewOwner !== ownerRef.current) {
+      try { sharedPreviewAudio?.pause(); } catch {}
+      stopActivePreview?.();
+    }
+    activePreviewOwner = ownerRef.current;
+    stopActivePreview = () => {
+      setIsPlaying(false);
+      setNearEnd(false);
+      pauseMediaSession();
+    };
+    audioRef.current = audio;
+    audio.title = `${title || 'Aureon Music Group'}${artistName ? ` — ${artistName}` : ''}`;
+    audio.setAttribute('aria-label', audio.title);
+    audio.setAttribute('data-aureon-current-title', title || 'Aureon Music Group');
+    audio.setAttribute('data-aureon-current-artist', artistName || 'Aureon Music Group');
+    audio.setAttribute('data-aureon-current-artwork', mediaArtwork(mediaArtworkSource));
+    audio.setAttribute('playsinline','true');
+    audio.setAttribute('webkit-playsinline','true');
+    audio.setAttribute('x-webkit-airplay','allow');
+    audio.oncanplay=()=>setHasError(false);
+    audio.ontimeupdate=enforcePreviewLimit;
+    audio.onended=ended;
+    audio.onpause=()=>{if(activePreviewOwner===ownerRef.current)setIsPlaying(false)};
+    audio.onplay=()=>{if(activePreviewOwner===ownerRef.current){setIsPlaying(true);updateMediaSession('playing')}};
+    audio.onerror=()=>{if(activePreviewOwner===ownerRef.current)setHasError(true)};
+    if(src&&audio.src!==new URL(src, window.location.origin).href){
+      audio.src=src;
+      audio.load();
+    }
   }
 
   function trackConversion(conversionType:string){
@@ -133,13 +189,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     try{navigator.mediaSession.playbackState='paused'}catch{}
   }
 
-  function pauseOtherPreviews(audio: HTMLAudioElement){
-    if(typeof document==='undefined')return;
-    document.querySelectorAll<HTMLAudioElement>('audio[data-aureon-preview-audio="true"]').forEach(item=>{
-      if(item!==audio)item.pause();
-    });
-  }
-
   function finishPreview(audio:HTMLAudioElement){
     audio.pause();
     if(audio.currentTime>previewSeconds)audio.currentTime=previewSeconds;
@@ -154,10 +203,11 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
   }
 
   async function togglePlay(){
-    const audio=audioRef.current;
+    const audio=getSharedPreviewAudio();
     if(!audio||!hasPreview)return;
+    prepareSharedPreviewAudio(audio);
     requestMetadata();
-    if(isPlaying){
+    if(activePreviewOwner===ownerRef.current&&!audio.paused){
       audio.pause();
       setIsPlaying(false);
       updateMediaSession('paused');
@@ -173,7 +223,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     }
     try{
       updateMediaSession('playing');
-      pauseOtherPreviews(audio);
       await audio.play();
       updateMediaSession('playing');
       setPreviewFinished(false);
@@ -259,7 +308,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
   return <div className="song-commerce-control">
     {hasPreview?<button ref={buttonRef} data-aureon-preview-button="true" className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onPointerEnter={requestMetadata} onFocus={requestMetadata} onTouchStart={requestMetadata} onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
     {showPurchase&&!promotional&&purchase&&<div className="song-buy-row"><button type="button" className="song-buy-button" onClick={addSongToCart}><ShoppingCart size={14}/> {added?'Added to cart':`Buy full song €${price.toFixed(2)}`}</button>{added&&<Link href="/checkout">Checkout →</Link>}</div>}
-    {src?<audio ref={audioRef} data-aureon-preview-audio="true" src={src} preload="none" playsInline onPlay={()=>{setIsPlaying(true);updateMediaSession('playing')}} onCanPlay={()=>setHasError(false)} onTimeUpdate={enforcePreviewLimit} onEnded={ended} onPause={()=>setIsPlaying(false)} onError={()=>setHasError(true)}/>:null}
     {nearEnd&&!previewFinished&&!promotional&&<div className={styles.benefitCue} role="status"><Sparkles size={15}/><div><strong>Keep the music going</strong><span>Premium unlocks the complete Aureon catalogue.</span></div></div>}
     {conversionModal}
   </div>;
