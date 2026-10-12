@@ -9,6 +9,9 @@ import { getArtwork } from '@/lib/get-artwork';
 import { getPreviewUrl } from '@/lib/get-preview-url';
 import { recommendSongs, type RecommendationEntity } from '@/lib/recommendations';
 import { trackDiscovery, useDiscoveryImpressions, type DiscoveryEntity } from '@/lib/discovery-analytics';
+import { claimMediaSession, ownsMediaSession, releaseMediaSession } from '@/lib/media-session-owner';
+import { publishMediaMetadata } from '@/lib/media-session-metadata';
+import { clickAdjacentPreview } from '@/components/LatestPlayButton';
 import styles from './SimilarSongs.module.css';
 
 type SongRecord = RecommendationEntity & {
@@ -34,6 +37,7 @@ function value(song: SongRecord, key: string) { return (song as Record<string, a
 
 function SimilarSongCard({ song, confidence, position }: { song: SongRecord; confidence: number; position: number }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [playing, setPlaying] = useState(false);
   const preview = getPreviewUrl(song);
@@ -47,28 +51,49 @@ function SimilarSongCard({ song, confidence, position }: { song: SongRecord; con
   const entity: DiscoveryEntity = { id: song.id, type: 'song', title, artistId, artistName: artist };
   const context = { source: SOURCE, algorithm: ALGORITHM, position, confidence };
 
-  useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); audioRef.current?.pause(); }, []);
+  useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); audioRef.current?.pause(); releaseMediaSession(audioRef.current); }, []);
 
   async function start(interaction: 'hover' | 'button') {
     const audio = audioRef.current;
     if (!audio || !preview) return;
+    claimMediaSession(audio);
+    syncMetadata('playing');
     try {
       if (audio.currentTime >= PREVIEW_SECONDS) audio.currentTime = 0;
       await audio.play();
+      if (!ownsMediaSession(audio)) return;
+      syncMetadata('playing');
       setPlaying(true);
       trackDiscovery('play', entity, { ...context, interaction });
     } catch { setPlaying(false); }
   }
 
-  function stop(reset = false) { const audio = audioRef.current; if (!audio) return; audio.pause(); if (reset) audio.currentTime = 0; setPlaying(false); }
+  function syncMetadata(state: MediaSessionPlaybackState) {
+    const audio = audioRef.current;
+    if (!audio || !ownsMediaSession(audio)) return;
+    publishMediaMetadata(audio, { title, artist, artwork }, state);
+    if (!('mediaSession' in navigator)) return;
+    const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
+    };
+    setHandler('play', () => { if (audio.paused) void start('button'); });
+    setHandler('pause', () => stop());
+    setHandler('nexttrack', () => { clickAdjacentPreview(buttonRef.current, 1); });
+    setHandler('previoustrack', () => { if (!clickAdjacentPreview(buttonRef.current, -1)) audio.currentTime = 0; });
+    setHandler('seekbackward', null);
+    setHandler('seekforward', null);
+    setHandler('seekto', null);
+  }
+
+  function stop(reset = false) { const audio = audioRef.current; if (!audio) return; audio.pause(); syncMetadata('paused'); if (reset) audio.currentTime = 0; setPlaying(false); }
   function enter() { if (!window.matchMedia('(hover:hover) and (pointer:fine)').matches || !preview) return; hoverTimer.current = setTimeout(() => void start('hover'), 450); }
   function leave() { if (hoverTimer.current) clearTimeout(hoverTimer.current); hoverTimer.current = null; stop(true); }
   function click(kind: string) { trackDiscovery('click', entity, { ...context, interaction: kind }); }
 
   function timeUpdate() {
     const audio = audioRef.current;
-    if (!audio || audio.currentTime < PREVIEW_SECONDS) return;
-    audio.pause(); audio.currentTime = PREVIEW_SECONDS; setPlaying(false);
+    if (!audio || !ownsMediaSession(audio) || audio.currentTime < PREVIEW_SECONDS) return;
+    audio.pause(); syncMetadata('paused'); audio.currentTime = PREVIEW_SECONDS; setPlaying(false);
     trackDiscovery('complete', entity, context, { listenedSeconds: PREVIEW_SECONDS });
   }
 
@@ -82,12 +107,12 @@ function SimilarSongCard({ song, confidence, position }: { song: SongRecord; con
       {artistSlug ? <Link className={styles.artist} href={`/artists/${artistSlug}`} onClick={() => click('artist')}>{artist}</Link> : <span className={styles.artist}>{artist}</span>}
       <div className={styles.meta}><span>{duration}</span><span className={styles.confidence}>{Math.round(confidence * 100)}% match</span></div>
       <div className={styles.actions}>
-        <button className={styles.play} type="button" disabled={!preview} onClick={() => playing ? stop() : void start('button')}>
+        <button ref={buttonRef} data-aureon-preview-button="true" className={styles.play} type="button" disabled={!preview} onClick={() => playing ? stop() : void start('button')}>
           {playing ? <Pause size={15}/> : <Play size={15}/>} {playing ? 'Pause preview' : preview ? 'Play preview' : 'Preview coming soon'}
         </button>
         <FavouriteSongButton songId={song.id} title={title} artistName={artist} artistId={artistId} artwork={artwork} slug={String(song.slug || song.id)}/>
       </div>
-      {preview && <audio ref={audioRef} className={styles.audio} src={preview} preload="none" onTimeUpdate={timeUpdate} onEnded={() => { setPlaying(false); trackDiscovery('complete', entity, context); }} />}
+      {preview && <audio ref={audioRef} data-aureon-related-audio="true" playsInline onPlay={() => syncMetadata('playing')} onPause={() => { setPlaying(false); syncMetadata('paused'); }} className={styles.audio} src={preview} preload="none" onTimeUpdate={timeUpdate} onEnded={() => { setPlaying(false); trackDiscovery('complete', entity, context); }} />}
     </div>
   </article>;
 }

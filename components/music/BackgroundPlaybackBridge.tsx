@@ -1,20 +1,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { DEFAULT_ARTWORK, getArtwork } from '@/lib/get-artwork';
+import { getArtwork } from '@/lib/get-artwork';
+import { publishMediaMetadata } from '@/lib/media-session-metadata';
 import { claimMediaSession, ownsMediaSession, releaseMediaSession } from '@/lib/media-session-owner';
 import { useMusicPlayer } from './MusicPlayerProvider';
 
 function getAudio() {
   return document.querySelector('audio[data-aureon-member-audio="true"]') as HTMLAudioElement | null;
-}
-
-function mediaArtwork(source: string) {
-  const raw = source || DEFAULT_ARTWORK;
-  let absolute = '';
-  try { absolute = new URL(raw, window.location.origin).href; }
-  catch { absolute = new URL(DEFAULT_ARTWORK, window.location.origin).href; }
-  return new URL(`/api/media/artwork?src=${encodeURIComponent(absolute)}`, window.location.origin).href;
 }
 
 export default function BackgroundPlaybackBridge() {
@@ -38,15 +31,11 @@ export default function BackgroundPlaybackBridge() {
     const refresh = () => {
       const { currentSong } = latest.current;
       if (!ownsMediaSession(audio) || !currentSong) return;
-      try {
-        mediaSession.metadata = new MediaMetadata({
-          title: currentSong.title || 'Aureon Music Group',
-          artist: currentSong.artistName || currentSong.artist || 'Aureon Music Group',
-          album: 'Aureon Music Group',
-          artwork: [{ src: mediaArtwork(getArtwork(currentSong)), sizes: 'any' }],
-        });
-        mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
-      } catch {}
+      publishMediaMetadata(audio, {
+        title: currentSong.title,
+        artist: currentSong.artistName || currentSong.artist,
+        artwork: getArtwork(currentSong),
+      }, audio.paused ? 'paused' : 'playing');
       setHandler('play', () => { if (audio.paused) void latest.current.toggle(); });
       setHandler('pause', () => audio.pause());
       setHandler('previoustrack', () => { void latest.current.previous(); });

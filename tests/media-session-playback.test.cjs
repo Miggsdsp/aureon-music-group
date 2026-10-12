@@ -4,7 +4,10 @@ const fs = require('node:fs');
 const ts = require('typescript');
 const vm = require('node:vm');
 
-function runtime() {
+function runtime({ rejectArtwork = false } = {}) {
+  const pageListeners = new Map();
+  const on = (event, callback) => { if (!pageListeners.has(event)) pageListeners.set(event,new Set()); pageListeners.get(event).add(callback); };
+  const fire = event => { for (const callback of pageListeners.get(event) || []) callback(); };
   const audios = [], buttons = [], effects = [], handlers = new Map();
   const session = { metadata: null, playbackState: 'none', setActionHandler(action, handler) { handlers.set(action, handler); } };
   class Audio {
@@ -21,6 +24,7 @@ function runtime() {
   }
   const member = new Audio(); member.setAttribute('data-aureon-member-audio', 'true'); audios.push(member);
   const document = {
+    visibilityState: 'visible', addEventListener: on,
     body: { style: {}, appendChild(audio) { audio.isConnected = true; if (!audios.includes(audio)) audios.push(audio); } },
     querySelector() { return member; },
     querySelectorAll(selector) { return selector.startsWith('[data-aureon-preview-button') ? buttons : audios; },
@@ -34,6 +38,7 @@ function runtime() {
     'firebase/auth': { onAuthStateChanged: () => () => {} }, 'lucide-react': {},
     '@/lib/firebase-client': { firebaseAuth: { currentUser: null } },
     '@/lib/track-analytics': { trackAnalytics() {} }, '@/lib/discovery-analytics': { trackDiscovery() {} },
+    '@/lib/get-preview-url': { getPreviewUrl: song => `/api/preview/${song.id}` },
     '@/lib/get-artwork': { DEFAULT_ARTWORK: '/cover.png', getArtwork: song => song.imageUrl },
     './MusicPlayerProvider': { useMusicPlayer: () => player },
   };
@@ -41,8 +46,9 @@ function runtime() {
     if (modules.has(path)) return modules.get(path);
     const code = ts.transpileModule(fs.readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
     const module = { exports: {} };
-    const requireMock = name => name === '@/lib/media-session-owner' ? load('lib/media-session-owner.ts') : name.endsWith('.css') ? {} : mocks[name] || {};
-    vm.runInNewContext(code, { module, exports: module.exports, require: requireMock, document, Audio, navigator: { mediaSession: session }, MediaMetadata: class { constructor(data) { Object.assign(this, data); } }, window: { location: { origin: 'https://www.aureonmusicgroup.com' } }, URL, console }, { filename: path });
+    const requireMock = name => name === '@/lib/media-session-owner' || name === './media-session-owner' ? load('lib/media-session-owner.ts') : name === '@/lib/media-session-metadata' ? load('lib/media-session-metadata.ts') : name === '@/components/LatestPlayButton' ? load('components/LatestPlayButton.tsx') : name.endsWith('.css') ? {} : mocks[name] || {};
+    vm.runInNewContext(code, { module, exports: module.exports, require: requireMock, document, Audio, navigator: { mediaSession: session }, MediaMetadata: class { constructor(data) { this.imageList = []; Object.assign(this, data); } get artwork() { return this.imageList; } set artwork(value) { if (rejectArtwork) throw new TypeError('Artwork rejected'); this.imageList = value; } }, window: { addEventListener: on, location: { origin: 'https://www.aureonmusicgroup.com' } }, URL, console }, { filename: path });
+    if (path.endsWith('SimilarSongs.tsx')) vm.runInNewContext(code + '\nmodule.exports.testCard = SimilarSongCard;', { module, exports: module.exports, require: requireMock, document, navigator: { mediaSession: session }, window: { matchMedia: () => ({ matches: false }) }, console }, { filename: path });
     modules.set(path, module.exports); return module.exports;
   }
   const owner = load('lib/media-session-owner.ts');
@@ -55,13 +61,27 @@ function runtime() {
     while (effects.length) effects.shift()();
     return button;
   }
+  function addRelated(title) {
+    const tree = load('components/discovery/SimilarSongs.tsx').testCard({ song: { id: title, title, artistName: 'Related Artist', imageUrl: '/related.png' }, confidence: 1, position: 1 });
+    const body = tree.props.children[1];
+    const audioProps = body.props.children[4].props;
+    const audio = new Audio(); audioProps.ref.current = audio; audio.src = audioProps.src;
+    audio.setAttribute('data-aureon-related-audio', 'true');
+    for (const [prop,event] of [['onPlay','play'],['onPause','pause'],['onTimeUpdate','timeupdate']]) audio['on'+event] = audioProps[prop];
+    audios.push(audio);
+    const props = body.props.children[3].props.children[0].props;
+    const button = { disabled: false, props, click: () => props.onClick(), focus() {} };
+    props.ref.current = button; buttons.push(button);
+    while (effects.length) effects.shift()();
+    return { button, audio };
+  }
   function bridge() {
     load('components/music/BackgroundPlaybackBridge.tsx').default();
     const cleanups = [];
     while (effects.length) { const cleanup = effects.shift()(); if (cleanup) cleanups.push(cleanup); }
     return () => cleanups.forEach(fn => fn());
   }
-  return { audios, member, owner, session, handlers, addPreview, bridge, setPlayer(value) { player = value; } };
+  return { fire, audios, member, owner, session, handlers, addPreview, addRelated, bridge, setPlayer(value) { player = value; } };
 }
 
 test('preview focus is inert; next/previous keep metadata, controls and one audio owner', async () => {
@@ -74,7 +94,9 @@ test('preview focus is inert; next/previous keep metadata, controls and one audi
   assert.equal(preview.paused, false);
   assert.equal(r.session.metadata.title, 'A');
   assert.equal(r.session.metadata.artist, 'Artist');
-  assert.equal(r.session.metadata.artwork[0].sizes, 'any');
+  assert.equal(r.session.metadata.artwork[0].sizes, '512x512');
+  assert.equal(r.session.metadata.artwork[0].type, 'image/jpeg');
+  assert.match(r.session.metadata.artwork[0].src, /format=jpeg/);
   assert.equal(r.handlers.get('seekbackward'), null);
   assert.equal(r.handlers.get('seekforward'), null);
   r.handlers.get('nexttrack')(); await Promise.resolve();
@@ -129,4 +151,47 @@ test('member resume takes ownership; preview pauses without replacing member con
   assert.equal(r.member.paused, true);
   assert.equal(r.session.metadata.title, 'A');
   assert.equal(r.session.playbackState, 'playing');
+});
+
+
+test('playing and foreground restore the same metadata object after a platform clear', async () => {
+  const r = runtime(), a = r.addPreview('A'); await a.click();
+  const audio = r.audios[1], metadata = r.session.metadata;
+  audio.emit('loadedmetadata'); audio.emit('playing');
+  assert.equal(r.session.metadata, metadata);
+  r.session.metadata = null;
+  audio.emit('playing');
+  assert.equal(r.session.metadata, metadata);
+  assert.equal(audio.attributes['data-aureon-media-session-title'], 'A');
+  assert.equal(audio.attributes['data-aureon-media-session-artist'], 'Artist');
+  r.session.metadata = null; r.fire('pageshow');
+  assert.equal(r.session.metadata, metadata);
+  r.session.metadata = null; r.fire('visibilitychange');
+  assert.equal(r.session.metadata, metadata);
+});
+
+
+test('artwork rejection cannot remove title, artist or track controls', async () => {
+  const r = runtime({ rejectArtwork: true }), a = r.addPreview('A'); await a.click();
+  assert.equal(r.session.metadata.title, 'A');
+  assert.equal(r.session.metadata.artist, 'Artist');
+  assert.equal(r.session.metadata.artwork.length, 0);
+  assert.equal(r.audios[1].attributes['data-aureon-media-artwork-status'], 'rejected');
+  assert.equal(typeof r.handlers.get('nexttrack'), 'function');
+  assert.equal(r.session.playbackState, 'playing');
+});
+
+
+test('related-song playback publishes metadata and obeys preview limits and ownership', async () => {
+  const r = runtime(), regular = r.addPreview('A'), related = r.addRelated('R');
+  await regular.click(); await related.button.click();
+  assert.equal(r.audios.find(audio => audio.attributes['data-aureon-preview-audio'] === 'true').paused, true);
+  assert.equal(r.session.metadata.title, 'R');
+  assert.equal(r.session.metadata.artist, 'Related Artist');
+  related.audio.currentTime = 41; related.audio.emit('timeupdate');
+  assert.equal(related.audio.paused, true); assert.equal(related.audio.currentTime, 40);
+  r.handlers.get('play')(); await Promise.resolve();
+  assert.equal(related.audio.currentTime, 0); assert.equal(related.audio.paused, false);
+  await regular.click();
+  assert.equal(related.audio.paused, true); assert.equal(r.session.metadata.title, 'A');
 });

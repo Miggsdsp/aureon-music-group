@@ -9,6 +9,7 @@ import { firebaseAuth } from '@/lib/firebase-client';
 import { trackAnalytics } from '@/lib/track-analytics';
 import { trackDiscovery } from '@/lib/discovery-analytics';
 import { claimMediaSession, ownsMediaSession, releaseMediaSession } from '@/lib/media-session-owner';
+import { mediaArtwork, publishMediaMetadata } from '@/lib/media-session-metadata';
 import styles from './LatestPlayButton.module.css';
 
 type SongPurchase = { id:string; title:string; artist:string; image:string; price?:number; promotional?:boolean; slug?:string; artistSlug?:string };
@@ -17,18 +18,7 @@ type DiscoveryAnalytics = { source:string; algorithm:string; position:number; co
 type CartProduct = { id:string; name:string; slug:string; category:string; artist:string; artistSlug:string; price:number; image:string; description:string; badge?:string; digital?:boolean };
 type LatestPlayButtonProps = { title:string; src?:string; artwork?:string; purchase?:SongPurchase; analytics?:SongAnalytics; discovery?:DiscoveryAnalytics; buttonLabel?:string; showPurchase?:boolean; size?:'small'|'medium'|'large' };
 
-const DEFAULT_MEDIA_ARTWORK = '/images/branding/Aureon_Header_Logo.png';
-
-function mediaArtwork(source?: string) {
-  if (typeof window === 'undefined') return DEFAULT_MEDIA_ARTWORK;
-  const raw = source || DEFAULT_MEDIA_ARTWORK;
-  let absolute = '';
-  try { absolute = new URL(raw, window.location.origin).href; }
-  catch { absolute = new URL(DEFAULT_MEDIA_ARTWORK, window.location.origin).href; }
-  return new URL(`/api/media/artwork?src=${encodeURIComponent(absolute)}`, window.location.origin).href;
-}
-
-function clickAdjacentPreview(button: HTMLButtonElement | null, direction: 1 | -1) {
+export function clickAdjacentPreview(button: HTMLButtonElement | null, direction: 1 | -1) {
   if (typeof document === 'undefined' || !button) return false;
   const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-aureon-preview-button="true"]')).filter(item => !item.disabled);
   const current = buttons.indexOf(button);
@@ -158,16 +148,7 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     if(typeof navigator==='undefined'||!('mediaSession' in navigator))return;
     try{
       const mediaSession=navigator.mediaSession;
-      const image=mediaArtwork(mediaArtworkSource);
-      mediaSession.metadata=new MediaMetadata({
-        title:title||'Aureon Music Group',
-        artist:artistName||'Aureon Music Group',
-        album:analytics?.albumTitle||'Aureon Music Group',
-        artwork:[
-          {src:image,sizes:'any'},
-        ],
-      });
-      mediaSession.playbackState=state;
+      publishMediaMetadata(audioRef.current!,{title,artist:artistName,album:analytics?.albumTitle,artwork:mediaArtworkSource},state);
       const setHandler=(action:MediaSessionAction,handler:MediaSessionActionHandler|null)=>{
         try{mediaSession.setActionHandler(action,handler)}catch{}
       };

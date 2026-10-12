@@ -8,7 +8,7 @@ export function ownsMediaSession(audio: HTMLAudioElement | null) {
 export function claimMediaSession(audio: HTMLAudioElement) {
   owner = audio;
   // Set ownership before pause events so the old player cannot overwrite it.
-  document.querySelectorAll<HTMLAudioElement>('audio[data-aureon-preview-audio="true"], audio[data-aureon-member-audio="true"]').forEach(other => {
+  document.querySelectorAll<HTMLAudioElement>('audio[data-aureon-preview-audio="true"], audio[data-aureon-member-audio="true"], audio[data-aureon-related-audio="true"]').forEach(other => {
     if (other !== audio && !other.paused) other.pause();
   });
 }

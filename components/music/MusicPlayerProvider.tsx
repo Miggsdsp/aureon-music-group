@@ -6,6 +6,7 @@ import { ListMusic, Pause, Play, Repeat1, Repeat2, Shuffle, SkipBack, SkipForwar
 import { ArtworkImage } from '@/components/ArtworkImage';
 import { firebaseAuth } from '@/lib/firebase-client';
 import { claimMediaSession, releaseMediaSession } from '@/lib/media-session-owner';
+import { publishMediaMetadata } from '@/lib/media-session-metadata';
 import './music-player.css';
 
 export type PlayerSong = {
@@ -41,33 +42,16 @@ type PlayerContextValue = {
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 const STORAGE_KEY = 'aureon-player-v1';
-const DEFAULT_ARTWORK = '/images/branding/Aureon_Header_Logo.png';
 const formatTime = (value: number) => Number.isFinite(value) ? `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}` : '0:00';
-
-function mediaArtwork(song: PlayerSong) {
-  if (typeof window === 'undefined') return DEFAULT_ARTWORK;
-  const source = song.coverImageUrl || song.imageUrl || DEFAULT_ARTWORK;
-  let absolute = '';
-  try { absolute = new URL(source, window.location.origin).href; }
-  catch { absolute = new URL(DEFAULT_ARTWORK, window.location.origin).href; }
-  return `${window.location.origin}/api/media/artwork?src=${encodeURIComponent(absolute)}`;
-}
 
 function updateNativeMetadata(song: PlayerSong, audio: HTMLAudioElement | null) {
   if (!audio) return;
   claimMediaSession(audio);
-  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
-  try {
-    const artwork = mediaArtwork(song);
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: song.title || 'Aureon Music Group',
-      artist: song.artistName || song.artist || 'Aureon Music Group',
-      album: 'Aureon Music Group',
-      artwork: [
-        { src: artwork, sizes: 'any' },
-      ],
-    });
-  } catch {}
+  publishMediaMetadata(audio, {
+    title: song.title,
+    artist: song.artistName || song.artist,
+    artwork: song.coverImageUrl || song.imageUrl,
+  }, 'playing');
 }
 
 export function useMusicPlayer() {

@@ -80,9 +80,11 @@ test('preview analytics uses bounded milestones and never includes audio URLs',(
 
 test('public preview media session sends artwork and track controls to external displays',()=>{
  const player=read('components/LatestPlayButton.tsx');
- assert.match(player,/new MediaMetadata/);
- assert.match(player,/artwork:\[/);
- assert.match(player,/\/api\/media\/artwork\?src=/);
+ const metadata=read('lib/media-session-metadata.ts');
+ assert.match(metadata,/new MediaMetadata/);
+ assert.match(metadata,/sizes: '512x512', type: 'image\/jpeg'/);
+ assert.match(metadata,/\/api\/media\/artwork\?format=jpeg/);
+ assert.match(player,/publishMediaMetadata/);
  assert.match(player,/setHandler\('previoustrack'/);
  assert.match(player,/setHandler\('nexttrack'/);
  assert.match(player,/setHandler\('seekbackward',null\)/);
