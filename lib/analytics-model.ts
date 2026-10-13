@@ -22,6 +22,6 @@ export type ClientAnalyticsEventName = typeof CLIENT_ANALYTICS_EVENTS[number];
 export type TrustedAnalyticsEventName = typeof TRUSTED_ANALYTICS_EVENTS[number];
 export type AnalyticsEventName = typeof ANALYTICS_EVENTS[number];
 
-export type AttributionTouch = { source:string; medium:string; campaign:string; content:string; term:string; referrer:string; landingPage:string };
+export type AttributionTouch = { source:string; medium:string; campaign:string; content:string; term:string; referrer:string; landingPage:string; googleClickId?:string; googleClickIdType?:'gclid'|'gbraid'|'wbraid' };
 export type ContentAttribution = { firstSongViewed?:string; lastSongViewed?:string; firstArtistViewed?:string; lastArtistViewed?:string };
 export type AnalyticsContext = { consent:boolean; visitorId:string; sessionId:string; firstTouch:AttributionTouch; sessionTouch:AttributionTouch; content:ContentAttribution };
