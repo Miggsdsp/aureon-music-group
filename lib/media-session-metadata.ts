@@ -2,7 +2,7 @@ import { ownsMediaSession } from './media-session-owner';
 
 const DEFAULT_ARTWORK = '/images/branding/Aureon_Header_Logo.png';
 type TrackMetadata = { title?: string; artist?: string; album?: string; artwork?: string };
-type CachedMetadata = { key: string; metadata: MediaMetadata; artworkApplied: boolean };
+type CachedMetadata = { key: string; metadata: MediaMetadata };
 const cache = new WeakMap<HTMLAudioElement, CachedMetadata>();
 const boundAudio = new WeakSet<HTMLAudioElement>();
 let active: { audio: HTMLAudioElement; track: TrackMetadata } | null = null;
@@ -30,19 +30,19 @@ export function publishMediaMetadata(audio: HTMLAudioElement, track: TrackMetada
   try {
     let cached = cache.get(audio);
     if (!cached || cached.key !== key) {
-      // Publish text independently: an artwork error must not discard it.
-      cached = { key, metadata: new MediaMetadata({ title, artist, album }), artworkApplied: false };
+      // MediaMetadata.artwork is read-only after construction. Include it in
+      // the initial object so Safari publishes text and cover in one update.
+      let metadata: MediaMetadata;
+      try {
+        metadata = new MediaMetadata({ title, artist, album, artwork: [{ src: artwork, sizes: '512x512', type: 'image/jpeg' }] });
+      } catch {
+        audio.setAttribute('data-aureon-media-artwork-status', 'rejected');
+        metadata = new MediaMetadata({ title, artist, album });
+      }
+      cached = { key, metadata };
       cache.set(audio, cached);
     }
     if (force || session.metadata !== cached.metadata) session.metadata = cached.metadata;
-    if (!cached.artworkApplied) {
-      try {
-        cached.metadata.artwork = [{ src: artwork, sizes: '512x512', type: 'image/jpeg' }];
-        cached.artworkApplied = true;
-      } catch {
-        audio.setAttribute('data-aureon-media-artwork-status', 'rejected');
-      }
-    }
     session.playbackState = state;
     // Record the browser's readback, rather than just the requested props.
     audio.setAttribute('data-aureon-media-session-title', session.metadata?.title || '');
