@@ -37,10 +37,11 @@ export async function POST(request: Request) {
     const eventSession = event.data.object as Stripe.Checkout.Session;
     const checkoutSession = await stripe.checkout.sessions.retrieve(eventSession.id);
     if (checkoutSession.mode !== 'subscription') throw new Error('INVALID_SESSION_MODE');
-    if (checkoutSession.payment_status === 'unpaid') throw new Error('INVALID_UNPAID_SESSION');
+    if (checkoutSession.payment_status !== 'paid' || Number(checkoutSession.amount_total || 0) <= 0) throw new Error('INVALID_UNPAID_SESSION');
     if (typeof checkoutSession.subscription !== 'string') throw new Error('INVALID_SUBSCRIPTION_ID');
 
     const subscription = await stripe.subscriptions.retrieve(checkoutSession.subscription);
+    if (subscription.status !== 'active') throw new Error('INVALID_INACTIVE_SUBSCRIPTION');
     const plan = getSubscriptionPlan(subscription);
     const context = analyticsContextFromStripe(checkoutSession.metadata);
     const analyticsInput = {

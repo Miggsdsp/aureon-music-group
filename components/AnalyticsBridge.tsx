@@ -14,7 +14,9 @@ const grantedConsent={analytics_storage:'granted',ad_storage:'granted',ad_user_d
 
 function ensureGtag(){
  window.dataLayer=window.dataLayer||[];
- window.gtag=window.gtag||function(...args:unknown[]){window.dataLayer?.push(args)};
+ // Google's tag loader consumes the original Arguments command object from its
+ // dataLayer queue; preserve the documented gtag.js bootstrap shape.
+ window.gtag=window.gtag||function(){window.dataLayer?.push(arguments)};
 }
 
 export default function AnalyticsBridge(){

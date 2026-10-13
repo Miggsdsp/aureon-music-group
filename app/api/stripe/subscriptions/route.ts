@@ -119,7 +119,9 @@ export async function POST(request: Request) {
               await recordSubscriptionPayment(invoice, subscription, event.type, await stripeFeeFromInvoice(stripe, invoice) || {});
             }
           }
-          if(session.payment_status!=='unpaid'){
+          // Only a live, positively paid checkout for an active subscription is an acquisition.
+          // Trial/no-payment-required and test-mode events must not enter acquisition reporting.
+          if(event.livemode===true&&session.payment_status==='paid'&&Number(session.amount_total||0)>0&&subscription.status==='active'){
             const context=analyticsContextFromStripe(session.metadata);
             await recordTrustedAnalyticsEvent({...context,eventType:'subscription_complete',entityType:'subscription',entityId:getSubscriptionPlan(subscription),plan:getSubscriptionPlan(subscription),revenueCents:session.amount_total||0,currency:session.currency||'eur',memberId:await resolveFirebaseUid(subscription)},subscription.id);
           }
