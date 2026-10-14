@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Aureon Music Group",
+    "slug": "aureon-music-group",
+    "scheme": "aureon",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "plugins": [
+      "expo-router"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#090B12"
+      }
+    },
+    "extra": {
+      "apiBaseUrl": "https://www.aureonmusicgroup.com"
+    }
+  }
+}
