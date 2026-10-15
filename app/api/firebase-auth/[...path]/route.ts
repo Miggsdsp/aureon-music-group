@@ -15,14 +15,24 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   incoming.searchParams.forEach((value, key) => target.searchParams.set(key, value));
 
   const headers = new Headers();
-  const contentType = request.headers.get('content-type');
-  if (contentType) headers.set('content-type', contentType);
+  for (const name of [
+    'content-type',
+    'authorization',
+    'x-firebase-appcheck',
+    'x-firebase-gmpid',
+    'x-firebase-client',
+    'x-client-version',
+    'x-firebase-locale'
+  ]) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
   headers.set('accept', 'application/json');
   headers.set('referer', 'https://www.aureonmusicgroup.com/');
   headers.set('origin', 'https://www.aureonmusicgroup.com');
 
-  const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
   try {
+    const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
     const response = await fetch(target, {
       method: request.method,
       headers,
