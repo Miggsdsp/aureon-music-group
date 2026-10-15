@@ -65,8 +65,10 @@ export function publishMediaMetadata(audio: HTMLAudioElement, track: TrackMetada
   if (!lifecycleBound) {
     lifecycleBound = true;
     window.addEventListener('pageshow', refresh);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') refresh();
-    });
+    // iOS Safari can hand the active media session to the lock screen while
+    // the page transitions to hidden. Re-publish at that boundary as well as
+    // on resume; otherwise Now Playing can retain controls but lose metadata.
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('pagehide', refresh);
   }
 }

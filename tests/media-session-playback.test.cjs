@@ -81,7 +81,7 @@ function runtime({ rejectArtwork = false } = {}) {
     while (effects.length) { const cleanup = effects.shift()(); if (cleanup) cleanups.push(cleanup); }
     return () => cleanups.forEach(fn => fn());
   }
-  return { fire, audios, member, owner, session, handlers, addPreview, addRelated, bridge, setPlayer(value) { player = value; } };
+  return { fire, audios, member, owner, session, handlers, addPreview, addRelated, bridge, setPlayer(value) { player = value; }, setVisibilityState(value) { document.visibilityState = value; } };
 }
 
 test('preview focus is inert; next/previous keep metadata, controls and one audio owner', async () => {
@@ -165,6 +165,11 @@ test('playing and foreground restore the same metadata object after a platform c
   assert.equal(audio.attributes['data-aureon-media-session-title'], 'A');
   assert.equal(audio.attributes['data-aureon-media-session-artist'], 'Artist');
   r.session.metadata = null; r.fire('pageshow');
+  assert.equal(r.session.metadata, metadata);
+  r.session.metadata = null; r.setVisibilityState('hidden'); r.fire('visibilitychange');
+  assert.equal(r.session.metadata, metadata);
+  assert.equal(r.session.playbackState, 'playing');
+  r.session.metadata = null; r.fire('pagehide');
   assert.equal(r.session.metadata, metadata);
   r.session.metadata = null; r.fire('visibilitychange');
   assert.equal(r.session.metadata, metadata);
