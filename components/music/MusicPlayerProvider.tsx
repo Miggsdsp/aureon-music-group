@@ -44,14 +44,14 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 const STORAGE_KEY = 'aureon-player-v1';
 const formatTime = (value: number) => Number.isFinite(value) ? `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}` : '0:00';
 
-function updateNativeMetadata(song: PlayerSong, audio: HTMLAudioElement | null) {
+function updateNativeMetadata(song: PlayerSong, audio: HTMLAudioElement | null, state: MediaSessionPlaybackState = 'playing') {
   if (!audio) return;
   claimMediaSession(audio);
   publishMediaMetadata(audio, {
     title: song.title,
     artist: song.artistName || song.artist,
     artwork: song.coverImageUrl || song.imageUrl,
-  }, 'playing');
+  }, state, true);
 }
 
 export function useMusicPlayer() {
@@ -227,6 +227,10 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     setError('');
     shouldAutoplay.current = true;
     pendingSeek.current = Math.max(0, Number(startSeconds || 0));
+    const audio = audioRef.current;
+    // Publish from the user's play action before the authenticated stream request.
+    // Safari may create the lock-screen session while that request is in flight.
+    if (audio && (audio.paused || !audio.currentSrc)) updateNativeMetadata(song, audio, 'paused');
     try {
       const url = await fetchStream(song);
       queueRef.current = nextQueue;
