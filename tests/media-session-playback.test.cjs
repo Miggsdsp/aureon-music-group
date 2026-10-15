@@ -154,25 +154,29 @@ test('member resume takes ownership; preview pauses without replacing member con
 });
 
 
-test('playing and foreground restore the same metadata object after a platform clear', async () => {
+test('playing and foreground publish fresh metadata after a platform clear', async () => {
   const r = runtime(), a = r.addPreview('A'); await a.click();
-  const audio = r.audios[1], metadata = r.session.metadata;
+  const audio = r.audios[1], initialMetadata = r.session.metadata;
   audio.emit('loadedmetadata'); audio.emit('playing');
-  assert.equal(r.session.metadata, metadata);
+  assert.notEqual(r.session.metadata, initialMetadata);
+  assert.equal(r.session.metadata.title, 'A');
+  assert.equal(r.session.metadata.artist, 'Artist');
+  assert.equal(r.session.metadata.artwork.length, 1);
   r.session.metadata = null;
   audio.emit('playing');
-  assert.equal(r.session.metadata, metadata);
+  assert.equal(r.session.metadata.title, 'A');
+  assert.equal(r.session.metadata.artist, 'Artist');
   assert.equal(audio.attributes['data-aureon-media-session-title'], 'A');
   assert.equal(audio.attributes['data-aureon-media-session-artist'], 'Artist');
   r.session.metadata = null; r.fire('pageshow');
-  assert.equal(r.session.metadata, metadata);
+  assert.equal(r.session.metadata.title, 'A');
   r.session.metadata = null; r.setVisibilityState('hidden'); r.fire('visibilitychange');
-  assert.equal(r.session.metadata, metadata);
+  assert.equal(r.session.metadata.title, 'A');
   assert.equal(r.session.playbackState, 'playing');
   r.session.metadata = null; r.fire('pagehide');
-  assert.equal(r.session.metadata, metadata);
+  assert.equal(r.session.metadata.title, 'A');
   r.session.metadata = null; r.fire('visibilitychange');
-  assert.equal(r.session.metadata, metadata);
+  assert.equal(r.session.metadata.title, 'A');
 });
 
 

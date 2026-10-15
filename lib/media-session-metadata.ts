@@ -29,7 +29,11 @@ export function publishMediaMetadata(audio: HTMLAudioElement, track: TrackMetada
   active = { audio, track };
   try {
     let cached = cache.get(audio);
-    if (!cached || cached.key !== key) {
+    const refreshNativeSnapshot = force || (state === 'playing' && session.playbackState !== 'playing');
+    // Give WebKit a fresh object on playback transitions and explicit
+    // lifecycle refreshes instead of relying on a same-object assignment to
+    // signal a native Now Playing update.
+    if (!cached || cached.key !== key || refreshNativeSnapshot) {
       // MediaMetadata.artwork is read-only after construction. Include it in
       // the initial object so Safari publishes text and cover in one update.
       let metadata: MediaMetadata;
