@@ -157,6 +157,16 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     return () => document.body.classList.remove('aureon-player-visible');
   }, [currentSong]);
 
+  // Keep the browser's native Now Playing session in lockstep with the same
+  // committed track state rendered in the on-page player. This is a second,
+  // deterministic publication point in addition to the audio play events;
+  // Safari can promote the session before those events reach the bridge.
+  useEffect(() => {
+    if (currentSong) {
+      updateNativeMetadata(currentSong, audioRef.current, isPlaying ? 'playing' : 'paused');
+    }
+  }, [currentSong, isPlaying]);
+
 
   const memberActivity = useCallback(async (action: 'played' | 'progress', song: PlayerSong, progressSeconds = 0, durationSeconds = 0) => {
     const user = firebaseAuth.currentUser;
