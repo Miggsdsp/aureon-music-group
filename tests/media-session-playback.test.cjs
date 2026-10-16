@@ -163,7 +163,8 @@ test('playing and foreground publish fresh metadata after a platform clear', asy
   assert.notEqual(r.session.metadata, initialMetadata);
   assert.equal(r.session.metadata.title, 'A');
   assert.equal(r.session.metadata.artist, 'Artist');
-  assert.equal(r.session.metadata.artwork.length, 1);
+  assert.equal(r.session.metadata.artwork.length, 4);
+  assert.equal(Array.from(r.session.metadata.artwork, image => image.sizes).join(','), '512x512,256x256,128x128,96x96');
   r.session.metadata = null;
   audio.emit('playing');
   assert.equal(r.session.metadata.title, 'A');
