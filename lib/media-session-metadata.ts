@@ -38,7 +38,12 @@ export function publishMediaMetadata(audio: HTMLAudioElement, track: TrackMetada
       // the initial object so Safari publishes text and cover in one update.
       let metadata: MediaMetadata;
       try {
-        metadata = new MediaMetadata({ title, artist, album, artwork: [{ src: artwork, sizes: '512x512', type: 'image/jpeg' }] });
+        metadata = new MediaMetadata({ title, artist, album, artwork: [
+          { src: artwork, sizes: '512x512', type: 'image/jpeg' },
+          { src: artwork, sizes: '256x256', type: 'image/jpeg' },
+          { src: artwork, sizes: '128x128', type: 'image/jpeg' },
+          { src: artwork, sizes: '96x96', type: 'image/jpeg' },
+        ] });
       } catch {
         audio.setAttribute('data-aureon-media-artwork-status', 'rejected');
         metadata = new MediaMetadata({ title, artist, album });
