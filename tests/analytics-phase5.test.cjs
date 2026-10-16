@@ -112,6 +112,8 @@ test('public preview media session sends artwork and track controls to external 
  const provider=read('components/music/MusicPlayerProvider.tsx');
  assert.match(bridge,/audio\[data-aureon-member-audio="true"\]/);
  assert.match(provider,/data-aureon-member-audio="true"/);
+ assert.match(provider,/useEffect\(\(\) => \{\s*if \(currentSong\) \{\s*updateNativeMetadata\(currentSong, audioRef\.current, isPlaying \? 'playing' : 'paused'\)/);
+ assert.match(provider,/onPlaying=\{event => \{\s*const song = queueRef\.current\[indexRef\.current\]/);
 });
 
 test('GA4 is single, consent-gated and strips sensitive return parameters',()=>{const bridge=read('components/AnalyticsBridge.tsx'),layout=read('app/layout.tsx'),firebase=read('lib/firebase-client.ts');assert.match(bridge,/NEXT_PUBLIC_GA_MEASUREMENT_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_ADS_ID/);assert.match(bridge,/send_page_view:false/);assert.match(bridge,/process\.env\.NODE_ENV==='production'/);assert.match(bridge,/if\(!granted\)/);assert.match(bridge,/ad_storage:'denied'/);assert.match(bridge,/ad_user_data:'granted'/);assert.match(bridge,/ad_personalization:'denied'/);assert.match(bridge,/page_view/);assert.match(bridge,/dataLayer\?\.push\(arguments\)/);assert.doesNotMatch(layout,/googletagmanager|gtag\('config'/);assert.doesNotMatch(firebase,/G-[A-Z0-9]+/)});
