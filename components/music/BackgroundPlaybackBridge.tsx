@@ -28,14 +28,14 @@ export default function BackgroundPlaybackBridge() {
     const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
       try { mediaSession.setActionHandler(action, handler); } catch {}
     };
-    const refresh = () => {
+    const refresh = (forceFreshSnapshot = false) => {
       const { currentSong } = latest.current;
       if (!ownsMediaSession(audio) || !currentSong) return;
       publishMediaMetadata(audio, {
         title: currentSong.title,
         artist: currentSong.artistName || currentSong.artist,
         artwork: getArtwork(currentSong),
-      }, audio.paused ? 'paused' : 'playing');
+      }, audio.paused ? 'paused' : 'playing', forceFreshSnapshot);
       setHandler('play', () => { if (audio.paused) void latest.current.toggle(); });
       setHandler('pause', () => audio.pause());
       setHandler('previoustrack', () => { void latest.current.previous(); });
@@ -46,19 +46,23 @@ export default function BackgroundPlaybackBridge() {
         if (details.seekTime != null) latest.current.seekTo(details.seekTime);
       });
     };
-    const onPlay = () => { claimMediaSession(audio); refresh(); };
+    // Safari can create the native Now Playing snapshot at the instant playback
+    // starts. Always assign a new MediaMetadata object at that boundary, even
+    // if an earlier preflight update already marked the session as playing.
+    const onPlay = () => { claimMediaSession(audio); refresh(true); };
+    const onPlaying = () => refresh(true);
     const onPause = () => {
       if (ownsMediaSession(audio)) mediaSession.playbackState = 'paused';
     };
     refreshRef.current = refresh;
     audio.addEventListener('play', onPlay);
-    audio.addEventListener('playing', refresh);
+    audio.addEventListener('playing', onPlaying);
     audio.addEventListener('pause', onPause);
     refresh();
     return () => {
       refreshRef.current = null;
       audio.removeEventListener('play', onPlay);
-      audio.removeEventListener('playing', refresh);
+      audio.removeEventListener('playing', onPlaying);
       audio.removeEventListener('pause', onPause);
       releaseMediaSession(audio);
     };

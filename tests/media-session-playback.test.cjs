@@ -138,10 +138,12 @@ test('inactive member bridge and its cleanup cannot clear a preview session', as
 
 test('member resume takes ownership; preview pauses without replacing member controls', async () => {
   const r = runtime(), a = r.addPreview('A'); await a.click();
+  const previewMetadata = r.session.metadata;
   let skips = 0;
   r.setPlayer({ currentSong: { title: 'Full Song', artistName: 'Member Artist', imageUrl: '/full.png' }, isPlaying: false, next() { skips++; }, previous() {}, seekTo() {}, toggle: async () => r.member.play() });
   r.bridge(); await r.member.play();
   assert.equal(r.audios[1].paused, true);
+  assert.notEqual(r.session.metadata, previewMetadata, 'member playback must publish a fresh native metadata snapshot at the real play event');
   assert.equal(r.session.metadata.title, 'Full Song');
   assert.equal(r.session.playbackState, 'playing');
   r.handlers.get('nexttrack')(); assert.equal(skips, 1);

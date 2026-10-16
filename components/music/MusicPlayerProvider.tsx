@@ -238,7 +238,9 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
       setQueue(nextQueue);
       setIndex(nextIndex);
       setAudioUrl(url);
-      updateNativeMetadata(song, audioRef.current);
+      // The audio element has not started the new source yet. Keep the
+      // session paused until its actual play event publishes the live state.
+      updateNativeMetadata(song, audioRef.current, 'paused');
       void memberActivity('played', song, pendingSeek.current, Number(song.duration || 0));
       warmQueue(nextQueue, nextIndex);
     } catch (err) {
@@ -264,7 +266,9 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     setCurrentTime(0);
     setDuration(0);
     setError('');
-    updateNativeMetadata(song, audioRef.current);
+    // Metadata is prepared before changing sources; BackgroundPlaybackBridge
+    // publishes a fresh playing snapshot on the subsequent play event.
+    updateNativeMetadata(song, audioRef.current, 'paused');
 
     audio.pause();
     audio.src = url;
