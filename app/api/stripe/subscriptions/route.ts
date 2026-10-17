@@ -105,6 +105,14 @@ export async function POST(request: Request) {
   try {
     console.info('Stripe subscription webhook received:', event.type, event.id);
 
+    // Vercel production and preview deployments share the production Firebase
+    // project today. Never let a Stripe test event grant or change entitlements
+    // in either deployed environment.
+    if (process.env.NODE_ENV === 'production' && event.livemode !== true) {
+      console.warn('Ignoring non-live Stripe subscription webhook in deployed environment:', event.type, event.id);
+      return NextResponse.json({ received: true, ignored: 'non_live_event' });
+    }
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
