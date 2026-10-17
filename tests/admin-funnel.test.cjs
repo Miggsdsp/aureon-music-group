@@ -19,6 +19,9 @@ test('membership funnel separates consented steps from verified Stripe acquisiti
     { eventType: 'registration_complete', analyticsConsent: true },
     { eventType: 'subscription_checkout_start', analyticsConsent: true },
     { eventType: 'membership_checkout_failure', analyticsConsent: true },
+    { eventType: 'subscription_checkout_failure', trusted: true, analyticsConsent: true },
+    { eventType: 'subscription_checkout_expired', trusted: true, analyticsConsent: true },
+    { eventType: 'subscription_checkout_failure', trusted: true, analyticsConsent: false },
     { eventType: 'subscription_complete', trusted: true, memberId: 'member-1', revenueCents: 899 },
     { eventType: 'subscription_complete', trusted: true, memberId: 'member-2', revenueCents: 2499 },
     { eventType: 'subscription_complete', trusted: false, memberId: 'client-claim', revenueCents: 899 },
@@ -32,7 +35,9 @@ test('membership funnel separates consented steps from verified Stripe acquisiti
   assert.equal(result.creatorSelections, 0);
   assert.equal(result.registrationCompletions, 1);
   assert.equal(result.checkoutStarts, 1);
+  assert.equal(result.checkoutRequestErrors, 1);
   assert.equal(result.checkoutFailures, 1);
+  assert.equal(result.checkoutExpirations, 1);
   assert.equal(result.verifiedPaidSubscriptions, 1);
   assert.equal(buildMembershipFunnel([], null).verifiedPaidSubscriptions, null);
 });

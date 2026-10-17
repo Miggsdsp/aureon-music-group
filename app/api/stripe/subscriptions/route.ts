@@ -123,6 +123,24 @@ export async function POST(request: Request) {
     }
 
     switch (event.type) {
+      case 'checkout.session.expired': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode === 'subscription') {
+          const context = analyticsContextFromStripe(session.metadata);
+          if (context.analyticsConsent) await recordTrustedAnalyticsEvent({ ...context, eventType: 'subscription_checkout_expired', entityType: 'subscription', entityId: String(session.metadata?.plan || ''), plan: String(session.metadata?.plan || ''), memberId: String(session.metadata?.firebaseUid || ''), metadata: { stage: 'stripe_session_expired' } }, session.id);
+        }
+        break;
+      }
+
+      case 'checkout.session.async_payment_failed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode === 'subscription') {
+          const context = analyticsContextFromStripe(session.metadata);
+          if (context.analyticsConsent) await recordTrustedAnalyticsEvent({ ...context, eventType: 'subscription_checkout_failure', entityType: 'subscription', entityId: String(session.metadata?.plan || ''), plan: String(session.metadata?.plan || ''), memberId: String(session.metadata?.firebaseUid || ''), metadata: { stage: 'stripe_async_payment_failed' } }, session.id);
+        }
+        break;
+      }
+
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.mode === 'subscription' && typeof session.subscription === 'string') {

@@ -12,6 +12,9 @@ export function buildMembershipFunnel(events: FunnelEvent[], excludedMemberIds: 
   const count = (eventType: string, plan?: 'listener' | 'creator') => consented.filter(event =>
     event.eventType === eventType && (!plan || event.plan === plan)
   ).length;
+  const countTrusted = (eventType: string) => events.filter(event =>
+    event.eventType === eventType && event.trusted === true && event.analyticsConsent === true
+  ).length;
 
   // Stripe's webhook writes this trusted event only for a live, paid, active checkout.
   const verifiedPaidSubscriptions = excludedMemberIds === null ? null : events.filter(event =>
@@ -32,7 +35,9 @@ export function buildMembershipFunnel(events: FunnelEvent[], excludedMemberIds: 
     registrationStarts: count('registration_start'),
     registrationCompletions: count('registration_complete'),
     checkoutStarts: count('subscription_checkout_start'),
-    checkoutFailures: count('membership_checkout_failure'),
+    checkoutRequestErrors: count('membership_checkout_failure'),
+    checkoutFailures: countTrusted('subscription_checkout_failure'),
+    checkoutExpirations: countTrusted('subscription_checkout_expired'),
     verifiedPaidSubscriptions,
   };
 }

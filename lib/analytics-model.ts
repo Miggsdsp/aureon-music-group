@@ -12,7 +12,7 @@ export const CLIENT_ANALYTICS_EVENTS = [
 ] as const;
 
 export const TRUSTED_ANALYTICS_EVENTS = [
-  'registration_complete','subscription_checkout_start','subscription_complete','purchase_checkout_start','purchase_complete',
+  'registration_complete','subscription_checkout_start','subscription_checkout_failure','subscription_checkout_expired','subscription_complete','purchase_checkout_start','purchase_complete',
   'membership_started','membership_renewed','membership_upgraded','membership_cancelled','membership_payment_failed',
   'song_purchase','song_download','referral_signup','referral_converted',
 ] as const;

@@ -93,6 +93,7 @@ test('paid plan upgrades are tracked separately from new subscription acquisitio
 });
 
 test('registered administrator accounts are excluded from paid acquisition events',()=>{const subscriptions=read('app/api/stripe/subscriptions/route.ts');assert.match(subscriptions,/async function isInternalMember\(uid: string \| null\)/);assert.match(subscriptions,/adminFirestore\.collection\('admins'\)\.doc\(uid\)/);assert.match(subscriptions,/if\(memberId&&!await isInternalMember\(memberId\)\)await recordTrustedAnalyticsEvent/);const exclusions=read('app/api/admin/analytics/internal-members/route.ts');assert.match(exclusions,/await requireAdminApi\(request\)/);assert.match(exclusions,/Cache-Control': 'private, no-store'/)});
+test('Stripe subscription checkout expirations and payment failures are separately recorded with consent',()=>{const model=read('lib/analytics-model.ts'),route=read('app/api/stripe/subscriptions/route.ts');for(const event of ['subscription_checkout_failure','subscription_checkout_expired'])assert.match(model,new RegExp(`'${event}'`));assert.match(route,/case 'checkout\.session\.expired'/);assert.match(route,/case 'checkout\.session\.async_payment_failed'/);assert.match(route,/if\s*\(context\.analyticsConsent\)\s*await recordTrustedAnalyticsEvent/)});
 
 test('manual subscription conversion repair is admin-only and read-only against Stripe billing',()=>{
  const route=read('app/api/admin/analytics/repair-subscription-conversion/route.ts'),analytics=read('lib/analytics-server.ts');
