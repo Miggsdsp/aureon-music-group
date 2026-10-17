@@ -4,6 +4,6 @@ import {memberError,requireMember} from '@/lib/member-server';
 
 export const runtime='nodejs';
 export async function POST(request:Request){
- try{const{uid}=await requireMember(request);const body=await request.json();const context=analyticsContextFromBody(body);if(!context.analyticsConsent)return NextResponse.json({ok:true,recorded:false});await recordTrustedAnalyticsEvent({...context,eventType:'registration_complete',entityType:'account',entityId:'registered-member',memberId:uid},uid);return NextResponse.json({ok:true,recorded:true})}
+ try{const{uid}=await requireMember(request);const body=await request.json();const context=analyticsContextFromBody(body);if(!context.analyticsConsent)return NextResponse.json({ok:true,recorded:false});const plan=body?.plan==='listener'||body?.plan==='creator'?body.plan:undefined;await recordTrustedAnalyticsEvent({...context,eventType:'registration_complete',entityType:'account',entityId:'registered-member',memberId:uid,plan},uid);return NextResponse.json({ok:true,recorded:true})}
  catch(error){const result=memberError(error);return NextResponse.json({error:result.error},{status:result.status})}
 }

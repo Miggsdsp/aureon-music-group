@@ -1,7 +1,7 @@
 export const CLIENT_ANALYTICS_EVENTS = [
   'page_view','artist_view','song_view','album_view','discover_view',
   'music_preview_start','music_preview_progress','music_preview_complete',
-  'registration_start','login','membership_view','artist_follow','song_favourite','playlist_add','search','returning_listener',
+  'registration_start','login','membership_view','membership_plan_select','membership_checkout_failure','artist_follow','song_favourite','playlist_add','search','returning_listener',
   'song_pause','song_complete','song_cart_add','song_like','song_unlike',
   'video_play','video_pause','video_complete','video_preview_complete','video_view',
   'search_result_clicked','playlist_created','playlist_renamed','playlist_deleted','playlist_song_added','playlist_song_removed','playlist_played',
