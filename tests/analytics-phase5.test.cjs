@@ -11,10 +11,20 @@ function attributionRuntime(url,referrer=''){
  const localStorage=new Storage(),sessionStorage=new Storage(),location=new URL(url),window={dispatchEvent(){},gtag:undefined};
  const code=ts.transpileModule(read('lib/analytics-attribution.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const module={exports:{}};
- const document={referrer,cookie:''};
- const context={module,exports:module.exports,require,URL,URLSearchParams,Date,console,crypto:{randomUUID:crypto.randomUUID},CustomEvent:class{},localStorage,sessionStorage,location,document,window};
+ const cookieStore=new Map(),cookieAssignments=[];
+ const document={referrer};
+ Object.defineProperty(document,'cookie',{get:()=>Array.from(cookieStore,([key,value])=>`${key}=${value}`).join('; '),set:value=>{cookieAssignments.push(String(value));const pair=String(value).split(';',1)[0],separator=pair.indexOf('=');if(separator>0)cookieStore.set(pair.slice(0,separator).trim(),pair.slice(separator+1).trim())}});
+ const context={module,exports:module.exports,require,URL,URLSearchParams,Date,console,process,crypto:{randomUUID:crypto.randomUUID},CustomEvent:class{},localStorage,sessionStorage,location,document,window};
  vm.runInNewContext(code,context,{filename:'lib/analytics-attribution.ts'});
- return{api:module.exports,localStorage,sessionStorage,location,context};
+ return{api:module.exports,localStorage,sessionStorage,location,context,cookieAssignments};
+}
+
+function analyticsServerRuntime(){
+ const code=ts.transpileModule(read('lib/analytics-server.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const module={exports:{}};
+ const dependencies={'firebase-admin/firestore':{FieldValue:{serverTimestamp(){},increment(){}}},'@/lib/firebase-admin':{adminFirestore:{}},'@/lib/analytics-model':{ANALYTICS_EVENTS:[],TRUSTED_ANALYTICS_EVENTS:[]}};
+ vm.runInNewContext(code,{module,exports:module.exports,require:id=>id==='crypto'?crypto:dependencies[id],console,Date,process,fetch});
+ return module.exports;
 }
 
 test('standard campaign sources normalize and persist through a catalogue-to-signup journey',()=>{
@@ -33,7 +43,20 @@ test('standard campaign sources normalize and persist through a catalogue-to-sig
 
 test('analytics consent withdrawal removes optional identifiers and attribution',()=>{const runtime=attributionRuntime('https://www.aureonmusicgroup.com/');const calls=[];runtime.context.window.gtag=(...args)=>calls.push(args);runtime.api.setAnalyticsConsent(true);runtime.api.initialiseAttribution();assert.ok(runtime.api.getAnalyticsContext().visitorId);runtime.api.setAnalyticsConsent(false);assert.equal(runtime.api.getAnalyticsContext(),null);assert.equal(runtime.localStorage.getItem('aureon-analytics-visitor'),null);assert.equal(JSON.stringify(calls.at(-1)),JSON.stringify(['consent','update',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'}]))});
 
-test('analytics consent is restored from a one-year first-party cookie',()=>{const runtime=attributionRuntime('https://www.aureonmusicgroup.com/account');runtime.api.setAnalyticsConsent(true);assert.match(runtime.context.document.cookie,/aureon_analytics_consent=granted/);assert.match(runtime.context.document.cookie,/Max-Age=31536000/);runtime.localStorage.removeItem(runtime.api.ANALYTICS_CONSENT_KEY);assert.equal(runtime.api.getAnalyticsConsentChoice(),'granted');assert.equal(runtime.localStorage.getItem(runtime.api.ANALYTICS_CONSENT_KEY),'granted')});
+test('analytics consent is restored from a one-year first-party cookie',()=>{const runtime=attributionRuntime('https://www.aureonmusicgroup.com/account');runtime.api.setAnalyticsConsent(true);assert.match(runtime.context.document.cookie,/aureon_analytics_consent=granted/);assert.match(runtime.cookieAssignments.at(-1),/Max-Age=31536000/);runtime.localStorage.removeItem(runtime.api.ANALYTICS_CONSENT_KEY);assert.equal(runtime.api.getAnalyticsConsentChoice(),'granted');assert.equal(runtime.localStorage.getItem(runtime.api.ANALYTICS_CONSENT_KEY),'granted')});
+
+test('internal visitor/session IDs stay separate from GA4 IDs through Stripe attribution',()=>{
+ const browser=attributionRuntime('https://www.aureonmusicgroup.com/membership?utm_source=google&utm_medium=cpc');
+ browser.api.setAnalyticsConsent(true);browser.context.document.cookie='_ga=GA1.1.123456.789012';browser.context.document.cookie='_ga_TN4LEXL6CB=GS2.1.s987654321$o1$g0$t1792220000$j10$l0$h0';browser.api.initialiseAttribution();
+ const checkout=browser.api.analyticsCheckoutContext();assert.ok(checkout.visitorId);assert.ok(checkout.sessionId);assert.equal(checkout.analyticsClientId,'123456.789012');assert.equal(checkout.analyticsSessionId,'987654321');
+ const analytics=analyticsServerRuntime();
+ const context=analytics.analyticsContextFromBody({...checkout,firstTouch:{source:'google',medium:'cpc'}});
+ assert.ok(context.visitorId);assert.ok(context.sessionId);assert.equal(context.ga4ClientId,'123456.789012');assert.equal(context.ga4SessionId,'987654321');
+ const restored=analytics.analyticsContextFromStripe(analytics.stripeAnalyticsMetadata(context));
+ assert.equal(restored.visitorId,context.visitorId);assert.equal(restored.sessionId,context.sessionId);assert.equal(restored.ga4ClientId,'123456.789012');assert.equal(restored.ga4SessionId,'987654321');
+ const legacy=analytics.analyticsContextFromStripe({analyticsConsent:'true',analyticsClientId:'123456.789012',analyticsSessionId:'987654321'});
+ assert.equal(legacy.ga4ClientId,'123456.789012');assert.equal(legacy.ga4SessionId,'987654321');assert.equal(legacy.visitorId,'');
+});
 
 test('browser endpoint cannot accept trusted conversions or revenue',()=>{const model=read('lib/analytics-model.ts'),route=read('app/api/analytics/track/route.ts');assert.match(model,/CLIENT_ANALYTICS_EVENTS/);for(const event of ['registration_complete','subscription_complete','purchase_complete','purchase_checkout_start','subscription_checkout_start']){const clientSection=model.split('TRUSTED_ANALYTICS_EVENTS')[0];assert.equal(clientSection.includes(`'${event}'`),false)}assert.match(route,/new Set<string>\(CLIENT_ANALYTICS_EVENTS\)/);assert.doesNotMatch(route,/\.\.\.body/);assert.doesNotMatch(route,/revenueCents/)});
 
@@ -117,7 +140,7 @@ test('public preview media session sends artwork and track controls to external 
 });
 
 test('GA4 is single, consent-gated and strips sensitive return parameters',()=>{const bridge=read('components/AnalyticsBridge.tsx'),layout=read('app/layout.tsx'),firebase=read('lib/firebase-client.ts');assert.match(bridge,/NEXT_PUBLIC_GA_MEASUREMENT_ID/);assert.match(bridge,/NEXT_PUBLIC_GOOGLE_ADS_ID/);assert.match(bridge,/send_page_view:false/);assert.match(bridge,/process\.env\.NODE_ENV==='production'/);assert.match(bridge,/if\(!granted\)/);assert.match(bridge,/ad_storage:'denied'/);assert.match(bridge,/ad_user_data:'granted'/);assert.match(bridge,/ad_personalization:'denied'/);assert.match(bridge,/page_view/);assert.match(bridge,/dataLayer\?\.push\(arguments\)/);assert.doesNotMatch(layout,/googletagmanager|gtag\('config'/);assert.doesNotMatch(firebase,/G-[A-Z0-9]+/)});
-test('GA4 trusted conversions include realtime session fields only when session id is valid',()=>{const analytics=read('lib/analytics-server.ts');assert.match(analytics,/engagement_time_msec:1/);assert.match(analytics,/if\(\/\^\\d\+\$\/\.test\(clean\(event\.sessionId,30\)\)\)params\.session_id=Number\(event\.sessionId\)/);assert.match(analytics,/client_id:event\.visitorId,events:\[\{name:event\.eventType,params\}\]/)});
+test('GA4 trusted conversions use only the consented GA4 client and session IDs',()=>{const analytics=read('lib/analytics-server.ts');assert.match(analytics,/engagement_time_msec:1/);assert.match(analytics,/if\(\/\^\\d\+\$\/\.test\(clean\(event\.ga4SessionId,30\)\)\)params\.session_id=Number\(event\.ga4SessionId\)/);assert.match(analytics,/client_id:event\.ga4ClientId,events:\[\{name:event\.eventType,params\}\]/);assert.match(analytics,/if\(!event\.ga4ClientId\)/)});
 test('Google Ads click IDs persist to checkout only with consent',()=>{const attribution=read('lib/analytics-attribution.ts'),analytics=read('lib/analytics-server.ts');assert.match(attribution,/\['gclid','gbraid','wbraid'\]/);assert.match(analytics,/if\(body\?\.analyticsConsent!==true\)return\{analyticsConsent:false\}/);assert.match(analytics,/googleClickId:clean\(first\.googleClickId,200\)/);assert.match(analytics,/googleClickId:clean\(context\.googleClickId,200\)/);assert.match(analytics,/if\(m\.analyticsConsent!=='true'\)return\{analyticsConsent:false\}/)});
 test('GA4 page views wait for Google tag readiness after consent',()=>{const bridge=read('components/AnalyticsBridge.tsx');assert.match(bridge,/gaReady/);assert.match(bridge,/document\.createElement\('script'\)/);assert.match(bridge,/addEventListener\('load'/);assert.match(bridge,/dataset\.loaded/);assert.match(bridge,/!granted\|\|!gaReady\|\|!pathname/);assert.match(bridge,/aureon-ga4/);});
 test('public preview playback uses bounded API route when a private master exists',()=>{const ts=require('typescript'),vm=require('node:vm');const code=ts.transpileModule(read('lib/get-preview-url.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const module={exports:{}};vm.runInNewContext(code,{module,exports:module.exports,require},{filename:'lib/get-preview-url.ts'});assert.equal(module.exports.getPreviewUrl({id:'song-1',privateFilePath:'private/full-tracks/artist/song.wav',previewUrl:'https://storage.googleapis.com/legacy-short.wav'}),'/api/preview/song-1');assert.equal(module.exports.getPreviewUrl({id:'song-2',details:{privateFilePath:'private/full-tracks/artist/song two.wav'}}),'/api/preview/song-2');assert.equal(module.exports.getPreviewUrl({id:'song-3',previewUrl:'https://example.com/public-preview.wav'}),'https://example.com/public-preview.wav')});
