@@ -4,12 +4,12 @@ const fs = require('node:fs');
 
 const read = path => fs.readFileSync(path, 'utf8');
 
-test('homepage states the product and exposes one listening and one account CTA', () => {
+test('homepage explains discovery and exposes listening plus membership CTAs', () => {
   const hero = read('components/CinematicHero.tsx');
   assert.match(hero, /DISCOVER ORIGINAL MUSIC/);
-  assert.match(hero, /six artists and distinct genres/);
   assert.match(hero, /href="\/discover">START LISTENING/);
-  assert.match(hero, /href="\/account\?mode=signup">CREATE FREE ACCOUNT/);
+  assert.match(hero, /href="\/membership">EXPLORE MEMBERSHIP/);
+  assert.match(hero, /Preview songs, explore albums/);
 });
 
 test('public catalogue detail pages expose clear discovery and account paths', () => {

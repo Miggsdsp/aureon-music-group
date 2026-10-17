@@ -90,6 +90,15 @@ async function memberState(subscription: Stripe.Subscription) {
   };
 }
 
+async function isInternalMember(uid: string | null) {
+  if (!uid) return false;
+  const [admin, legacyAdmin] = await Promise.all([
+    adminFirestore.collection('admins').doc(uid).get(),
+    adminFirestore.collection('admin').doc(uid).get(),
+  ]);
+  return admin.exists || legacyAdmin.exists;
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) return NextResponse.json({ error: 'Missing Stripe signature.' }, { status: 400 });
@@ -128,10 +137,12 @@ export async function POST(request: Request) {
             }
           }
           // Only a live, positively paid checkout for an active subscription is an acquisition.
-          // Trial/no-payment-required and test-mode events must not enter acquisition reporting.
+          // Trial/no-payment-required, test-mode and internal administrator accounts
+          // must not enter acquisition reporting.
           if(event.livemode===true&&session.payment_status==='paid'&&Number(session.amount_total||0)>0&&subscription.status==='active'){
             const context=analyticsContextFromStripe(session.metadata);
-            await recordTrustedAnalyticsEvent({...context,eventType:'subscription_complete',entityType:'subscription',entityId:getSubscriptionPlan(subscription),plan:getSubscriptionPlan(subscription),revenueCents:session.amount_total||0,currency:session.currency||'eur',memberId:await resolveFirebaseUid(subscription)},subscription.id);
+            const memberId=await resolveFirebaseUid(subscription);
+            if(memberId&&!await isInternalMember(memberId))await recordTrustedAnalyticsEvent({...context,eventType:'subscription_complete',entityType:'subscription',entityId:getSubscriptionPlan(subscription),plan:getSubscriptionPlan(subscription),revenueCents:session.amount_total||0,currency:session.currency||'eur',memberId},subscription.id);
           }
           await sendMemberEmail(subscription, 'confirmed');
         }
