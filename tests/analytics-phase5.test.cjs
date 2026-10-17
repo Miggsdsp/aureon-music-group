@@ -63,14 +63,12 @@ test('browser endpoint cannot accept trusted conversions or revenue',()=>{const 
 test('paid conversions are server-authoritative and deduplicated',()=>{const purchase=read('app/api/stripe/webhook/route.ts'),subscriptions=read('app/api/stripe/subscriptions/route.ts'),analytics=read('lib/analytics-server.ts'),checkout=read('app/api/checkout/route.ts'),subscriptionCheckout=read('app/api/subscriptions/checkout/route.ts');assert.match(purchase,/payment_status!=='paid'/);assert.match(purchase,/eventType:'purchase_complete'/);assert.match(subscriptions,/eventType:'subscription_complete'/);assert.match(subscriptions,/event\.livemode===true&&session\.payment_status==='paid'/);assert.match(subscriptions,/Number\(session\.amount_total\|\|0\)>0/);assert.match(subscriptions,/subscription\.status==='active'/);assert.match(analytics,/createHash\('sha256'\)/);assert.match(analytics,/transaction\.get\(eventRef\)/);assert.match(checkout,/checkout\.sessions\.create/);assert.match(checkout,/eventType:'purchase_checkout_start'/);assert.match(subscriptionCheckout,/checkout\.sessions\.create/);assert.match(subscriptionCheckout,/eventType:'subscription_checkout_start'/)});
 
 test('successful paid subscription is recorded once even when GA4 consent delivery is skipped',()=>{
- const subscriptions=read('app/api/stripe/subscriptions/route.ts'),checkout=read('app/api/subscriptions/checkout/route.ts'),analytics=read('lib/analytics-server.ts');
+ const subscriptions=read('app/api/stripe/subscriptions/route.ts'),analytics=read('lib/analytics-server.ts');
  const completedBlock=subscriptions.match(/case 'checkout\.session\.completed': \{[\s\S]*?case 'customer\.subscription\.created'/)?.[0]||'';
  assert.match(completedBlock,/event\.livemode===true&&session\.payment_status==='paid'/);
  assert.match(completedBlock,/recordTrustedAnalyticsEvent\(\{\.\.\.context,eventType:'subscription_complete'/);
  assert.doesNotMatch(completedBlock,/if\(context\.analyticsConsent\)await recordTrustedAnalyticsEvent\(\{\.\.\.context,eventType:'subscription_complete'/);
  assert.match(completedBlock,/subscription\.id\)/);
- assert.match(checkout,/recordTrustedAnalyticsEvent\(\{\.\.\.analytics,eventType:'subscription_complete'/);
- assert.doesNotMatch(checkout,/if\(analytics\.analyticsConsent\)await recordTrustedAnalyticsEvent\(\{\.\.\.analytics,eventType:'subscription_complete'/);
  assert.match(analytics,/if\(!result\.created\)\{trustedLog\('duplicate_suppressed'/);
  assert.match(analytics,/skipped_no_consent/);
  assert.match(analytics,/skipped_no_client_id/);
@@ -84,6 +82,14 @@ test('monthly renewal does not create acquisition subscription_complete conversi
  const invoicePaidBlock=subscriptions.match(/case 'invoice\.paid': \{[\s\S]*?break;\s*\}/)?.[0]||'';
  assert.match(invoicePaidBlock,/billing_reason/);
  assert.doesNotMatch(invoicePaidBlock,/subscription_complete/);
+});
+
+test('paid plan upgrades are tracked separately from new subscription acquisition',()=>{
+ const model=read('lib/analytics-model.ts'),checkout=read('app/api/subscriptions/checkout/route.ts');
+ assert.match(model,/'membership_upgraded'/);
+ const upgrade=checkout.match(/if \(isUpgrade\) \{[\s\S]*?Creator upgrade analytics failed:[\s\S]*?\)\);/)?.[0]||'';
+ assert.match(upgrade,/eventType:'membership_upgraded'/);
+ assert.doesNotMatch(upgrade,/eventType:'subscription_complete'/);
 });
 
 test('manual subscription conversion repair is admin-only and read-only against Stripe billing',()=>{
