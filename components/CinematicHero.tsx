@@ -65,10 +65,10 @@ export function CinematicHero() {
       <div className={styles.heroOverlay}>
         <img src="/images/branding/Aureon_Header_Logo.png" alt="Aureon Music Group" width="760" height="260" className={styles.heroLogo} style={{ width: `${logoScale}%`, maxWidth: 760, height: 'auto' }} decoding="async" fetchPriority="high" />
         <p className={styles.slogan}>DISCOVER ORIGINAL MUSIC</p>
-        <p className={styles.platformIntro}>Explore new music across six artists and distinct genres. Preview every release, create playlists and unlock full-catalogue listening with Aureon.</p>
+        <p className={styles.platformIntro}>Discover original releases from independent artists. Preview songs, explore albums, and join Listener to hear the full catalogue.</p>
         <div className={styles.heroActions}>
           <Link className={styles.discoverButton} href="/discover">START LISTENING <span aria-hidden="true">→</span></Link>
-          <Link className={styles.accountButton} href="/account?mode=signup">CREATE FREE ACCOUNT</Link>
+          <Link className={styles.accountButton} href="/membership">EXPLORE MEMBERSHIP</Link>
         </div>
       </div>
 

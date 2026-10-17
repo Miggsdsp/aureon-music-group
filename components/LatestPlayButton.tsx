@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Crown, Pause, Play, ShoppingBag, ShoppingCart, Sparkles, UserPlus, X } from 'lucide-react';
+import { Crown, Pause, Play, ShoppingBag, ShoppingCart, UserPlus } from 'lucide-react';
 import { firebaseAuth } from '@/lib/firebase-client';
 import { trackAnalytics } from '@/lib/track-analytics';
 import { trackDiscovery } from '@/lib/discovery-analytics';
@@ -61,7 +60,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
   const [isPlaying,setIsPlaying]=useState(false);
   const [hasError,setHasError]=useState(false);
   const [previewFinished,setPreviewFinished]=useState(false);
-  const [nearEnd,setNearEnd]=useState(false);
   const [added,setAdded]=useState(false);
   const [signedIn,setSignedIn]=useState(Boolean(firebaseAuth.currentUser));
   const previewSeconds=40;
@@ -83,7 +81,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     earlyEndedRetries.current=0;
     setHasError(false);
     setIsPlaying(false);
-    setNearEnd(false);
     setPreviewFinished(false);
     if(activePreviewOwner===ownerRef.current){
       sharedPreviewAudio?.pause();
@@ -99,13 +96,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
       stopActivePreview=null;
     };
   },[src]);
-  useEffect(()=>{
-    if(!previewFinished||typeof document==='undefined')return;
-    const previousOverflow=document.body.style.overflow;
-    document.body.style.overflow='hidden';
-    return()=>{document.body.style.overflow=previousOverflow;};
-  },[previewFinished]);
-
   function prepareSharedPreviewAudio(audio: HTMLAudioElement) {
     if (activePreviewOwner && activePreviewOwner !== ownerRef.current) {
       try { sharedPreviewAudio?.pause(); } catch {}
@@ -115,7 +105,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     activePreviewOwner = ownerRef.current;
     stopActivePreview = () => {
       setIsPlaying(false);
-      setNearEnd(false);
       pauseMediaSession();
     };
     audioRef.current = audio;
@@ -172,7 +161,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     audio.pause();
     if(audio.currentTime>previewSeconds)audio.currentTime=previewSeconds;
     setIsPlaying(false);
-    setNearEnd(false);
     pauseMediaSession();
     setPreviewFinished(true);
     if(completionTracked.current)return;
@@ -205,7 +193,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
       if(activePreviewOwner!==ownerRef.current||!ownsMediaSession(audio))return;
       updateMediaSession('playing');
       setPreviewFinished(false);
-      setNearEnd(false);
       setIsPlaying(true);
       if(!startTracked.current){startTracked.current=true;trackAnalytics({...eventBase,eventType:'music_preview_start',listenedSeconds:audio.currentTime,durationSeconds:Math.min(previewSeconds,audio.duration||previewSeconds)})}
       if(discovery)trackDiscovery('play',discoveryEntity,{...discovery,interaction:'button'});
@@ -222,7 +209,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     if(!audio||activePreviewOwner!==ownerRef.current||!ownsMediaSession(audio)||promotional)return;
     const percent=Math.min(100,audio.currentTime/previewSeconds*100);
     for(const milestone of [25,50,75])if(percent>=milestone&&!milestonesTracked.current.has(milestone)){milestonesTracked.current.add(milestone);trackAnalytics({...eventBase,eventType:'music_preview_progress',listenedSeconds:audio.currentTime,durationSeconds:previewSeconds,progressPercent:milestone})}
-    setNearEnd(audio.currentTime>=30&&audio.currentTime<previewSeconds);
     if(audio.currentTime>=previewSeconds)finishPreview(audio);
   }
 
@@ -231,7 +217,6 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     if(!audio)return;
     if(!promotional&&audio.currentTime<previewSeconds-0.75){
       setIsPlaying(false);
-      setNearEnd(false);
       pauseMediaSession();
       if(earlyEndedRetries.current<1&&(Number.isFinite(audio.duration)?audio.duration>=previewSeconds-0.75:true)){
         earlyEndedRetries.current+=1;
@@ -265,30 +250,27 @@ export function LatestPlayButton({ title, src, artwork, purchase, analytics, dis
     trackConversion('cart_add');
   }
 
-  const conversionModal=previewFinished&&!promotional&&typeof document!=='undefined'?createPortal(
-    <div className={styles.conversionBackdrop} role="dialog" aria-modal="true" aria-labelledby={`preview-conversion-${entityId||'song'}`} onMouseDown={event=>{if(event.target===event.currentTarget)setPreviewFinished(false)}}>
+  const conversionPrompt=previewFinished&&!promotional?(
+    <section className={styles.conversionPrompt} aria-labelledby={`preview-conversion-${entityId||'song'}`}>
       <section className={styles.conversionPanel}>
-        <button type="button" className={styles.close} onClick={()=>setPreviewFinished(false)} aria-label="Close preview options"><X/></button>
         <p className={styles.eyebrow}>Your preview has finished</p>
         <h2 id={`preview-conversion-${entityId||'song'}`}>{title}</h2>
-        <p className={styles.intro}>Choose how you would like to continue your Aureon journey.</p>
+        <p className={styles.intro}>Enjoying the music? Listener membership unlocks full-track listening across the Aureon catalogue.</p>
         <div className={styles.conversionGrid}>
-          <Link className={`${styles.option} ${styles.primaryOption}`} href="/membership" onClick={()=>trackConversion('premium_membership')}><Crown/><div><strong>Continue Listening</strong><span>Become an Aureon Premium Member and hear the complete catalogue.</span></div><b>Explore Premium →</b></Link>
+          <Link className={`${styles.option} ${styles.primaryOption}`} href="/membership" onClick={()=>trackConversion('listener_membership')}><Crown/><div><strong>Keep listening with Aureon Listener</strong><span>Hear complete tracks across the full catalogue.</span></div><b>Explore membership →</b></Link>
           <Link className={styles.option} href={signedIn?'/account':'/account?mode=signup'} onClick={()=>trackConversion(signedIn?'account_dashboard':'free_account')}><UserPlus/><div><strong>{signedIn?'Open Your Account':'Create Free Account'}</strong><span>{signedIn?'Save favourites, playlists and listening history.':'Save favourites and continue your music journey.'}</span></div><b>{signedIn?'Open account →':'Join free →'}</b></Link>
           {purchase?<button type="button" className={styles.option} onClick={addSongToCart}><ShoppingBag/><div><strong>Purchase This Song</strong><span>Own this track permanently as a digital download.</span></div><b>{added?'Added — View cart':'Buy for €'+price.toFixed(2)}</b></button>:<Link className={styles.option} href={songPath} onClick={()=>trackConversion('purchase_song')}><ShoppingBag/><div><strong>Purchase This Song</strong><span>Visit the song page to own this track permanently.</span></div><b>View song →</b></Link>}
         </div>
         {added&&<Link className={styles.checkout} href="/checkout">Continue to secure checkout →</Link>}
         <button type="button" className={styles.replay} onClick={()=>{setPreviewFinished(false);void togglePlay()}}>Replay the 40-second preview</button>
       </section>
-    </div>,
-    document.body,
+    </section>
   ):null;
 
   const defaultLabel=promotional?`Play: ${title}`:`40s Preview: ${title}`;
   return <div className="song-commerce-control">
     {hasPreview?<button ref={buttonRef} data-aureon-preview-button="true" className={`latest-release latest-release-button ${styles.button} ${styles[size]}`} type="button" onClick={togglePlay}>{isPlaying?<Pause size={13}/>:<Play size={13}/>} {isPlaying?'Pause':buttonLabel||defaultLabel}</button>:<span className="preview-ended-message">Preview coming soon.</span>}
     {showPurchase&&!promotional&&purchase&&<div className="song-buy-row"><button type="button" className="song-buy-button" onClick={addSongToCart}><ShoppingCart size={14}/> {added?'Added to cart':`Buy full song €${price.toFixed(2)}`}</button>{added&&<Link href="/checkout">Checkout →</Link>}</div>}
-    {nearEnd&&!previewFinished&&!promotional&&<div className={styles.benefitCue} role="status"><Sparkles size={15}/><div><strong>Keep the music going</strong><span>Premium unlocks the complete Aureon catalogue.</span></div></div>}
-    {conversionModal}
+    {conversionPrompt}
   </div>;
 }
