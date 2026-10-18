@@ -7,6 +7,7 @@ import { memberError, requireMember, type MemberPlan } from '@/lib/member-server
 import { getSubscriptionPlan, recordSubscriptionPayment, syncStripeSubscription } from '@/lib/subscription-sync';
 import { sendSubscriptionLifecycleEmail } from '@/lib/transactional-email';
 import {analyticsContextFromBody,recordTrustedAnalyticsEvent,stripeAnalyticsMetadata} from '@/lib/analytics-server';
+import { isLocalTestEnvironment } from '@/lib/runtime-safety';
 
 export const runtime = 'nodejs';
 
@@ -21,17 +22,20 @@ function configurationError(plan: MemberPlan) {
 
   if (!process.env.STRIPE_SECRET_KEY) missing.push('STRIPE_SECRET_KEY');
   if (!price) missing.push(plan === 'listener' ? 'STRIPE_LISTENER_PRICE_ID' : 'STRIPE_CREATOR_PRICE_ID');
+  const localTestMode = isLocalTestEnvironment();
   if (!process.env.FIREBASE_ADMIN_PROJECT_ID) missing.push('FIREBASE_ADMIN_PROJECT_ID');
-  if (!process.env.FIREBASE_ADMIN_CLIENT_EMAIL) missing.push('FIREBASE_ADMIN_CLIENT_EMAIL');
-  if (!process.env.FIREBASE_ADMIN_PRIVATE_KEY) missing.push('FIREBASE_ADMIN_PRIVATE_KEY');
+  if (!localTestMode && !process.env.FIREBASE_ADMIN_CLIENT_EMAIL) missing.push('FIREBASE_ADMIN_CLIENT_EMAIL');
+  if (!localTestMode && !process.env.FIREBASE_ADMIN_PRIVATE_KEY) missing.push('FIREBASE_ADMIN_PRIVATE_KEY');
 
   if (missing.length) return `Missing server configuration: ${missing.join(', ')}.`;
   if (!price?.startsWith('price_')) return `${plan} membership must use a Stripe Price ID beginning with price_.`;
   if (!process.env.STRIPE_SECRET_KEY?.startsWith('sk_')) return 'STRIPE_SECRET_KEY must be a Stripe secret key beginning with sk_.';
 
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n') || '';
-  if (!privateKey.includes('BEGIN PRIVATE KEY') || !privateKey.includes('END PRIVATE KEY')) {
-    return 'FIREBASE_ADMIN_PRIVATE_KEY is malformed. Copy the complete private_key value from the Firebase service-account JSON.';
+  if (!localTestMode) {
+    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n') || '';
+    if (!privateKey.includes('BEGIN PRIVATE KEY') || !privateKey.includes('END PRIVATE KEY')) {
+      return 'FIREBASE_ADMIN_PRIVATE_KEY is malformed. Copy the complete private_key value from the Firebase service-account JSON.';
+    }
   }
 
   return '';
