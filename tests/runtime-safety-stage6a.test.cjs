@@ -72,3 +72,17 @@ test('browser and server analytics are disabled from Google in local test mode',
   assert.match(server, /skipped_test_environment/);
   assert.match(server, /isLocalTestEnvironment\(\).*local_test_events_are_not_sent_to_google_analytics/);
 });
+
+test('local subscription checkout uses emulator Admin SDK without service-account credentials', () => {
+  const checkout = fs.readFileSync(path.join(root, 'app/api/subscriptions/checkout/route.ts'), 'utf8');
+  assert.match(checkout, /import \{ isLocalTestEnvironment \} from '@\/lib\/runtime-safety'/);
+  assert.match(checkout, /if \(!localTestMode && !process\.env\.FIREBASE_ADMIN_CLIENT_EMAIL\)/);
+  assert.match(checkout, /if \(!localTestMode && !process\.env\.FIREBASE_ADMIN_PRIVATE_KEY\)/);
+  assert.match(checkout, /if \(!localTestMode\)\s*\{\s*const privateKey/);
+});
+
+test('local subscription tests cannot send transactional email outside the emulator', () => {
+  const email = fs.readFileSync(path.join(root, 'lib/transactional-email.ts'), 'utf8');
+  assert.match(email, /if \(isLocalTestEnvironment\(\)\)\s*\{[\s\S]*?local-test-suppressed/);
+  assert.match(email, /fetch\('https:\/\/api\.resend\.com\/emails'/);
+});
