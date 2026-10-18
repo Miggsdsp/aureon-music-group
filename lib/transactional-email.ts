@@ -1,3 +1,5 @@
+import { isLocalTestEnvironment } from '@/lib/runtime-safety';
+
 type DownloadEmailItem = {
   title: string;
   artist?: string;
@@ -73,6 +75,11 @@ function emailConfig() {
 }
 
 async function sendEmail(payload: { to: string; subject: string; text: string; html: string; idempotencyKey?: string }) {
+  if (isLocalTestEnvironment()) {
+    console.info('Transactional email suppressed in Aureon local-test environment.');
+    return { sent: false, reason: 'local-test-suppressed' } as const;
+  }
+
   const { apiKey, from } = emailConfig();
   if (!apiKey) {
     console.warn('RESEND_API_KEY is not configured. Transactional email was not sent.');
