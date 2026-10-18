@@ -15,6 +15,7 @@ import {
 } from '@/lib/subscription-sync';
 import { sendSubscriptionLifecycleEmail, type SubscriptionEmailKind } from '@/lib/transactional-email';
 import {analyticsContextFromStripe,recordTrustedAnalyticsEvent} from '@/lib/analytics-server';
+import { assertWebhookMode, isLocalTestEnvironment } from '@/lib/runtime-safety';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +30,10 @@ async function subscriptionFromInvoice(invoice: Stripe.Invoice) {
 }
 
 function webhookSecrets() {
-  return [process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET, process.env.STRIPE_SUBSCRIPTION_TEST_WEBHOOK_SECRET]
+  const configuredSecret = isLocalTestEnvironment()
+    ? process.env.STRIPE_SUBSCRIPTION_TEST_WEBHOOK_SECRET
+    : process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET;
+  return [configuredSecret]
     .flatMap(value => value?.split(',') ?? [])
     .map(value => value.trim().replace(/^['"]|['"]$/g, ''))
     .filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
@@ -114,11 +118,10 @@ export async function POST(request: Request) {
   try {
     console.info('Stripe subscription webhook received:', event.type, event.id);
 
-    // Vercel production and preview deployments share the production Firebase
-    // project today. Never let a Stripe test event grant or change entitlements
-    // in either deployed environment.
-    if (process.env.NODE_ENV === 'production' && event.livemode !== true) {
-      console.warn('Ignoring non-live Stripe subscription webhook in deployed environment:', event.type, event.id);
+    try {
+      assertWebhookMode(event.livemode);
+    } catch {
+      console.warn('Ignoring Stripe event that does not match this environment mode:', event.type, event.id);
       return NextResponse.json({ received: true, ignored: 'non_live_event' });
     }
 

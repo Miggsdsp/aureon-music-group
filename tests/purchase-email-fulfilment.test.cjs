@@ -57,7 +57,11 @@ function harness() {
     vm.runInNewContext(code, { exports: module.exports, module, require: name => name in imports ? imports[name] : require(name), process, console, Date, AbortSignal, fetch, Request }, { filename: path });
     return module.exports;
   }
-  const common = { '@/lib/firebase-admin': { adminFirestore: db }, 'firebase-admin/firestore': { FieldValue: field } };
+  const common = {
+    '@/lib/firebase-admin': { adminFirestore: db },
+    '@/lib/runtime-safety': { assertWebhookMode: () => {}, isLocalTestEnvironment: () => false },
+    'firebase-admin/firestore': { FieldValue: field },
+  };
   const helper = load('lib/purchase-email-fulfilment.ts', { ...common, '@/lib/transactional-email': email });
   const webhook = load('app/api/stripe/webhook/route.ts', { ...common,
     '@/lib/purchase-email-fulfilment': helper,

@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "demo-aureon-music-group",
+    "local-test": "demo-aureon-music-group"
+  }
+}

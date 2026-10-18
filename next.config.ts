@@ -1,4 +1,7 @@
 import type { NextConfig } from 'next';
+import { assertRuntimeIsolation } from './lib/runtime-safety';
+
+assertRuntimeIsolation();
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 

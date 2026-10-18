@@ -27,7 +27,7 @@ const u32=(view:DataView,offset:number)=>view.getUint32(offset,true);
 
 async function inflateRaw(bytes:Uint8Array){
   if(typeof DecompressionStream==='undefined') throw new Error('This browser cannot extract Word documents. Please use current Safari, Chrome or Edge.');
-  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const stream=new Blob([new Uint8Array(bytes).buffer]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 

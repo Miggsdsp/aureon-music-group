@@ -4,11 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local-test": "dotenv -e .env.local-test -- next dev",
+    "emulators:local-test": "firebase emulators:start --only auth,firestore,storage --project demo-aureon-music-group",
+    "build:local-test": "dotenv -e .env.local-test -- firebase emulators:exec --only auth,firestore,storage --project demo-aureon-music-group \"npm run build\"",
+    "stripe:listen:local-test": "stripe listen --forward-to localhost:3000/api/stripe/subscriptions --events checkout.session.completed,checkout.session.expired,checkout.session.async_payment_failed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed,invoice.payment_action_required",
     "test": "node --test tests/*.test.cjs",
-    "prebuild": "node -e \"const fs=require('fs');const p='components/admin/LegalManager.tsx';let s=fs.readFileSync(p,'utf8');s=s.replace('new Blob([bytes])','new Blob([new Uint8Array(bytes).buffer])');fs.writeFileSync(p,s);\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint --no-cache"
   },
   "dependencies": {
     "firebase": "^11.10.0",
@@ -24,6 +27,10 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "dotenv-cli": "^8.0.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.3.8",
+    "firebase-tools": "^14.27.0",
     "typescript": "^5.7.2"
   }
 }

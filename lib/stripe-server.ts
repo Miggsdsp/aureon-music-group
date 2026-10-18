@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { assertStripeKeyIsolation } from '@/lib/runtime-safety';
 
 let stripeClient: Stripe | null = null;
 
@@ -7,6 +8,8 @@ export function getStripe(): Stripe {
   if (!secretKey) {
     throw new Error('STRIPE_SECRET_KEY is not configured.');
   }
+
+  assertStripeKeyIsolation(secretKey);
 
   if (!stripeClient) {
     stripeClient = new Stripe(secretKey, {

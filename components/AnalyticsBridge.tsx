@@ -7,7 +7,7 @@ import {trackAnalytics} from '@/lib/track-analytics';
 
 const measurementId=process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID||process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID||'G-TN4LEXL6CB';
 const googleAdsId=process.env.NEXT_PUBLIC_GOOGLE_ADS_ID||'';
-const gaEnabled=Boolean(measurementId)&&process.env.NODE_ENV==='production';
+const gaEnabled=Boolean(measurementId)&&process.env.NODE_ENV==='production'&&process.env.NEXT_PUBLIC_AUREON_ENVIRONMENT!=='local-test';
 const gaScriptId='aureon-ga4';
 const deniedConsent={analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'} as const;
 const grantedConsent={analytics_storage:'granted',ad_storage:'granted',ad_user_data:'granted',ad_personalization:'denied'} as const;

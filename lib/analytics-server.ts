@@ -2,6 +2,7 @@ import {createHash} from 'crypto';
 import {FieldValue} from 'firebase-admin/firestore';
 import {adminFirestore} from '@/lib/firebase-admin';
 import {ANALYTICS_EVENTS,type AnalyticsEventName,type TrustedAnalyticsEventName} from '@/lib/analytics-model';
+import { isLocalTestEnvironment } from '@/lib/runtime-safety';
 
 export {ANALYTICS_EVENTS};
 export type AnalyticsEventType=AnalyticsEventName;
@@ -27,7 +28,7 @@ const keyPart=(value:string)=>value.toLowerCase().replace(/[^a-z0-9_-]+/g,'-').r
 const privateMetadataKey=/email|phone|address|full.?name|customer|stripe|payment.?intent|subscription.?id/i;
 const cleanSearch=(value:unknown)=>{const text=clean(value,100);return /@|\+?\d[\d\s().-]{7,}/.test(text)?'[redacted]':text};
 function cleanMetadata(value:unknown){if(!value||typeof value!=='object'||Array.isArray(value))return{};return Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key,item])=>!privateMetadataKey.test(key)&&['string','number','boolean'].includes(typeof item)).slice(0,30).map(([key,item])=>[clean(key,60),typeof item==='string'?clean(item,180):item])) as Record<string,Primitive>}
-type Ga4DeliveryStatus='sent'|'skipped_no_consent'|'skipped_no_client_id'|'not_configured'|'rejected'|'failed'|'duplicate_suppressed';
+type Ga4DeliveryStatus='sent'|'skipped_no_consent'|'skipped_no_client_id'|'skipped_test_environment'|'not_configured'|'rejected'|'failed'|'duplicate_suppressed';
 type Ga4DeliveryResult={attempted:boolean;sent:boolean;status:Ga4DeliveryStatus;httpStatus?:number;reason?:string;measurementId?:string;endpoint?:string;validationHttpStatus?:number;validationMessages?:unknown[];responseBody?:string};
 const shortId=(value:string)=>value.slice(0,12);
 const trustedLog=(message:string,details:Record<string,Primitive>)=>console.info(`[Aureon trusted analytics] ${message}`,details);
@@ -64,6 +65,7 @@ export async function recordAnalyticsEvent(input:ServerAnalyticsEvent,options:{d
 
 async function sendGa4(event:ServerAnalyticsEvent,eventId:string):Promise<Ga4DeliveryResult>{
  const measurementId=process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID||process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID||'',apiSecret=process.env.GA4_API_SECRET||'';
+ if(isLocalTestEnvironment())return{attempted:false,sent:false,status:'skipped_test_environment',reason:'local_test_events_are_not_sent_to_google_analytics'};
  if(!event.analyticsConsent)return{attempted:false,sent:false,status:'skipped_no_consent',reason:'analytics_consent_not_granted'};
  if(!event.ga4ClientId)return{attempted:false,sent:false,status:'skipped_no_client_id',reason:'missing_ga4_client_id'};
  if(!measurementId||!apiSecret)return{attempted:false,sent:false,status:'not_configured',reason:!measurementId?'missing_measurement_id':'missing_api_secret'};

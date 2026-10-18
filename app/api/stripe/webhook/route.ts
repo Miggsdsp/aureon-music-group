@@ -7,6 +7,7 @@ import { confirmMerchandiseReservation, releaseMerchandiseReservation } from '@/
 import { getStripe } from '@/lib/stripe-server';
 import { sendPaidOrderEmails } from '@/lib/purchase-email-fulfilment';
 import {analyticsContextFromStripe,recordTrustedAnalyticsEvent} from '@/lib/analytics-server';
+import { assertWebhookMode } from '@/lib/runtime-safety';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -31,6 +32,7 @@ export async function POST(request:Request){
  const webhookSecret=process.env.STRIPE_WEBHOOK_SECRET;if(!webhookSecret)return NextResponse.json({error:'Webhook secret not configured.'},{status:500});const signature=request.headers.get('stripe-signature');if(!signature)return NextResponse.json({error:'Missing Stripe signature.'},{status:400});
  let event:Stripe.Event;try{event=getStripe().webhooks.constructEvent(await request.text(),signature,webhookSecret);}catch(error){console.error('Invalid Stripe webhook signature:',error);return NextResponse.json({error:'Invalid signature.'},{status:400});}
  try{
+  try{assertWebhookMode(event.livemode);}catch{return NextResponse.json({received:true,ignored:'event_mode_mismatch'});}
   if(event.type==='checkout.session.completed'){const session=event.data.object as Stripe.Checkout.Session;if(session.mode==='payment'&&session.payment_status==='paid')await fulfilPaidCheckout(session);}
   if(event.type==='checkout.session.async_payment_succeeded'){const session=event.data.object as Stripe.Checkout.Session;if(session.mode==='payment')await fulfilPaidCheckout(session);}
   if(event.type==='checkout.session.expired'){const session=event.data.object as Stripe.Checkout.Session;if(session.mode==='payment'){await releaseCheckoutReservation(session,'checkout_expired');await adminFirestore.collection('orders').doc(session.id).set({stripeCheckoutSessionId:session.id,status:'expired',paymentStatus:session.payment_status,updatedAt:FieldValue.serverTimestamp()},{merge:true});}}
