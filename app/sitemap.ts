@@ -6,7 +6,7 @@ import { getControlledGenres } from '@/lib/public-genres';
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticPaths = ['', '/artists', '/music', '/videos', '/news', '/merchandise', '/membership', '/about', '/contact', '/licensing', '/legal', '/terms', '/privacy', '/cookie-policy', '/refund-policy', '/digital-download-policy', '/copyright', '/ai-disclosure', '/discover', '/music-for-content-creators', '/music-for-youtube', '/music-for-podcasts', '/music-for-social-media', '/music-for-commercial-videos'];
+  const staticPaths = ['', '/artists', '/music', '/genres', '/videos', '/news', '/merchandise', '/membership', '/about', '/contact', '/licensing', '/legal', '/terms', '/privacy', '/cookie-policy', '/refund-policy', '/digital-download-policy', '/copyright', '/ai-disclosure', '/discover', '/music-for-content-creators', '/music-for-youtube', '/music-for-podcasts', '/music-for-social-media', '/music-for-commercial-videos'];
   const staticEntries: MetadataRoute.Sitemap = staticPaths.map(path => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: path === '' ? 'daily' : 'weekly',

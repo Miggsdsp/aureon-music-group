@@ -1,0 +1,12 @@
+.page{min-height:100vh;overflow:hidden;background:radial-gradient(ellipse at 50% 8%,rgba(192,145,51,.1),transparent 35%),#050504;color:#f5efdf}
+.hero{position:relative;isolation:isolate;padding:150px 24px 54px;border-bottom:1px solid rgba(217,180,95,.19);background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(4,4,3,.92)),url('/images/aureon-hero-cinematic.svg') center 34%/cover no-repeat}
+.heroInner{width:min(1450px,100%);margin:0 auto}
+.kicker{margin:0;color:#d9b45f;font-size:10px;font-weight:700;letter-spacing:.3em;text-transform:uppercase}
+.hero h1{max-width:1050px;margin:15px 0 0;color:#f7f0e1;font-family:Georgia,'Times New Roman',serif;font-size:clamp(50px,8vw,94px);font-weight:400;letter-spacing:-.06em;line-height:.95}
+.hero h1 span{color:#d9b45f}
+.lede{max-width:690px;margin:18px 0 0;color:rgba(250,246,236,.7);font-size:15px;line-height:1.7}
+.heroLinks{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.heroLinks a{display:inline-flex;min-height:40px;align-items:center;gap:8px;padding:0 14px;border:1px solid rgba(217,180,95,.36);color:#ebd17e;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.heroLinks a:hover{background:rgba(217,180,95,.1);border-color:#d9b45f}
+.status{width:min(1450px,calc(100% - 64px));margin:0 auto;padding:64px 0;color:rgba(250,246,236,.68)}
+@media(max-width:620px){.hero{padding:128px 19px 38px}.hero h1{font-size:clamp(47px,13vw,70px)}.lede{font-size:14px}.heroLinks{flex-direction:column}.heroLinks a{justify-content:center}.status{width:calc(100% - 28px);padding:42px 0}}

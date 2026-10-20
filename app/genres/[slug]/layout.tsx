@@ -35,7 +35,7 @@ export default async function GenreLayout({ children, params }: {
   };
   const breadcrumbs = breadcrumbSchema([
     { name: 'Home', path: '/' },
-    { name: 'Discover', path: '/discover' },
+    { name: 'Genres', path: '/genres' },
     { name, path },
   ]);
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([collectionSchema, breadcrumbs]) }} />{children}</>;

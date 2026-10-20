@@ -20,7 +20,7 @@ export default function MusicPage() {
 
   return <PageShell title="Music" kicker="Catalogue">
     <section className="music-intro"><div><p className="eyebrow">Aureon Catalogue</p><h2>Albums and releases</h2></div><p>Browse every album and single published through the Aureon Control Center.</p></section>
-    <p><Link href="/artists">Explore the artists</Link> · <Link href="/discover">Discover songs and playlists</Link></p>
+    <p><Link href="/artists">Explore the artists</Link> · <Link href="/genres">Browse by genre</Link> · <Link href="/discover">Discover songs and playlists</Link></p>
     {loading ? <div className="store-empty"><h3>Loading music…</h3></div> : <>
       {albums.length > 0 && <section className="album-grid">{albums.map((album) => {
         const cover = getArtwork(album);
