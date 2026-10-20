@@ -7,6 +7,7 @@ import { ArtworkImage } from '@/components/ArtworkImage';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { getArtwork } from '@/lib/get-artwork';
+import { matchesArtist } from '@/lib/public-catalogue';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import styles from './ArtistsPage.module.css';
 
@@ -26,6 +27,7 @@ const text = (value: unknown) => String(value || '').trim();
 
 export default function ArtistsPage() {
   const { items: artists, loading } = usePublishedCollection<ArtistRecord>('artists', [], true);
+  const { items: albums } = usePublishedCollection<PublicRecord & { artistId?: string; artistSlug?: string; artistName?: string }>('albums', [], true);
   const [search, setSearch] = useState('');
   const visibleArtists = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -64,13 +66,16 @@ export default function ArtistsPage() {
           <div className={styles.artistGrid}>
             {visibleArtists.map(artist => {
               const portrait = artist.profileImageUrl || artist.image || artist.featuredImageUrl || artist.coverImageUrl;
-              const image = portrait || artist.logoUrl || getArtwork(artist);
+              const release = albums.find(album => matchesArtist(album, artist));
+              const releaseArtwork = release ? getArtwork(release, '') : '';
+              const image = portrait || releaseArtwork || artist.logoUrl || getArtwork(artist);
+              const hasPortraitArtwork = Boolean(portrait || releaseArtwork);
               const genres = artist.genres?.length ? artist.genres : artist.genre ? [artist.genre] : [];
               const description = text(artist.description || artist.bio);
               return (
                 <Link href={`/artists/${artist.slug}`} className={styles.artistCard} key={artist.id} aria-label={`Explore ${artist.name}`}>
-                  <div className={`${styles.artwork} ${portrait ? styles.portrait : styles.identity}`}>
-                    <ArtworkImage src={image} alt={portrait ? `Portrait of ${artist.name}` : `${artist.name} artist artwork`} fill sizes="(max-width: 680px) 100vw, (max-width: 1050px) 50vw, 33vw" />
+                  <div className={`${styles.artwork} ${hasPortraitArtwork ? styles.portrait : styles.identity}`}>
+                    <ArtworkImage src={image} alt={portrait ? `Portrait of ${artist.name}` : `${artist.name} artwork`} fill sizes="(max-width: 680px) 100vw, (max-width: 1050px) 50vw, 20vw" />
                     <span className={styles.artistLabel}>Aureon artist</span>
                   </div>
                   <div className={styles.cardCopy}>

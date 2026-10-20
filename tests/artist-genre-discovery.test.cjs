@@ -49,7 +49,8 @@ test('genre directory counts distinct published songs in the existing Aureon gen
 test('artist directory prioritises published portraits and links to existing artist and genre routes', () => {
   const page = fs.readFileSync('app/artists/CataloguePageClient.tsx', 'utf8');
   assert.match(page, /artist\.profileImageUrl \|\| artist\.image/);
-  assert.match(page, /artist\.logoUrl \|\| getArtwork\(artist\)/);
+  assert.match(page, /albums\.find\(album => matchesArtist\(album, artist\)\)/);
+  assert.match(page, /portrait \|\| releaseArtwork \|\| artist\.logoUrl/);
   assert.match(page, /href=\{`\/artists\/\$\{artist\.slug\}`\}/);
   assert.match(page, /href="\/genres"/);
   assert.match(page, /Search artists or genres/);

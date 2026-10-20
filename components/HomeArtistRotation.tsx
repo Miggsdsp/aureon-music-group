@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import { getArtwork } from '@/lib/get-artwork';
+import { matchesArtist } from '@/lib/public-catalogue';
 import { ArtworkImage } from '@/components/ArtworkImage';
 import styles from './HomeArtistRotation.module.css';
 
@@ -47,14 +48,9 @@ export function HomeArtistRotation({ albums = [] }: { albums?: Album[] }) {
         {artists.map(artist => {
           const details = artist.details || {};
           const portrait = artist.profileImageUrl || artist.featuredImageUrl || artist.image || details.profileImageUrl || details.featuredImageUrl || artist.media?.profileImageUrl || artist.media?.featuredImageUrl;
-          const identities = [artist.id, artist.slug, artist.name].map(value => String(value || '').trim().toLowerCase());
-          const release = albums.find(album => {
-            const meta = album.details || {};
-            const values = [album.artistId, album.artistSlug, album.artistName, meta.artistId, meta.artistSlug, meta.artistName].map(value => String(value || '').trim().toLowerCase());
-            return values.some(value => value && identities.includes(value));
-          });
-          const releaseArtwork = release ? getArtwork(release) : '';
-          const image = portrait || releaseArtwork || artist.logoUrl || details.logoUrl || artist.coverImageUrl || artist.artworkUrl || '/images/branding/Aureon_Header_Logo.png';
+          const release = albums.find(album => matchesArtist(album, artist));
+          const releaseArtwork = release ? getArtwork(release, '') : '';
+          const image = portrait || releaseArtwork || artist.coverImageUrl || artist.artworkUrl || artist.logoUrl || details.logoUrl || '/images/branding/Aureon_Header_Logo.png';
           const artworkStyle = portrait ? styles.tilePortrait : releaseArtwork ? styles.tileRelease : styles.tileLogo;
           return (
             <Link key={artist.id} className={styles.artistTile} href={`/artists/${artist.slug || artist.id}`} aria-label={`Explore ${artist.name || 'Aureon artist'}`}>

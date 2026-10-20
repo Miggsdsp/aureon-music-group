@@ -21,7 +21,8 @@ test('featured artists use published catalogue records and mount only once', () 
   assert.doesNotMatch(deferred, /HomeArtistRotation/);
   assert.match(artists, /usePublishedCollection<Artist>\('artists'/);
   assert.match(artists, /artist\.profileImageUrl \|\| artist\.featuredImageUrl/);
-  assert.match(artists, /portrait \|\| releaseArtwork \|\| artist\.logoUrl/);
+  assert.match(artists, /albums\.find\(album => matchesArtist\(album, artist\)\)/);
+  assert.match(artists, /portrait \|\| releaseArtwork \|\| artist\.coverImageUrl \|\| artist\.artworkUrl \|\| artist\.logoUrl/);
 });
 
 test('homepage curated sections do not repeat the infinite discovery feed on the root route', () => {
