@@ -6,9 +6,9 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 test('homepage explains Aureon and exposes listening before membership', () => {
   const hero = read('components/CinematicHero.tsx');
-  assert.match(hero, /Discover original releases from independent artists/);
-  assert.match(hero, /Preview songs, explore albums, and join Listener to hear the full catalogue/);
-  assert.match(hero, /href="\/discover">START LISTENING/);
+  assert.match(hero, /Music for/);
+  assert.match(hero, /ORIGINAL ARTISTS\. TIMELESS MUSIC\./);
+  assert.match(hero, /href="\/discover">▶ EXPLORE MUSIC/);
   assert.match(hero, /href="\/membership">EXPLORE MEMBERSHIP/);
   assert.doesNotMatch(hero, /across six artists/);
   assert.match(hero, /className=\{`hero approved-hero/);
