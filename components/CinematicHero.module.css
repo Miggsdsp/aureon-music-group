@@ -5,8 +5,8 @@
   place-items: center;
   isolation: isolate;
   width: 100%;
-  height: clamp(500px, 70svh, 760px);
-  min-height: 500px;
+  height: clamp(470px, 60svh, 690px);
+  min-height: 470px;
   overflow: hidden;
   color: #f8f2e7;
   background: #070b10;
@@ -55,12 +55,12 @@
   z-index: 2;
   top: 37%;
   left: 50%;
-  width: min(90%, 920px);
+  width: min(94%, 1050px);
   margin: 0;
   transform: translate(-50%, -50%);
   color: #fff8ea;
-  font: 400 clamp(32px, 4.3vw, 64px)/1.15 Georgia, 'Times New Roman', serif;
-  letter-spacing: clamp(.08em, .2em, .2em);
+  font: 400 clamp(34px, 3.4vw, 52px)/1.12 Georgia, 'Times New Roman', serif;
+  letter-spacing: .08em;
   text-align: center;
   text-shadow: 0 3px 26px rgba(0, 0, 0, .9), 0 0 34px rgba(235, 178, 77, .22);
   text-wrap: balance;
@@ -117,7 +117,7 @@
 
 @media (max-width: 900px) {
   .heroFix { height: clamp(490px, 66svh, 680px); }
-  .heroHeadline { top: 37%; width: min(92%, 720px); font-size: clamp(32px, 6vw, 50px); letter-spacing: .12em; }
+  .heroHeadline { top: 37%; width: min(94%, 820px); font-size: clamp(32px, 5.2vw, 46px); letter-spacing: .07em; }
   .heroOverlay { top: 67%; }
 }
 
@@ -125,7 +125,7 @@
   .heroFix { height: min(690px, 74svh); min-height: 500px; }
   .videoLoadingBackground { background-position: 53% center; }
   .heroVideo { object-position: 53% center; }
-  .heroHeadline { top: 38%; width: calc(100% - 34px); font-size: clamp(27px, 8vw, 39px); letter-spacing: .095em; line-height: 1.18; }
+  .heroHeadline { top: 38%; width: calc(100% - 34px); font-size: clamp(27px, 7.8vw, 36px); letter-spacing: .055em; line-height: 1.14; }
   .heroOverlay { top: 68%; width: calc(100% - 36px); }
   .slogan { margin-bottom: 17px; font-size: 10px; letter-spacing: .2em; }
   .heroActions { width: 100%; flex-direction: column; gap: 9px; }
