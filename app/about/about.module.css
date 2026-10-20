@@ -1,0 +1,46 @@
+.page{min-height:100vh;overflow:hidden;background:radial-gradient(ellipse at 50% 9%,rgba(192,145,51,.075),transparent 32%),#050504;color:#f5efdf}
+.hero{position:relative;isolation:isolate;display:flex;min-height:390px;align-items:center;justify-content:center;padding:62px 24px 54px;text-align:center;background:linear-gradient(180deg,rgba(3,3,3,.42),rgba(5,5,4,.74)),url('/images/aureon-eclipse-ocean-poster.webp') center 46%/cover no-repeat;border-bottom:1px solid rgba(217,180,95,.2)}
+.hero:before{position:absolute;z-index:-1;inset:0;content:"";background:linear-gradient(90deg,rgba(3,3,3,.76),rgba(3,3,3,.2) 50%,rgba(3,3,3,.76)),linear-gradient(180deg,rgba(3,3,3,.16),rgba(3,3,3,.55))}
+.hero:after{position:absolute;z-index:-1;inset:auto 0 0;height:42%;content:"";background:linear-gradient(180deg,transparent,#050504)}
+.heroCopy{width:min(860px,100%);margin:0 auto}
+.eyebrow{margin:0;color:#d9b45f;font-size:10px;font-weight:700;letter-spacing:.28em;line-height:1.5;text-transform:uppercase}
+.hero h1{max-width:850px;margin:14px auto 0;color:#f7f0e1;font-family:Georgia,'Times New Roman',serif;font-size:clamp(40px,5.1vw,68px);font-weight:400;letter-spacing:-.04em;line-height:1.02;text-wrap:balance;text-shadow:0 5px 25px rgba(0,0,0,.42)}
+.heroCopy>p:not(.eyebrow){max-width:720px;margin:18px auto 0;color:rgba(250,246,236,.78);font-size:clamp(15px,1.45vw,18px);line-height:1.65}
+.heroActions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:25px}
+.primaryButton,.secondaryButton{display:inline-flex;min-height:44px;align-items:center;justify-content:center;gap:12px;padding:0 19px;font-size:9px;font-weight:700;letter-spacing:.15em;text-align:center;text-transform:uppercase;transition:background .2s ease,border-color .2s ease,color .2s ease,transform .2s ease}
+.primaryButton{border:1px solid #d9b45f;background:linear-gradient(110deg,#f0d47e,#bd8b29);color:#080705;box-shadow:0 8px 22px rgba(0,0,0,.24),inset 0 1px rgba(255,250,222,.52)}
+.primaryButton:hover,.secondaryButton:hover{transform:translateY(-2px)}
+.primaryButton:hover{background:#f6e2a2}
+.secondaryButton{border:1px solid rgba(217,180,95,.48);background:rgba(5,5,4,.38);color:#f1e8d3;backdrop-filter:blur(8px)}
+.secondaryButton:hover{border-color:#d9b45f;background:rgba(217,180,95,.1)}
+.storySection,.journeySection,.pillarsSection,.missionSection,.finalCta{width:min(1320px,calc(100% - 64px));margin:0 auto}
+.storySection{display:grid;grid-template-columns:minmax(190px,.62fr) minmax(0,1.38fr);gap:clamp(32px,6vw,88px);padding:60px 0;border-bottom:1px solid rgba(217,180,95,.14)}
+.sectionLabel{padding-top:7px}
+.sectionLabel>span{display:block;max-width:280px;margin-top:9px;color:rgba(255,255,255,.55);font-size:13px;line-height:1.55}
+.storyCopy h2,.sectionHeading h2,.finalCta h2{margin:0;color:#f4eddd;font-family:Georgia,'Times New Roman',serif;font-size:clamp(28px,3.1vw,42px);font-weight:400;letter-spacing:-.035em;line-height:1.12;text-wrap:balance}
+.storyCopy p:not(:first-child){max-width:780px;margin:15px 0 0;color:rgba(249,245,235,.68);font-size:14px;line-height:1.75}
+.missionSection{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:20px 0 64px}
+.missionCard{position:relative;isolation:isolate;min-width:0;padding:25px 26px 27px;overflow:hidden;border:1px solid rgba(217,180,95,.25);background:radial-gradient(ellipse at 0 0,rgba(217,180,95,.1),transparent 55%),linear-gradient(150deg,rgba(255,255,255,.035),rgba(0,0,0,.36));box-shadow:0 14px 34px rgba(0,0,0,.2),inset 0 1px rgba(255,243,206,.05)}
+.missionCard:after{position:absolute;z-index:-1;right:-38px;bottom:-65px;width:180px;height:140px;content:"";border-radius:50%;background:radial-gradient(ellipse,rgba(217,180,95,.09),transparent 70%);pointer-events:none}
+.missionCard svg{margin-bottom:17px;color:#d9b45f}
+.missionCard h2{margin:8px 0 0;color:#f4eddd;font-family:Georgia,'Times New Roman',serif;font-size:clamp(22px,2.25vw,30px);font-weight:400;letter-spacing:-.025em;line-height:1.16;text-wrap:balance}
+.missionCard p:not(.eyebrow){margin:12px 0 0;color:rgba(249,245,235,.67);font-size:13px;line-height:1.7}
+.journeySection,.pillarsSection{padding:62px 0;border-top:1px solid rgba(217,180,95,.14)}
+.sectionHeading{max-width:780px;margin-bottom:25px}
+.sectionHeading h2{margin-top:8px}
+.sectionHeading>p:last-child{max-width:700px;margin:13px 0 0;color:rgba(249,245,235,.66);font-size:13px;line-height:1.7}
+.journeyGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.journeyGrid article,.pillarsGrid article{position:relative;min-width:0;padding:19px 18px 20px;border:1px solid rgba(217,180,95,.2);background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(0,0,0,.3));box-shadow:0 12px 25px rgba(0,0,0,.18),inset 0 1px rgba(255,240,195,.04)}
+.journeyGrid article>span{color:#d9b45f;font-size:10px;font-weight:700;letter-spacing:.18em}
+.journeyGrid h3,.pillarsGrid h3{margin:20px 0 8px;color:#f3e8ce;font-family:Georgia,'Times New Roman',serif;font-size:19px;font-weight:400;letter-spacing:-.02em;line-height:1.18}
+.journeyGrid article p,.pillarsGrid article p{margin:0;color:rgba(249,245,235,.62);font-size:12px;line-height:1.65}
+.pillarsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.pillarsGrid article{min-height:185px}
+.pillarsGrid svg{color:#d9b45f}
+.pillarsGrid h3{margin-top:18px;font-size:18px}
+.finalCta{display:flex;align-items:center;justify-content:space-between;gap:30px;margin-bottom:64px;padding:26px 28px;border:1px solid rgba(217,180,95,.28);background:radial-gradient(ellipse at 82% 50%,rgba(217,180,95,.11),transparent 35%),linear-gradient(130deg,rgba(255,255,255,.035),rgba(0,0,0,.38));box-shadow:0 18px 40px rgba(0,0,0,.22)}
+.finalCta h2{max-width:700px;margin-top:7px;font-size:clamp(23px,2.6vw,34px)}
+.finalCta>div:last-child{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;flex:0 0 auto}
+@media(max-width:900px){.storySection,.journeySection,.pillarsSection,.missionSection,.finalCta{width:calc(100% - 48px)}.storySection{grid-template-columns:1fr;gap:14px;padding:45px 0}.journeyGrid,.pillarsGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.finalCta{align-items:flex-start;flex-direction:column}.finalCta>div:last-child{justify-content:flex-start}}
+@media(max-width:600px){.hero{min-height:350px;padding:44px 20px 40px;background-position:center}.hero h1{font-size:clamp(37px,10vw,50px)}.heroCopy>p:not(.eyebrow){font-size:14px}.heroActions{width:min(100%,380px);margin:21px auto 0}.primaryButton,.secondaryButton{min-height:43px;flex:1 1 150px;padding:0 12px;font-size:8px}.storySection,.journeySection,.pillarsSection,.missionSection,.finalCta{width:calc(100% - 32px)}.storySection{padding:35px 0}.storyCopy h2,.sectionHeading h2{font-size:29px}.missionSection{grid-template-columns:1fr;gap:11px;padding:12px 0 40px}.missionCard{padding:21px}.journeySection,.pillarsSection{padding:40px 0}.journeyGrid,.pillarsGrid{grid-template-columns:1fr;gap:9px}.journeyGrid article,.pillarsGrid article{padding:16px}.journeyGrid h3{margin-top:14px}.pillarsGrid article{min-height:0}.finalCta{margin-bottom:42px;padding:21px}.finalCta>div:last-child{width:100%}.finalCta .primaryButton,.finalCta .secondaryButton{flex:1 1 100%}}
+@media(prefers-reduced-motion:reduce){.primaryButton,.secondaryButton{transition:none}.primaryButton:hover,.secondaryButton:hover{transform:none}}

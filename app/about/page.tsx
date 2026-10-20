@@ -3,6 +3,7 @@ import { Disc3, Globe2, Headphones, ShieldCheck, Sparkles, Users } from 'lucide-
 import { Header } from '@/components/Header';
 import { ServerFooter } from '@/components/ServerFooter';
 import { EditablePageText } from '@/components/EditablePageText';
+import styles from './about.module.css';
 
 const pillars = [
   {
@@ -40,17 +41,17 @@ const services = [
 
 export default function AboutPage() {
   return (
-    <main className="page-shell about-page">
+    <main className={styles.page}>
       <Header />
 
-      <section className="about-hero about-hero-clean">
-        <div className="about-hero-copy">
+      <section className={styles.hero}>
+        <div className={styles.heroCopy}>
           <EditablePageText
             slug="about"
             field="companyKicker"
             fallback="About Aureon Music Group"
             as="p"
-            className="eyebrow"
+            className={styles.eyebrow}
           />
           <EditablePageText
             slug="about"
@@ -64,19 +65,19 @@ export default function AboutPage() {
             fallback="Aureon Music Group is a premium independent music company dedicated to discovering, developing, producing and distributing original music for audiences around the world."
             as="p"
           />
-          <div className="about-hero-actions">
-            <Link href="/music" className="primary-button">Explore the music →</Link>
-            <Link href="/membership" className="ghost-button">Discover membership →</Link>
+          <div className={styles.heroActions}>
+            <Link href="/music" className={styles.primaryButton}>Explore the music <span aria-hidden="true">→</span></Link>
+            <Link href="/membership" className={styles.secondaryButton}>Discover membership <span aria-hidden="true">→</span></Link>
           </div>
         </div>
       </section>
 
-      <section className="about-story-section">
-        <div className="about-section-label">
-          <p className="eyebrow">Who We Are</p>
+      <section className={styles.storySection}>
+        <div className={styles.sectionLabel}>
+          <p className={styles.eyebrow}>Who We Are</p>
           <span>Music, technology and creativity working together.</span>
         </div>
-        <div className="about-story-copy">
+        <div className={styles.storyCopy}>
           <EditablePageText
             slug="about"
             field="companyBeliefTitle"
@@ -98,10 +99,10 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-mission-section">
-        <div className="about-mission-card">
+      <section className={styles.missionSection}>
+        <div className={styles.missionCard}>
           <Headphones size={34} />
-          <p className="eyebrow">Our Mission</p>
+          <p className={styles.eyebrow}>Our Mission</p>
           <EditablePageText
             slug="about"
             field="companyMissionTitle"
@@ -115,9 +116,9 @@ export default function AboutPage() {
             as="p"
           />
         </div>
-        <div className="about-mission-card">
+        <div className={styles.missionCard}>
           <Globe2 size={34} />
-          <p className="eyebrow">Our Vision</p>
+          <p className={styles.eyebrow}>Our Vision</p>
           <EditablePageText
             slug="about"
             field="companyVisionTitle"
@@ -133,13 +134,13 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-journey-section">
-        <div className="about-section-heading">
-          <p className="eyebrow">What We Do</p>
+      <section className={styles.journeySection}>
+        <div className={styles.sectionHeading}>
+          <p className={styles.eyebrow}>What We Do</p>
           <h2>A complete modern music company</h2>
           <p>Aureon Music Group brings together every stage of the music journey under one premium platform. Every release is professionally developed with a focus on originality, quality and long-term commercial value.</p>
         </div>
-        <div className="about-journey-grid">
+        <div className={styles.journeyGrid}>
           {services.map(([number, title, text]) => (
             <article key={number}>
               <span>{number}</span>
@@ -150,13 +151,13 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-pillars-section">
-        <div className="about-section-heading">
-          <p className="eyebrow">Our Philosophy</p>
+      <section className={styles.pillarsSection}>
+        <div className={styles.sectionHeading}>
+          <p className={styles.eyebrow}>Our Philosophy</p>
           <h2>Great music is not created by following trends.</h2>
           <p>It is created by authentic artists telling meaningful stories through unforgettable songs. Everything we release is guided by the principles below.</p>
         </div>
-        <div className="about-pillars-grid">
+        <div className={styles.pillarsGrid}>
           {pillars.map(({ icon: Icon, title, text }) => (
             <article key={title}>
               <Icon size={28} />
@@ -167,12 +168,12 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-story-section">
-        <div className="about-section-label">
-          <p className="eyebrow">Our Platform</p>
+      <section className={styles.storySection}>
+        <div className={styles.sectionLabel}>
+          <p className={styles.eyebrow}>Our Platform</p>
           <span>More than a music label.</span>
         </div>
-        <div className="about-story-copy">
+        <div className={styles.storyCopy}>
           <EditablePageText
             slug="about"
             field="platformTitle"
@@ -194,10 +195,10 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-mission-section">
-        <div className="about-mission-card">
+      <section className={styles.missionSection}>
+        <div className={styles.missionCard}>
           <ShieldCheck size={34} />
-          <p className="eyebrow">Quality Without Compromise</p>
+          <p className={styles.eyebrow}>Quality Without Compromise</p>
           <EditablePageText
             slug="about"
             field="qualityTitle"
@@ -211,9 +212,9 @@ export default function AboutPage() {
             as="p"
           />
         </div>
-        <div className="about-mission-card">
+        <div className={styles.missionCard}>
           <Sparkles size={34} />
-          <p className="eyebrow">The Future of Aureon</p>
+          <p className={styles.eyebrow}>The Future of Aureon</p>
           <EditablePageText
             slug="about"
             field="futureTitle"
@@ -229,9 +230,9 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-final-cta">
+      <section className={styles.finalCta}>
         <div>
-          <p className="eyebrow">Aureon Music Group</p>
+          <p className={styles.eyebrow}>Aureon Music Group</p>
           <EditablePageText
             slug="about"
             field="companyClosing"
@@ -240,8 +241,8 @@ export default function AboutPage() {
           />
         </div>
         <div>
-          <Link href="/music" className="primary-button">Explore the catalogue →</Link>
-          <Link href="/contact" className="ghost-button">Contact Aureon →</Link>
+          <Link href="/music" className={styles.primaryButton}>Explore the catalogue <span aria-hidden="true">→</span></Link>
+          <Link href="/contact" className={styles.secondaryButton}>Contact Aureon <span aria-hidden="true">→</span></Link>
         </div>
       </section>
 
