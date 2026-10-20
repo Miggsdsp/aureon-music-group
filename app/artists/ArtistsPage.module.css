@@ -20,16 +20,20 @@
 .search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#f8f3e8;font:inherit;font-size:13px}
 .search input::placeholder{color:rgba(250,246,236,.46)}
 .artistGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
-.artistCard{position:relative;display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid rgba(217,180,95,.28);background:linear-gradient(150deg,rgba(217,180,95,.08),#080807 62%);transition:transform .28s ease,border-color .28s ease,box-shadow .28s ease}
-.artistCard:hover{transform:translateY(-5px);border-color:rgba(232,198,112,.78);box-shadow:0 24px 60px rgba(0,0,0,.4),0 0 32px rgba(217,180,95,.08)}
-.artwork{position:relative;display:block;aspect-ratio:1.14/1;overflow:hidden;background:radial-gradient(ellipse at 50% 35%,rgba(217,180,95,.15),transparent 65%),#11100d}
-.artwork:after{position:absolute;inset:30% 0 0;content:"";background:linear-gradient(180deg,transparent,rgba(5,5,4,.85));pointer-events:none}
-.artwork img{object-fit:cover;transition:transform .65s cubic-bezier(.2,.7,.2,1)}
-.artistCard:hover .artwork img{transform:scale(1.045)}
+.artistCard{position:relative;isolation:isolate;display:flex;min-width:0;flex-direction:column;overflow:visible;perspective:1250px;transform-style:preserve-3d;border:0;border-radius:3px;background:transparent;transition:transform .42s cubic-bezier(.2,.72,.2,1),filter .42s ease}
+.artistCard:before{position:absolute;z-index:-1;inset:0 0 -8px;content:"";transform:translate3d(0,8px,-18px);border:1px solid rgba(226,190,101,.72);border-radius:3px;background:linear-gradient(145deg,rgba(205,163,70,.22),rgba(30,23,12,.92) 18%,#090908 65%);box-shadow:0 28px 44px rgba(0,0,0,.5),0 9px 18px rgba(0,0,0,.36),inset 0 1px rgba(255,235,176,.64),inset 2px 0 0 rgba(243,208,130,.2)}
+.artistCard:after{position:absolute;z-index:-1;right:2px;bottom:-7px;left:2px;height:11px;content:"";transform:translateZ(-8px) rotateX(-9deg);transform-origin:top;border:1px solid rgba(194,151,61,.55);border-top:0;background:linear-gradient(180deg,#76571d,#21190b 58%,#090908);box-shadow:0 12px 18px rgba(0,0,0,.3)}
+.artistCard:hover{transform:translate3d(0,-8px,0) rotateX(1deg) rotateY(-.7deg);filter:brightness(1.07)}
+.artistCard:focus-visible{outline:2px solid #f0d179;outline-offset:7px}
+.artwork{position:relative;z-index:1;display:block;aspect-ratio:1.14/1;overflow:hidden;transform:translateZ(13px);border:1px solid rgba(246,214,137,.72);border-radius:3px 8px 2px 2px;background:radial-gradient(ellipse at 50% 35%,rgba(217,180,95,.15),transparent 65%),#11100d;box-shadow:0 15px 26px rgba(0,0,0,.45),0 2px 0 rgba(255,230,167,.42),inset 0 1px rgba(255,244,210,.55),inset 0 0 0 4px rgba(8,7,5,.25)}
+.artwork:after{position:absolute;inset:0;content:"";background:linear-gradient(118deg,rgba(255,247,212,.24),transparent 15% 64%,rgba(240,203,123,.07) 76%,transparent 88%),linear-gradient(180deg,rgba(255,232,175,.13),transparent 12%);box-shadow:inset 0 0 25px rgba(0,0,0,.27);pointer-events:none}
+.artwork:before{position:absolute;z-index:1;inset:30% 0 0;content:"";background:linear-gradient(180deg,transparent,rgba(5,5,4,.85));pointer-events:none}
+.artwork img{object-fit:cover;transition:transform .7s cubic-bezier(.2,.7,.2,1),filter .7s ease}
+.artistCard:hover .artwork img{transform:scale(1.06);filter:saturate(1.06) contrast(1.03)}
 .portrait img{object-position:center 28%}
 .identity img{object-fit:contain;padding:clamp(20px,4vw,56px)}
 .artistLabel{position:absolute;z-index:2;left:17px;top:17px;padding:7px 9px;border:1px solid rgba(217,180,95,.56);background:rgba(4,4,3,.62);color:#efd47e;font-size:8px;font-weight:700;letter-spacing:.17em;text-transform:uppercase;backdrop-filter:blur(8px)}
-.cardCopy{display:flex;flex:1;flex-direction:column;align-items:flex-start;padding:20px 22px 22px}
+.cardCopy{position:relative;z-index:2;display:flex;flex:1;flex-direction:column;align-items:flex-start;padding:20px 22px 22px;transform:translateZ(9px)}
 .artistTitleRow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;color:#e7c76f}
 .artistTitleRow h3{margin:0;color:#f6eedc;font-family:Georgia,'Times New Roman',serif;font-size:clamp(24px,2.6vw,35px);font-weight:400;letter-spacing:-.025em}
 .artistTitleRow svg{flex:0 0 auto;transition:transform .2s ease}
@@ -42,5 +46,6 @@
 .empty p{margin:10px auto 0;color:rgba(249,245,235,.62)}
 .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:1000px){.hero{min-height:560px}.artistGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.catalogue{width:min(100% - 40px,900px)}}
-@media(max-width:680px){.hero{min-height:510px;padding:130px 20px 70px}.hero h1{font-size:clamp(50px,13vw,82px)}.lede{max-width:520px;font-size:15px}.heroActions{width:min(100%,400px);flex-direction:column}.primaryAction,.secondaryAction{width:100%;box-sizing:border-box}.catalogue{width:calc(100% - 28px);padding:58px 0 78px}.sectionHeading{align-items:stretch;flex-direction:column;gap:20px}.sectionHeading h2{font-size:clamp(38px,10vw,54px)}.search{width:100%;box-sizing:border-box}.artistGrid{grid-template-columns:1fr;gap:14px}.artwork{aspect-ratio:1.25/1}.cardCopy{padding:18px 18px 20px}.artistTitleRow h3{font-size:29px}}
-@media(prefers-reduced-motion:reduce){.artistCard,.artwork img,.primaryAction,.secondaryAction,.artistTitleRow svg{transition:none}}
+@media(max-width:680px){.hero{min-height:510px;padding:130px 20px 70px}.hero h1{font-size:clamp(50px,13vw,82px)}.lede{max-width:520px;font-size:15px}.heroActions{width:min(100%,400px);flex-direction:column}.primaryAction,.secondaryAction{width:100%;box-sizing:border-box}.catalogue{width:calc(100% - 28px);padding:58px 0 78px}.sectionHeading{align-items:stretch;flex-direction:column;gap:20px}.sectionHeading h2{font-size:clamp(38px,10vw,54px)}.search{width:100%;box-sizing:border-box}.artistGrid{grid-template-columns:1fr;gap:19px}.artwork{aspect-ratio:1.25/1}.cardCopy{padding:18px 18px 20px}.artistTitleRow h3{font-size:29px}}
+@media(hover:hover) and (pointer:fine){.artistCard:hover:before{box-shadow:0 36px 52px rgba(0,0,0,.58),0 12px 25px rgba(0,0,0,.4),0 0 32px rgba(215,176,82,.16),inset 0 1px rgba(255,235,176,.72),inset 2px 0 0 rgba(243,208,130,.24)}}
+@media(prefers-reduced-motion:reduce){.artistCard,.artwork img,.primaryAction,.secondaryAction,.artistTitleRow svg{transition:none}.artistCard:hover{transform:none;filter:none}}

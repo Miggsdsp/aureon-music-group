@@ -6,15 +6,22 @@
 .sort{display:flex;align-items:center;gap:10px;color:rgba(249,245,235,.62);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
 .sort select{min-height:42px;padding:0 34px 0 12px;border:1px solid rgba(217,180,95,.32);background:#0c0b09;color:#f4eddd;font:inherit;letter-spacing:normal;text-transform:none}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 20px}
-.folderCard{position:relative;display:block;min-width:0;margin-top:10px;padding:0 0 17px;border:1px solid rgba(217,180,95,.32);background:linear-gradient(145deg,rgba(217,180,95,.09),rgba(8,8,7,.98) 42%);transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
-.folderCard:hover{transform:translateY(-4px);border-color:rgba(237,202,111,.8);box-shadow:0 22px 54px rgba(0,0,0,.36),0 0 26px rgba(217,180,95,.07)}
-.folderTab{position:absolute;left:0;top:-11px;width:39%;height:11px;border:1px solid rgba(217,180,95,.5);border-bottom:0;background:linear-gradient(180deg,#392d15,#17130b);clip-path:polygon(0 0,78% 0,100% 100%,0 100%)}
-.artwork{position:relative;display:block;aspect-ratio:1.52/1;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,rgba(217,180,95,.18),transparent 65%),#100f0c}
-.artwork img{object-fit:cover;transition:transform .55s cubic-bezier(.2,.7,.2,1)}
-.folderCard:hover .artwork img{transform:scale(1.045)}
-.shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(3,3,3,.8),rgba(3,3,3,.36) 57%,rgba(3,3,3,.1)),linear-gradient(0deg,rgba(3,3,3,.82),transparent 70%)}
+.folderCard{position:relative;isolation:isolate;display:block;min-width:0;margin-top:20px;padding:0 0 19px;perspective:1150px;transform-style:preserve-3d;background:none;transition:transform .42s cubic-bezier(.2,.72,.2,1),filter .42s ease}
+.folderCard:before{position:absolute;z-index:-2;inset:0 0 12px;content:"";transform:translate3d(0,8px,-17px);border:1px solid rgba(218,178,87,.68);border-radius:3px 14px 4px 4px;background:linear-gradient(145deg,rgba(213,172,75,.16),rgba(33,25,12,.96) 22%,#090908 64%);box-shadow:0 27px 38px rgba(0,0,0,.48),0 9px 16px rgba(0,0,0,.34),inset 0 1px rgba(255,239,180,.48),inset 2px 0 0 rgba(237,199,111,.16)}
+.folderCard:after{position:absolute;z-index:-1;right:2px;bottom:1px;left:2px;height:15px;content:"";transform:translateZ(-7px) rotateX(-8deg);transform-origin:top;background:linear-gradient(180deg,#b78b37 0%,#5f471d 17%,#1c160b 43%,#090908 100%);box-shadow:0 12px 16px rgba(0,0,0,.32)}
+.folderCard:hover{transform:translate3d(0,-7px,0) rotateX(1.2deg) rotateY(-.8deg);filter:brightness(1.08)}
+.folderCard:focus-visible{outline:2px solid #f0d179;outline-offset:7px}
+.folderTab{position:absolute;z-index:-1;left:8px;top:-18px;width:45%;height:24px;transform:translateZ(-5px);border:1px solid rgba(235,198,108,.82);border-bottom:0;border-radius:5px 13px 0 0;background:linear-gradient(180deg,#8a6729 0%,#493619 16%,#20180b 62%,#171107 100%);box-shadow:inset 0 1px rgba(255,241,191,.82),inset 0 4px 8px rgba(255,221,132,.12),4px -3px 9px rgba(0,0,0,.42)}
+.folderTab:before{position:absolute;z-index:-1;inset:-7px 8px 7px 24%;content:"";transform:translateZ(-5px);border:1px solid rgba(220,177,82,.58);border-bottom:0;border-radius:5px 12px 0 0;background:linear-gradient(180deg,#57421e,#21190c 58%,#171107);box-shadow:inset 0 1px rgba(255,234,165,.38)}
+.folderTab:after{position:absolute;right:7px;bottom:0;left:7px;height:1px;content:"";background:linear-gradient(90deg,transparent,rgba(255,232,164,.74),transparent)}
+.artwork{position:relative;z-index:1;display:block;aspect-ratio:1.52/1;overflow:hidden;transform:translateZ(12px);border:1px solid rgba(248,216,137,.78);border-radius:2px 10px 3px 3px;background:radial-gradient(ellipse at 50% 30%,rgba(217,180,95,.18),transparent 65%),#100f0c;box-shadow:0 15px 25px rgba(0,0,0,.46),0 2px 0 rgba(255,228,160,.42),inset 0 1px rgba(255,245,211,.54),inset 0 0 0 4px rgba(9,8,6,.24)}
+.artwork:before{position:absolute;z-index:2;inset:0;content:"";pointer-events:none;background:linear-gradient(118deg,rgba(255,249,219,.27),transparent 14% 57%,rgba(249,209,118,.08) 71%,transparent 82%),linear-gradient(180deg,rgba(255,229,164,.16),transparent 13%);box-shadow:inset 0 0 22px rgba(0,0,0,.28)}
+.artwork img{object-fit:cover;transition:transform .65s cubic-bezier(.2,.7,.2,1),filter .65s ease}
+.folderCard:hover .artwork img{transform:scale(1.055);filter:saturate(1.06) contrast(1.03)}
+.shade{position:absolute;z-index:3;inset:0;background:linear-gradient(90deg,rgba(3,3,3,.72),rgba(3,3,3,.3) 57%,rgba(3,3,3,.08)),linear-gradient(0deg,rgba(3,3,3,.83),transparent 70%);transition:background .35s ease}
+.folderCard:hover .shade{background:linear-gradient(90deg,rgba(3,3,3,.62),rgba(3,3,3,.24) 57%,rgba(3,3,3,.04)),linear-gradient(0deg,rgba(3,3,3,.78),transparent 70%)}
 .artworkFallback{position:absolute;inset:0;display:grid;place-items:center;color:rgba(217,180,95,.65);background:radial-gradient(ellipse,rgba(217,180,95,.14),transparent 66%),#100f0c}
-.cardCopy{position:absolute;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:clamp(17px,2.2vw,27px);color:#f7f0e1}
+.cardCopy{position:absolute;z-index:4;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:clamp(17px,2.2vw,27px);transform:translateZ(16px);color:#f7f0e1}
 .eyebrow{color:#dfbd68;font-size:8px;font-weight:700;letter-spacing:.23em;text-transform:uppercase}
 .cardCopy h2{margin:7px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:clamp(27px,3vw,43px);font-weight:400;letter-spacing:-.035em;line-height:1}
 .cardCopy p{margin:8px 0 0;color:rgba(250,246,236,.72);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
@@ -26,5 +33,6 @@
 .empty p{margin:10px 0 0;color:rgba(249,245,235,.62)}
 .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:980px){.directory{width:min(100% - 40px,820px)}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 16px}}
-@media(max-width:620px){.directory{width:calc(100% - 28px);padding:25px 0 68px}.toolbar{align-items:stretch;flex-direction:column}.search{width:auto}.sort{justify-content:space-between}.sort select{flex:1}.grid{grid-template-columns:1fr;gap:21px}.folderCard{margin-top:9px}.artwork{aspect-ratio:1.55/1}.cardCopy{padding:20px}.cardCopy h2{font-size:37px}.description{min-height:0;margin:12px 16px 0}.countNote{text-align:left}}
-@media(prefers-reduced-motion:reduce){.folderCard,.artwork img{transition:none}}
+@media(max-width:620px){.directory{width:calc(100% - 28px);padding:25px 0 68px}.toolbar{align-items:stretch;flex-direction:column}.search{width:auto}.sort{justify-content:space-between}.sort select{flex:1}.grid{grid-template-columns:1fr;gap:23px}.folderCard{margin-top:18px}.artwork{aspect-ratio:1.55/1}.cardCopy{padding:20px}.cardCopy h2{font-size:37px}.description{min-height:0;margin:12px 16px 0}.countNote{text-align:left}}
+@media(hover:hover) and (pointer:fine){.folderCard:hover:before{box-shadow:0 35px 48px rgba(0,0,0,.56),0 12px 24px rgba(0,0,0,.4),0 0 32px rgba(215,176,82,.17),inset 0 1px rgba(255,239,180,.62),inset 2px 0 0 rgba(237,199,111,.2)}}
+@media(prefers-reduced-motion:reduce){.folderCard,.artwork img,.shade{transition:none}.folderCard:hover{transform:none;filter:none}}
