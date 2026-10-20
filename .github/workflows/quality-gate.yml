@@ -31,6 +31,8 @@ jobs:
           cache: npm
       - name: Install exact dependencies
         run: npm ci
+      - name: Automated tests
+        run: npm test
       - name: TypeScript check
         run: npx tsc --noEmit
       - name: Production build
