@@ -1,6 +1,8 @@
 import { Header } from '@/components/Header';
 import { CinematicHero } from '@/components/CinematicHero';
 import { DeferredHomeFeaturedContent } from '@/components/DeferredHomeFeaturedContent';
+import { HomeArtistRotation } from '@/components/HomeArtistRotation';
+import { HomeMembershipCta } from '@/components/HomeMembershipCta';
 import { PublicCatalogueProvider } from '@/components/catalogue/PublicCatalogueProvider';
 import { ContinueListening } from '@/components/discovery/ContinueListening';
 import { PersonalisedHome } from '@/components/discovery/PersonalisedHome';
@@ -35,11 +37,13 @@ export default async function Home() {
       <main>
         <Header />
         <CinematicHero />
+        <HomeArtistRotation />
         <ContinueListening />
         <PersonalisedHome />
         <TrendingSongs compact />
         <NewReleases compact showFilters={false} limit={8} />
         <RecommendedPlaylists compact />
+        <HomeMembershipCta />
         <DeferredHomeFeaturedContent />
         <CatalogueTrustSections initialCounts={catalogueCounts} />
       </main>
