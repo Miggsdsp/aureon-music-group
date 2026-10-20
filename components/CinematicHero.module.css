@@ -16,3 +16,12 @@
 @media(max-width:900px){.heroFix{height:calc(100svh - 88px)!important;min-height:620px!important}.heroVideo{object-position:center center}.heroOverlay{top:45%;width:90vw}.heroLogo{width:min(82vw,620px)}.slogan{margin:clamp(-58px,-7vw,-32px) 0 9px;font-size:clamp(.62rem,2.1vw,.9rem);letter-spacing:clamp(.2em,.8vw,.42em);white-space:normal;line-height:1.4}.platformIntro{max-width:620px}.discoverButton,.accountButton{min-height:48px;font-size:.72rem}}
 @media(max-width:620px){.heroFix{height:calc(100svh - 76px)!important;min-height:680px!important}.heroOverlay{top:46%;width:92vw}.heroLogo{width:90vw}.slogan{margin:-34px 0 8px}.platformIntro{max-width:88vw;margin-bottom:16px;font-size:.88rem;line-height:1.45}.heroActions{width:86vw;flex-direction:column;gap:9px}.discoverButton,.accountButton{width:100%;min-width:0;padding:0 14px;letter-spacing:.12em}}
 @media(prefers-reduced-motion:reduce){.heroVideo{transition:none}}
+
+/* Cinematic poster remains visible while video settings load or playback fails. */
+.videoLoadingBackground{background-color:#08090b;background-size:cover;background-position:center}
+.heroFix{min-height:540px!important}
+.heroOverlay{top:54%;width:min(70vw,780px)}
+.heroLogo{max-width:420px!important}
+.slogan{margin:0 0 10px;letter-spacing:.3em}
+.platformIntro{font-size:clamp(.82rem,1.05vw,.98rem)}
+@media(max-width:620px){.heroFix{min-height:560px!important}.heroOverlay{top:52%;width:92vw}.heroLogo{max-width:min(76vw,340px)!important}.slogan{margin:0 0 10px}.heroActions{width:90vw}}
