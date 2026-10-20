@@ -20,7 +20,8 @@ test('featured artists use published catalogue records and mount only once', () 
   assert.equal((page.match(/<HomeArtistRotation\b/g) || []).length, 1);
   assert.doesNotMatch(deferred, /HomeArtistRotation/);
   assert.match(artists, /usePublishedCollection<Artist>\('artists'/);
-  assert.match(artists, /artist\.profileImageUrl \|\| artist\.featuredImageUrl/);
+  assert.match(artists, /portraitCandidate = artist\.profileImageUrl \|\| artist\.featuredImageUrl/);
+  assert.match(artists, /isLogoArtwork\(portraitCandidate\)/);
   assert.match(artists, /albums\.find\(album => matchesArtist\(album, artist\)\)/);
   assert.match(artists, /portrait \|\| releaseArtwork \|\| artist\.coverImageUrl \|\| artist\.artworkUrl \|\| artist\.logoUrl/);
 });

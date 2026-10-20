@@ -8,6 +8,7 @@ import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { getArtwork } from '@/lib/get-artwork';
 import { matchesArtist } from '@/lib/public-catalogue';
+import { isLogoArtwork } from '@/lib/is-logo-artwork';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import styles from './ArtistsPage.module.css';
 
@@ -65,7 +66,8 @@ export default function ArtistsPage() {
         {loading ? <div className={styles.empty}><h3>Loading the Aureon artists…</h3></div> : visibleArtists.length ? (
           <div className={styles.artistGrid}>
             {visibleArtists.map(artist => {
-              const portrait = artist.profileImageUrl || artist.image || artist.featuredImageUrl || artist.coverImageUrl;
+              const portraitCandidate = artist.profileImageUrl || artist.image || artist.featuredImageUrl || artist.coverImageUrl;
+              const portrait = isLogoArtwork(portraitCandidate) ? '' : portraitCandidate;
               const release = albums.find(album => matchesArtist(album, artist));
               const releaseArtwork = release ? getArtwork(release, '') : '';
               const image = portrait || releaseArtwork || artist.logoUrl || getArtwork(artist);

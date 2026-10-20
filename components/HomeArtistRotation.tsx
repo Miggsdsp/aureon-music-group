@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import { getArtwork } from '@/lib/get-artwork';
 import { matchesArtist } from '@/lib/public-catalogue';
+import { isLogoArtwork } from '@/lib/is-logo-artwork';
 import { ArtworkImage } from '@/components/ArtworkImage';
 import styles from './HomeArtistRotation.module.css';
 
@@ -47,7 +48,8 @@ export function HomeArtistRotation({ albums = [] }: { albums?: Album[] }) {
       <div className={styles.artistGallery}>
         {artists.map(artist => {
           const details = artist.details || {};
-          const portrait = artist.profileImageUrl || artist.featuredImageUrl || artist.image || details.profileImageUrl || details.featuredImageUrl || artist.media?.profileImageUrl || artist.media?.featuredImageUrl;
+          const portraitCandidate = artist.profileImageUrl || artist.featuredImageUrl || artist.image || details.profileImageUrl || details.featuredImageUrl || artist.media?.profileImageUrl || artist.media?.featuredImageUrl;
+          const portrait = isLogoArtwork(portraitCandidate) ? '' : portraitCandidate;
           const release = albums.find(album => matchesArtist(album, artist));
           const releaseArtwork = release ? getArtwork(release, '') : '';
           const image = portrait || releaseArtwork || artist.coverImageUrl || artist.artworkUrl || artist.logoUrl || details.logoUrl || '/images/branding/Aureon_Header_Logo.png';
