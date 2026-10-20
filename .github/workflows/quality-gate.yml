@@ -36,4 +36,6 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
       - name: Production build
+        env:
+          AUREON_SKIP_FIRESTORE_BUILD: 'true'
         run: npm run build
