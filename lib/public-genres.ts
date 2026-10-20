@@ -69,6 +69,12 @@ export function canonicalGenreSlug(slug: string): string | null {
   return aliasMap.get(clean) || null;
 }
 
+export function genreMatches(left: string, right: string): boolean {
+  const canonicalLeft = canonicalGenreSlug(left);
+  const canonicalRight = canonicalGenreSlug(right);
+  return Boolean(canonicalLeft && canonicalRight && canonicalLeft === canonicalRight) || genreSlug(left) === genreSlug(right);
+}
+
 export function genreRedirectTarget(slug: string): string | null {
   const clean = genreSlug(slug);
   const canonical = canonicalGenreSlug(clean);

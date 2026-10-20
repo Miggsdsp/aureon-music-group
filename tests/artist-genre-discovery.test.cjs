@@ -26,6 +26,9 @@ const genreCatalogue = load('lib/genre-catalogue.ts', {
 });
 
 test('genre directory counts distinct published songs in the existing Aureon genre allowlist', () => {
+  assert.equal(genres.genreMatches('modern country-pop', 'Country-Pop'), true);
+  assert.equal(genres.genreMatches('Afro-beat', 'Afrobeats'), true);
+  assert.equal(genres.genreMatches('Alternative Rock', 'Country-Pop'), false);
   const rows = genreCatalogue.buildGenreCatalogue([
     { id: 'country-1', status: 'published', genre: 'Country', coverImageUrl: '/art/country.jpg' },
     { id: 'country-1', status: 'published', genres: ['Country-Pop'] },
@@ -55,10 +58,12 @@ test('artist directory prioritises published portraits and links to existing art
 test('genre directory exposes catalogue search and count-based sorting without placeholder tracks', () => {
   const directory = fs.readFileSync('app/genres/GenreDirectory.tsx', 'utf8');
   const page = fs.readFileSync('app/genres/page.tsx', 'utf8');
+  const releases = fs.readFileSync('components/discovery/NewReleases.tsx', 'utf8');
   assert.match(directory, /Search genres/);
   assert.match(directory, /Most tracks/);
   assert.match(directory, /genre\.trackCount/);
   assert.match(page, /getPublishedRecords\('songs'\)/);
   assert.match(page, /buildGenreCatalogue\(songs, albums, artists\)/);
   assert.match(page, /path: '\/genres'/);
+  assert.equal((releases.match(/genreMatches\(item\.genre,/g) || []).length, 2);
 });
