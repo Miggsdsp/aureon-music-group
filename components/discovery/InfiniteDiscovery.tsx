@@ -28,7 +28,9 @@ const text = (item: RecordData, keys: string[]) => {
 const dateValue = (value: any) => value?.toDate?.() || (value?.seconds ? new Date(value.seconds * 1000) : new Date(value || 0));
 const formatTime = (value: number) => Number.isFinite(value) && value > 0 ? `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}` : '0:00';
 
-const PUBLIC_CONTENT = /^\/$|^\/(artists|music|songs|videos|news|genres|charts|discover)(\/|$)/;
+// The homepage composes its own curated discovery sections. Reusing the
+// infinite discovery feed there repeated the same catalogue blocks beneath it.
+const PUBLIC_CONTENT = /^\/(artists|music|songs|videos|news|genres|charts|discover)(\/|$)/;
 
 export function InfiniteDiscovery() {
   const pathname = usePathname();

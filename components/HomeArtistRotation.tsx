@@ -32,29 +32,33 @@ export function HomeArtistRotation() {
 
   if (!artists.length) return null;
   const artist = artists[index % artists.length];
-  const image = artist.logoUrl || artist.profileImageUrl || '/images/branding/Aureon_Header_Logo.png';
+  const hasPortrait = Boolean(artist.profileImageUrl);
+  const image = artist.profileImageUrl || artist.logoUrl || '/images/branding/Aureon_Header_Logo.png';
 
   return (
     <section className={styles.section} aria-label="Featured Aureon artists">
       <div className={styles.heading}>
-        <div><p className="eyebrow">Featured artists</p><h2>Meet the sound of Aureon</h2></div>
-        <Link href="/artists" className="ghost-button">View all artists →</Link>
+        <div><p className="eyebrow">Artists of Aureon</p><h2>Find your next favourite</h2></div>
+        <Link href="/artists" className="ghost-button">Meet all artists <span aria-hidden="true">→</span></Link>
       </div>
       <div className={styles.stage}>
-        <div className={styles.visual}><img key={artist.id} src={image} alt={`${artist.name || 'Aureon artist'} logo`} loading="lazy" decoding="async" /></div>
+        <div className={`${styles.visual} ${hasPortrait ? styles.portrait : styles.logo}`}>
+          <img key={artist.id} src={image} alt={hasPortrait ? `Portrait of ${artist.name || 'Aureon artist'}` : `${artist.name || 'Aureon artist'} artwork`} loading="lazy" decoding="async" />
+        </div>
         <div className={styles.copy}>
-          <span className={styles.genre}>{artist.genre || 'Aureon Artist'}</span>
+          <span className={styles.genre}>{artist.genre || 'Featured artist'}</span>
           <h3>{artist.name}</h3>
-          <p className={styles.description}>{artist.description || 'Discover this artist and their latest music from Aureon Music Group.'}</p>
+          {artist.description && <p className={styles.description}>{artist.description}</p>}
           <div className={styles.actions}>
-            <Link className="primary-button" href={`/artists/${artist.slug || artist.id}`}>View artist →</Link>
+            <Link className="primary-button" href={`/artists/${artist.slug || artist.id}`}>Explore artist <span aria-hidden="true">→</span></Link>
             {artists.length > 1 && <>
               <button className={styles.arrow} type="button" aria-label="Previous artist" onClick={() => setIndex(value => (value - 1 + artists.length) % artists.length)}>‹</button>
               <button className={styles.arrow} type="button" aria-label="Next artist" onClick={() => setIndex(value => (value + 1) % artists.length)}>›</button>
             </>}
           </div>
-          {artists.length > 1 && <div className={styles.dots}>{artists.map((item, dotIndex) => <button key={item.id} type="button" aria-label={`Show ${item.name || 'artist'}`} className={`${styles.dot} ${dotIndex === index ? styles.active : ''}`} onClick={() => setIndex(dotIndex)} />)}</div>}
+          {artists.length > 1 && <div className={styles.dots} aria-label="Choose featured artist">{artists.map((item, dotIndex) => <button key={item.id} type="button" aria-label={`Show ${item.name || 'artist'}`} aria-current={dotIndex === index ? 'true' : undefined} className={`${styles.dot} ${dotIndex === index ? styles.active : ''}`} onClick={() => setIndex(dotIndex)} />)}</div>}
         </div>
+        <div className={styles.counter} aria-hidden="true"><span>{String(index + 1).padStart(2, '0')}</span><i />{String(artists.length).padStart(2, '0')}</div>
       </div>
     </section>
   );
