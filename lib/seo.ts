@@ -38,7 +38,7 @@ export const getPublishedRecord = cache(async (collectionName: string, slug: str
 export const getPublishedRecords = cache(async (collectionName: string): Promise<SeoRecord[]> => {
   // CI uses placeholder Firebase credentials. Never attempt live Firestore reads
   // during a synthetic build; production builds still query published records.
-  if (process.env.CI === 'true' && process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === 'test') return [];
+  if (process.env.AUREON_SKIP_FIRESTORE_BUILD === 'true' && process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === 'test') return [];
   const snapshot = await adminFirestore.collection(collectionName).where('status', '==', 'published').get();
   return snapshot.docs.filter(doc => isPublicContent(doc.data())).map(doc => normalizePublicRecord(doc.data(), doc.id));
 });
