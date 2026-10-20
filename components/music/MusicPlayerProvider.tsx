@@ -36,6 +36,7 @@ type PlayerContextValue = {
   seekTo: (seconds: number) => void;
   enqueue: (song: PlayerSong) => void;
   enqueueMany: (songs: PlayerSong[]) => void;
+  openQueue: () => void;
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
 };
@@ -453,8 +454,9 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const enqueueMany = (songs: PlayerSong[]) => setQueue(current => [...current, ...songs.filter(song => !current.some(item => item.id === song.id))]);
   const removeFromQueue = (removeIndex: number) => setQueue(current => current.filter((_, itemIndex) => itemIndex !== removeIndex));
   const clearQueue = () => resetPlayer(true);
+  const openQueue = useCallback(() => setQueueOpen(true), []);
 
-  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, resumeSong, playQueue, next, previous, toggle, seekBy, seekTo, enqueue, enqueueMany, removeFromQueue, clearQueue }), [currentSong, isPlaying, playQueue, playSong, queue, resumeSong, next, previous, toggle, seekBy, seekTo]);
+  const value = useMemo(() => ({ currentSong, queue, isPlaying, playSong, resumeSong, playQueue, next, previous, toggle, seekBy, seekTo, enqueue, enqueueMany, openQueue, removeFromQueue, clearQueue }), [currentSong, isPlaying, openQueue, playQueue, playSong, queue, resumeSong, next, previous, toggle, seekBy, seekTo]);
 
   return <PlayerContext.Provider value={value}>
     {children}
