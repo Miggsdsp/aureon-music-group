@@ -18,7 +18,23 @@ export default function MusicPage() {
   const singles = songs.filter(song => !(song.albumId || song.albumSlug || song.details?.albumId || song.details?.albumSlug));
   const loading = albumsLoading || songsLoading;
 
-  return <PageShell title="Music" kicker="Catalogue">
+  return <><style jsx global>{`
+  body:has(.music-intro) .music-intro{display:flex;align-items:end;justify-content:space-between;gap:24px;margin:0 0 18px;padding:0;min-height:0}
+  body:has(.music-intro) .music-intro h2{font-size:clamp(26px,3vw,42px);line-height:1.08;margin:4px 0}
+  body:has(.music-intro) .music-intro>p{font-size:14px;max-width:370px;line-height:1.5}
+  body:has(.music-intro) .album-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin-top:20px}
+  body:has(.music-intro) .album-card{min-height:0!important;display:flex;flex-direction:column;overflow:hidden;padding:0!important}
+  body:has(.music-intro) .album-cover{width:100%;height:auto;aspect-ratio:1/1;min-height:0!important;display:block}
+  body:has(.music-intro) .album-cover img{width:100%;height:100%;max-width:100%;object-fit:cover}
+  body:has(.music-intro) .album-card-copy{padding:12px 13px 15px;min-width:0}
+  body:has(.music-intro) .album-card-copy h3{font-size:clamp(15px,1.35vw,21px);line-height:1.2;margin:5px 0}
+  body:has(.music-intro) .album-card-copy p,body:has(.music-intro) .album-card-copy strong,body:has(.music-intro) .album-card-copy span{font-size:11px}
+  body:has(.music-intro) .album-card-copy .album-meta{font-size:11px}
+  body:has(.music-intro) main h1{font-size:clamp(30px,4vw,56px)!important;line-height:1.1!important;margin-block:8px 20px!important}
+  @media(max-width:1100px){body:has(.music-intro) .album-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media(max-width:800px){body:has(.music-intro) .album-grid{grid-template-columns:repeat(3,minmax(0,1fr))}body:has(.music-intro) .music-intro{display:block}}
+  @media(max-width:520px){body:has(.music-intro) .album-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}body:has(.music-intro) .album-card-copy{padding:10px}body:has(.music-intro) main h1{font-size:32px!important}}
+`}</style><PageShell title="Music" kicker="Catalogue">
     <section className="music-intro"><div><p className="eyebrow">Aureon Catalogue</p><h2>Albums and releases</h2></div><p>Browse every album and single published through the Aureon Control Center.</p></section>
     <p><Link href="/artists">Explore the artists</Link> · <Link href="/genres">Browse by genre</Link> · <Link href="/discover">Discover songs and playlists</Link></p>
     {loading ? <div className="store-empty"><h3>Loading music…</h3></div> : <>
@@ -40,5 +56,5 @@ export default function MusicPage() {
       })}</div></section>}
       {!albums.length && !singles.length && <div className="store-empty"><h3>No published music yet</h3><p>Upload and publish songs or albums in the Aureon Control Center.</p></div>}
     </>}
-  </PageShell>;
+  </PageShell></>;
 }
