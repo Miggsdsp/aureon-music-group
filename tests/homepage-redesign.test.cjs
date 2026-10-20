@@ -8,7 +8,7 @@ const read = file => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 test('homepage keeps the cinematic hero and places live artist discovery beneath it', () => {
   const page = read('app/page.tsx');
   assert.match(page, /<CinematicHero\s*\/>/);
-  assert.match(page, /<CinematicHero\s*\/>\s*<HomeArtistRotation\s*\/>/);
+  assert.match(page, /<CinematicHero\s*\/>\s*<HomeArtistRotation albums=\{albums\}\s*\/>/);
   assert.match(page, /<HomeMembershipCta\s*\/>/);
   assert.match(page, /initialCatalogueFor\(catalogue, 'discover'\)/);
 });
@@ -17,10 +17,11 @@ test('featured artists use published catalogue records and mount only once', () 
   const page = read('app/page.tsx');
   const deferred = read('components/HomeFeaturedContent.tsx');
   const artists = read('components/HomeArtistRotation.tsx');
-  assert.equal((page.match(/<HomeArtistRotation\s*\/>/g) || []).length, 1);
+  assert.equal((page.match(/<HomeArtistRotation\b/g) || []).length, 1);
   assert.doesNotMatch(deferred, /HomeArtistRotation/);
   assert.match(artists, /usePublishedCollection<Artist>\('artists'/);
-  assert.match(artists, /artist\.profileImageUrl \|\| artist\.logoUrl/);
+  assert.match(artists, /artist\.profileImageUrl \|\| artist\.featuredImageUrl/);
+  assert.match(artists, /portrait \|\| releaseArtwork \|\| artist\.logoUrl/);
 });
 
 test('homepage curated sections do not repeat the infinite discovery feed on the root route', () => {

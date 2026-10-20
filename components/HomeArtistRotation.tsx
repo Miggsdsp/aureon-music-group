@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
+import { getArtwork } from '@/lib/get-artwork';
+import { ArtworkImage } from '@/components/ArtworkImage';
 import styles from './HomeArtistRotation.module.css';
 
 type Artist = PublicRecord & {
@@ -11,10 +13,18 @@ type Artist = PublicRecord & {
   genre?: string;
   logoUrl?: string;
   profileImageUrl?: string;
+  featuredImageUrl?: string;
+  image?: string;
+  coverImageUrl?: string;
+  artworkUrl?: string;
+  media?: Record<string, any>;
+  details?: Record<string, any>;
   featured?: boolean;
 };
 
-export function HomeArtistRotation() {
+type Album = { id?: string; artistId?: string; artistSlug?: string; artistName?: string; details?: Record<string, any>; [key: string]: any };
+
+export function HomeArtistRotation({ albums = [] }: { albums?: Album[] }) {
   const { items } = usePublishedCollection<Artist>('artists', [], true);
   const artists = useMemo(() => {
     const featured = items.filter(item => item.featured);
@@ -35,12 +45,21 @@ export function HomeArtistRotation() {
       </div>
       <div className={styles.artistGallery}>
         {artists.map(artist => {
-          const hasPortrait = Boolean(artist.profileImageUrl);
-          const image = artist.profileImageUrl || artist.logoUrl || '/images/branding/Aureon_Header_Logo.png';
+          const details = artist.details || {};
+          const portrait = artist.profileImageUrl || artist.featuredImageUrl || artist.image || details.profileImageUrl || details.featuredImageUrl || artist.media?.profileImageUrl || artist.media?.featuredImageUrl;
+          const identities = [artist.id, artist.slug, artist.name].map(value => String(value || '').trim().toLowerCase());
+          const release = albums.find(album => {
+            const meta = album.details || {};
+            const values = [album.artistId, album.artistSlug, album.artistName, meta.artistId, meta.artistSlug, meta.artistName].map(value => String(value || '').trim().toLowerCase());
+            return values.some(value => value && identities.includes(value));
+          });
+          const releaseArtwork = release ? getArtwork(release) : '';
+          const image = portrait || releaseArtwork || artist.logoUrl || details.logoUrl || artist.coverImageUrl || artist.artworkUrl || '/images/branding/Aureon_Header_Logo.png';
+          const artworkStyle = portrait ? styles.tilePortrait : releaseArtwork ? styles.tileRelease : styles.tileLogo;
           return (
             <Link key={artist.id} className={styles.artistTile} href={`/artists/${artist.slug || artist.id}`} aria-label={`Explore ${artist.name || 'Aureon artist'}`}>
-              <span className={`${styles.tileArtwork} ${hasPortrait ? styles.tilePortrait : styles.tileLogo}`}>
-                <img src={image} alt={artist.name ? `${artist.name} artwork` : 'Aureon artist artwork'} loading="lazy" decoding="async" />
+              <span className={`${styles.tileArtwork} ${artworkStyle}`}>
+                <ArtworkImage src={image} alt={artist.name ? `${artist.name} artwork` : 'Aureon artist artwork'} fill sizes="(max-width: 430px) 46vw, (max-width: 680px) 30vw, (max-width: 1100px) 22vw, 15vw" />
                 <span className={styles.tileShine} aria-hidden="true" />
               </span>
               <span className={styles.tileInfo}>

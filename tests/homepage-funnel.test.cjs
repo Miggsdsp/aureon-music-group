@@ -8,7 +8,7 @@ test('homepage explains Aureon and exposes listening before membership', () => {
   const hero = read('components/CinematicHero.tsx');
   assert.match(hero, /Music for/);
   assert.match(hero, /ORIGINAL ARTISTS\. TIMELESS MUSIC\./);
-  assert.match(hero, /href="\/discover">▶ EXPLORE MUSIC/);
+  assert.match(hero, /href="\/discover">[\s\S]*START LISTENING/);
   assert.match(hero, /href="\/membership">EXPLORE MEMBERSHIP/);
   assert.doesNotMatch(hero, /across six artists/);
   assert.match(hero, /className=\{`hero approved-hero/);

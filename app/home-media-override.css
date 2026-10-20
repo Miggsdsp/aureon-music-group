@@ -1,92 +1,18 @@
-/* Homepage media presentation safeguards.
-   CMS images are allowed to keep their source proportions while the layout
-   controls the frame. Featured video uses contain so the complete poster/video
-   is visible instead of being cropped. */
-
+/* Keep uploaded promotional media inside its authored frame. These rules are
+   limited to the deferred homepage feature cards; the hero is styled by its
+   component module so global CSS cannot hide or replace its media. */
 [class*="HomeFeaturedContent_videoMedia"] video,
 [class*="HomeFeaturedContent_videoPosterLink"] img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  object-position: center center !important;
-  background: #000 !important;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  background: #000;
 }
 
 [class*="HomeFeaturedContent_newsImage"] img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  object-position: center center !important;
-}
-
-/* Aureon approved six-panel visual system — public site, shared across routes. */
-:root{--black:#05090c;--gold:#efc878;--gold2:#aa7937;--cream:#f6f0e5;--muted:#b8b5b1;--line:rgba(237,194,112,.18)}
-body{background:#05090c;color:#f6f0e5}
-.site-header{background:rgba(5,8,11,.91)!important;border-bottom:1px solid rgba(237,194,112,.13)!important;backdrop-filter:blur(18px);box-shadow:0 4px 22px rgba(0,0,0,.28)}
-.desktop-nav{gap:clamp(12px,1.65vw,27px);font-size:clamp(10px,.77vw,12px);letter-spacing:.08em}
-.desktop-nav a{transition:color .2s ease}
-.desktop-nav a:hover,.desktop-nav a.active{color:#f0c779}
-.page-shell{background:radial-gradient(ellipse at 85% 0%,rgba(49,65,77,.17),transparent 50%),#05090c!important}
-.inner-hero{padding-top:clamp(118px,10vw,155px)!important;padding-bottom:clamp(26px,4vw,54px)!important;background:linear-gradient(135deg,rgba(14,22,28,.96),rgba(4,8,12,.92))!important}
-.inner-hero h1{font-family:Georgia,'Times New Roman',serif;font-weight:400!important;font-size:clamp(36px,4vw,64px)!important;line-height:1.07!important;letter-spacing:-.025em!important}
-.content-panel{padding-top:clamp(22px,3vw,45px)!important}
-.page-grid,.video-grid{gap:clamp(12px,1.6vw,22px)}
-.page-grid article,.video-grid article,.release-card,.contact-card,.journey-cards article{border-radius:12px;border-color:rgba(237,194,112,.2);box-shadow:0 12px 34px rgba(0,0,0,.22)}
-.primary-button,.ghost-button,.join-button{border-radius:24px;min-height:39px;padding:10px 19px;letter-spacing:.08em;font-size:11px}
-.ghost-button{background:linear-gradient(135deg,#fbe0a0,#e9b85e);color:#0c0c0d}
-.section{padding-top:clamp(35px,5vw,75px);padding-bottom:clamp(35px,5vw,75px)}
-.section h2{font-size:clamp(30px,3.8vw,55px)}
-@media(max-width:760px){.inner-hero{padding-top:112px!important}.inner-hero h1{font-size:clamp(32px,8vw,49px)!important}.content-panel{padding:24px 14px 52px!important}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-
-
-/* Production hotfix: eliminate the legacy full-screen typography artwork and
-   position the real headline inside the cinematic hero. */
-body:has(.approved-hero) .approved-hero{
-  position:relative!important;
-  width:100%!important;
-  height:clamp(440px,60svh,680px)!important;
-  min-height:440px!important;
-  background-image:none!important;
-  background-color:#070c12!important;
-  background-size:cover!important;
-}
-body:has(.approved-hero) .approved-hero > h1{
-  position:absolute!important;
-  top:31%!important;
-  left:50%!important;
-  z-index:22!important;
-  width:min(90%,760px)!important;
-  max-width:760px!important;
-  margin:0!important;
-  padding:0!important;
-  transform:translate(-50%,-50%)!important;
-  font-family:Georgia,'Times New Roman',serif!important;
-  font-size:clamp(32px,4.1vw,64px)!important;
-  line-height:1.12!important;
-  letter-spacing:.075em!important;
-  font-weight:400!important;
-  text-align:center!important;
-  text-transform:uppercase!important;
-  color:#f5e5c4!important;
-  text-shadow:0 4px 30px rgba(0,0,0,.9)!important;
-  white-space:normal!important;
-  overflow-wrap:normal!important;
-}
-body:has(.approved-hero) .approved-hero [class*="CinematicHero_heroOverlay"]{
-  top:66%!important;
-  width:min(92%,760px)!important;
-}
-body:has(.approved-hero) .approved-hero [class*="CinematicHero_videoLoadingBackground"]{
-  background-image:linear-gradient(180deg,rgba(4,8,13,.2),rgba(4,8,13,.55)),url('/images/aureon-hero-cinematic.svg')!important;
-  background-position:center!important;
-  background-size:cover!important;
-}
-body:has(.approved-hero) .approved-hero .hotspot{
-  pointer-events:none!important;
-}
-@media(max-width:700px){
-  body:has(.approved-hero) .approved-hero{height:clamp(440px,65svh,600px)!important}
-  body:has(.approved-hero) .approved-hero > h1{top:30%!important;font-size:clamp(28px,7vw,44px)!important;letter-spacing:.035em!important}
-  body:has(.approved-hero) .approved-hero [class*="CinematicHero_heroOverlay"]{top:66%!important}
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }

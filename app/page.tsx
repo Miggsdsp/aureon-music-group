@@ -37,7 +37,7 @@ export default async function Home() {
       <main>
         <Header />
         <CinematicHero />
-        <HomeArtistRotation />
+        <HomeArtistRotation albums={albums} />
         <ContinueListening />
         <PersonalisedHome />
         <TrendingSongs compact />

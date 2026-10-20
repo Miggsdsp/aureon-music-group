@@ -1,37 +1,138 @@
-.heroFix{position:relative;background:#050505!important;height:calc(100svh - 116px)!important;min-height:620px!important;overflow:hidden;isolation:isolate}
-.videoLoadingBackground{position:absolute;inset:0;z-index:0;background:radial-gradient(circle at 50% 42%,rgba(217,180,95,.06),transparent 34%),#050505;pointer-events:none}
-.heroVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0;pointer-events:none;opacity:0;transition:opacity .45s ease}
-.heroVideoReady{opacity:1}
-.videoShade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.12) 45%,rgba(0,0,0,.5) 100%),radial-gradient(circle at 50% 44%,rgba(0,0,0,.02) 0%,rgba(0,0,0,.18) 68%,rgba(0,0,0,.46) 100%)}
-.heroOverlay{position:absolute;left:50%;top:46%;z-index:20;width:min(72vw,900px);transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:none;visibility:visible;opacity:1}
-.heroLogo{position:relative!important;z-index:21!important;display:block!important;visibility:visible!important;opacity:1!important;width:min(54vw,700px);height:auto;object-fit:contain;filter:drop-shadow(0 10px 28px rgba(0,0,0,.72))}
-.slogan{position:relative;z-index:21;margin:clamp(-74px,-5vw,-44px) 0 10px;color:#f5f0e5;font-size:clamp(.72rem,1.35vw,1.24rem);font-weight:600;letter-spacing:clamp(.24em,.6vw,.48em);white-space:nowrap;text-shadow:0 2px 15px rgba(0,0,0,.95)}
-.platformIntro{position:relative;z-index:21;max-width:720px;margin:0 0 20px;color:rgba(255,255,255,.86);font-size:clamp(.9rem,1.25vw,1.05rem);line-height:1.55;text-shadow:0 2px 14px rgba(0,0,0,.98)}
-.heroActions{position:relative;z-index:21;display:flex;align-items:center;justify-content:center;gap:12px;pointer-events:auto}
-.discoverButton{position:relative;z-index:21;pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;gap:18px;min-width:min(330px,80vw);min-height:52px;padding:0 28px;border:1px solid rgba(207,159,61,.9);background:rgba(4,4,4,.42);color:#d9ad55;text-decoration:none;font-size:.84rem;font-weight:600;letter-spacing:.2em;transition:background .2s ease,color .2s ease,transform .2s ease}
-.discoverButton:hover{background:rgba(197,145,43,.16);color:#f4d785;transform:translateY(-2px)}
-.accountButton{display:inline-flex;align-items:center;justify-content:center;min-width:220px;min-height:52px;padding:0 24px;border:1px solid rgba(255,255,255,.42);background:rgba(4,4,4,.58);color:#fff;text-decoration:none;font-size:.76rem;font-weight:600;letter-spacing:.16em;transition:border-color .2s ease,color .2s ease,transform .2s ease}
-.accountButton:hover{border-color:#d9ad55;color:#f4d785;transform:translateY(-2px)}
-.heroFix :global(.cinematic-fx),.heroFix :global(.hotspot),.heroFix :global(.homepage-firestore-announcement){z-index:3}
-@media(max-width:900px){.heroFix{height:calc(100svh - 88px)!important;min-height:620px!important}.heroVideo{object-position:center center}.heroOverlay{top:45%;width:90vw}.heroLogo{width:min(82vw,620px)}.slogan{margin:clamp(-58px,-7vw,-32px) 0 9px;font-size:clamp(.62rem,2.1vw,.9rem);letter-spacing:clamp(.2em,.8vw,.42em);white-space:normal;line-height:1.4}.platformIntro{max-width:620px}.discoverButton,.accountButton{min-height:48px;font-size:.72rem}}
-@media(max-width:620px){.heroFix{height:calc(100svh - 76px)!important;min-height:680px!important}.heroOverlay{top:46%;width:92vw}.heroLogo{width:90vw}.slogan{margin:-34px 0 8px}.platformIntro{max-width:88vw;margin-bottom:16px;font-size:.88rem;line-height:1.45}.heroActions{width:86vw;flex-direction:column;gap:9px}.discoverButton,.accountButton{width:100%;min-width:0;padding:0 14px;letter-spacing:.12em}}
-@media(prefers-reduced-motion:reduce){.heroVideo{transition:none}}
+.heroFix {
+  --hero-gold: #efc878;
+  position: relative;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  width: 100%;
+  height: clamp(500px, 70svh, 760px);
+  min-height: 500px;
+  overflow: hidden;
+  color: #f8f2e7;
+  background: #070b10;
+  border-bottom: 1px solid rgba(239, 200, 120, .16);
+}
 
-/* Home panel: cinematic image/video first, compact editorial overlay. */
-.heroFix{height:clamp(420px,61svh,730px)!important;min-height:420px!important;background:#080b0e!important}
-.videoLoadingBackground{background-size:cover;background-position:center;background-repeat:no-repeat}
-.heroOverlay{top:52%;width:min(72vw,740px)}
-.heroLogo{max-width:min(45vw,440px)!important}
-.slogan{margin:-10px 0 9px;font-family:Georgia,'Times New Roman',serif;font-size:clamp(15px,1.6vw,23px);font-weight:400;letter-spacing:.34em;line-height:1.45;white-space:normal}
-.platformIntro{max-width:510px;font-size:clamp(11px,.9vw,14px);line-height:1.5}
-.heroActions{gap:10px}
-.discoverButton,.accountButton{min-width:0;min-height:42px;padding:0 18px;font-size:11px;letter-spacing:.09em;border-radius:24px}
-.discoverButton{background:#f2c86e;color:#0b0b0b;border-color:#f2c86e}
-@media(max-width:900px){.heroFix{height:clamp(440px,66svh,650px)!important;min-height:440px!important}.heroOverlay{top:51%;width:88vw}.heroLogo{max-width:min(60vw,400px)!important}.slogan{margin:-6px 0 8px}}
-@media(max-width:620px){.heroFix{height:clamp(440px,70svh,640px)!important;min-height:440px!important}.heroOverlay{top:51%;width:90vw}.heroLogo{max-width:min(78vw,340px)!important}.slogan{margin:-5px 0 7px;font-size:15px;letter-spacing:.19em}.platformIntro{max-width:88vw;font-size:12px}.heroActions{width:100%;gap:8px}.discoverButton,.accountButton{min-height:40px}}
+.videoLoadingBackground,
+.heroVideo,
+.videoShade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
 
-.heroHeadline{position:relative;z-index:21;margin:0 0 14px;font-family:Georgia,'Times New Roman',serif;font-size:clamp(32px,4vw,68px);font-weight:400;line-height:1.16;letter-spacing:.2em;text-transform:uppercase;color:#fff6e7;text-shadow:0 3px 24px #000,0 0 24px rgba(235,178,77,.32);text-wrap:balance}
-.videoLoadingBackground{background-image:linear-gradient(180deg,rgba(4,8,13,.1),rgba(4,8,13,.5)),url('/images/aureon-hero-cinematic.svg');background-size:cover;background-position:center}
-.slogan{font-family:inherit;font-size:clamp(10px,.95vw,14px);letter-spacing:.19em;margin:0 0 22px}
-.heroOverlay{top:50%}
-@media(max-width:620px){.heroHeadline{font-size:clamp(27px,7vw,42px);letter-spacing:.11em}.slogan{font-size:10px;letter-spacing:.1em;margin-bottom:18px}}
+.videoLoadingBackground {
+  z-index: -2;
+  background-color: #071018;
+  background-image: linear-gradient(180deg, rgba(5, 8, 12, .04) 0%, rgba(5, 8, 12, .04) 55%, rgba(5, 8, 12, .68) 100%), url('/images/aureon-eclipse-ocean-poster.webp');
+  background-position: center 54%;
+  background-size: cover;
+  transform: scale(1.015);
+}
+
+.heroVideo {
+  z-index: -1;
+  object-fit: cover;
+  object-position: center 53%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .65s ease;
+}
+
+.heroVideoReady { opacity: 1; }
+
+.videoShade {
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(3, 6, 10, .17) 0%, rgba(3, 6, 10, .02) 32%, rgba(3, 6, 10, .12) 65%, rgba(3, 6, 10, .74) 100%),
+    radial-gradient(ellipse at 50% 43%, transparent 20%, rgba(3, 6, 10, .2) 100%);
+}
+
+.heroHeadline {
+  position: absolute;
+  z-index: 2;
+  top: 37%;
+  left: 50%;
+  width: min(90%, 920px);
+  margin: 0;
+  transform: translate(-50%, -50%);
+  color: #fff8ea;
+  font: 400 clamp(32px, 4.3vw, 64px)/1.15 Georgia, 'Times New Roman', serif;
+  letter-spacing: clamp(.08em, .2em, .2em);
+  text-align: center;
+  text-shadow: 0 3px 26px rgba(0, 0, 0, .9), 0 0 34px rgba(235, 178, 77, .22);
+  text-wrap: balance;
+  text-transform: uppercase;
+}
+
+.heroOverlay {
+  position: absolute;
+  z-index: 3;
+  top: 65%;
+  left: 50%;
+  display: flex;
+  width: min(92%, 760px);
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.slogan {
+  margin: 0 0 22px;
+  color: rgba(255, 248, 234, .91);
+  font-size: clamp(10px, .95vw, 13px);
+  font-weight: 600;
+  letter-spacing: .32em;
+  text-shadow: 0 2px 15px #000;
+}
+
+.heroActions { display: flex; align-items: center; justify-content: center; gap: 12px; }
+
+.discoverButton,
+.accountButton {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 24px;
+  border: 1px solid rgba(239, 200, 120, .72);
+  border-radius: 999px;
+  color: #17130b;
+  background: linear-gradient(135deg, #ffe2a0, #d9a849);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .32), inset 0 1px rgba(255, 255, 255, .72);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-decoration: none;
+  transition: transform .2s ease, filter .2s ease, background .2s ease;
+}
+
+.accountButton { color: #f6eddd; background: rgba(6, 8, 11, .56); border-color: rgba(246, 237, 221, .36); box-shadow: inset 0 1px rgba(255,255,255,.08); }
+.discoverButton:hover, .accountButton:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.heroFix :global(.cinematic-fx) { z-index: 1; pointer-events: none; }
+
+@media (max-width: 900px) {
+  .heroFix { height: clamp(490px, 66svh, 680px); }
+  .heroHeadline { top: 37%; width: min(92%, 720px); font-size: clamp(32px, 6vw, 50px); letter-spacing: .12em; }
+  .heroOverlay { top: 67%; }
+}
+
+@media (max-width: 620px) {
+  .heroFix { height: min(690px, 74svh); min-height: 500px; }
+  .videoLoadingBackground { background-position: 53% center; }
+  .heroVideo { object-position: 53% center; }
+  .heroHeadline { top: 38%; width: calc(100% - 34px); font-size: clamp(27px, 8vw, 39px); letter-spacing: .095em; line-height: 1.18; }
+  .heroOverlay { top: 68%; width: calc(100% - 36px); }
+  .slogan { margin-bottom: 17px; font-size: 10px; letter-spacing: .2em; }
+  .heroActions { width: 100%; flex-direction: column; gap: 9px; }
+  .discoverButton, .accountButton { width: min(100%, 340px); min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroVideo, .discoverButton, .accountButton { transition: none; }
+  .discoverButton:hover, .accountButton:hover { transform: none; }
+}

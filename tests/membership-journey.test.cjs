@@ -46,5 +46,5 @@ test('membership prices, plan terms and mobile call to action remain clear',()=>
  assert.match(membership,/price:'€8\.99'/);assert.match(membership,/price:'€24\.99'/);
  assert.match(membership,/Cancel anytime/);assert.match(membership,/Subscriptions renew monthly until cancelled/);
  assert.match(membership,/Not included \/ limits/);
- assert.match(styles,/@media\(max-width:800px\)/);assert.match(styles,/min-height:56px/);
+ assert.match(styles,/@media\(max-width:700px\)/);assert.match(styles,/min-height:46px/);
 });

@@ -1,9 +1,9 @@
 .page{min-height:100vh;overflow:hidden;background:radial-gradient(ellipse at 50% 4%,rgba(192,145,51,.09),transparent 32%),#050504;color:#f5efdf}
-.hero{position:relative;isolation:isolate;display:flex;min-height:610px;flex-direction:column;align-items:center;justify-content:center;padding:150px 24px 88px;text-align:center;background:linear-gradient(180deg,rgba(0,0,0,.15),#050504 100%),url('/images/aureon-hero-cinematic.svg') center 36%/cover no-repeat;border-bottom:1px solid rgba(217,180,95,.2)}
+.hero{position:relative;isolation:isolate;display:flex;min-height:360px;flex-direction:column;align-items:center;justify-content:center;padding:110px 24px 42px;text-align:center;background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(5,5,4,.82)),url('/images/aureon-eclipse-ocean-poster.webp') center 44%/cover no-repeat;border-bottom:1px solid rgba(217,180,95,.2)}
 .hero:before{position:absolute;z-index:-1;inset:0;content:"";background:linear-gradient(90deg,rgba(0,0,0,.84),rgba(0,0,0,.46) 50%,rgba(0,0,0,.84))}
 .heroGlow{position:absolute;z-index:-1;left:50%;top:24%;width:min(780px,90vw);height:350px;transform:translateX(-50%);background:radial-gradient(ellipse,rgba(219,174,77,.14),transparent 68%);pointer-events:none}
 .kicker{display:flex;align-items:center;justify-content:center;gap:9px;margin:0;color:#d9b45f;font-size:10px;font-weight:700;letter-spacing:.3em;text-transform:uppercase}
-.hero h1{max-width:1050px;margin:24px 0 0;color:#f7f0e1;font-family:Georgia,'Times New Roman',serif;font-size:clamp(58px,9.5vw,128px);font-weight:400;letter-spacing:-.065em;line-height:.91;text-wrap:balance}
+.hero h1{max-width:850px;margin:16px 0 0;color:#f7f0e1;font-family:Georgia,'Times New Roman',serif;font-size:clamp(42px,5.2vw,74px);font-weight:400;letter-spacing:-.045em;line-height:.98;text-wrap:balance}
 .hero h1 span{color:#d9b45f}
 .lede{max-width:650px;margin:26px auto 0;color:rgba(250,246,236,.73);font-size:clamp(15px,1.5vw,19px);line-height:1.7}
 .heroActions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:32px}
@@ -12,20 +12,20 @@
 .primaryAction:hover{background:#f6e2a2}
 .secondaryAction{border:1px solid rgba(217,180,95,.48);color:#f1e8d3}
 .secondaryAction:hover{border-color:#d9b45f;background:rgba(217,180,95,.1)}
-.catalogue{width:min(1450px,calc(100% - 64px));margin:0 auto;padding:clamp(54px,8vw,104px) 0 clamp(74px,9vw,126px)}
+.catalogue{width:min(1500px,calc(100% - 56px));margin:0 auto;padding:36px 0 72px}
 .sectionHeading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:30px}
 .sectionHeading .kicker{justify-content:flex-start}
-.sectionHeading h2{margin:10px 0 0;color:#f4eddd;font-family:Georgia,'Times New Roman',serif;font-size:clamp(34px,5vw,64px);font-weight:400;letter-spacing:-.05em;line-height:1}
+.sectionHeading h2{margin:7px 0 0;color:#f4eddd;font-family:Georgia,'Times New Roman',serif;font-size:clamp(30px,3vw,42px);font-weight:400;letter-spacing:-.035em;line-height:1.04}
 .search{display:flex;width:min(100%,320px);min-height:46px;align-items:center;gap:10px;padding:0 13px;border:1px solid rgba(217,180,95,.34);background:rgba(255,255,255,.025);color:#d9b45f}
 .search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#f8f3e8;font:inherit;font-size:13px}
 .search input::placeholder{color:rgba(250,246,236,.46)}
-.artistGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.artistGrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(10px,1.25vw,18px)}
 .artistCard{position:relative;isolation:isolate;display:flex;min-width:0;flex-direction:column;overflow:visible;perspective:1250px;transform-style:preserve-3d;border:0;border-radius:3px;background:transparent;transition:transform .42s cubic-bezier(.2,.72,.2,1),filter .42s ease}
 .artistCard:before{position:absolute;z-index:-1;inset:0 0 -8px;content:"";transform:translate3d(0,8px,-18px);border:1px solid rgba(226,190,101,.72);border-radius:3px;background:linear-gradient(145deg,rgba(205,163,70,.22),rgba(30,23,12,.92) 18%,#090908 65%);box-shadow:0 28px 44px rgba(0,0,0,.5),0 9px 18px rgba(0,0,0,.36),inset 0 1px rgba(255,235,176,.64),inset 2px 0 0 rgba(243,208,130,.2)}
 .artistCard:after{position:absolute;z-index:-1;right:2px;bottom:-7px;left:2px;height:11px;content:"";transform:translateZ(-8px) rotateX(-9deg);transform-origin:top;border:1px solid rgba(194,151,61,.55);border-top:0;background:linear-gradient(180deg,#76571d,#21190b 58%,#090908);box-shadow:0 12px 18px rgba(0,0,0,.3)}
 .artistCard:hover{transform:translate3d(0,-8px,0) rotateX(1deg) rotateY(-.7deg);filter:brightness(1.07)}
 .artistCard:focus-visible{outline:2px solid #f0d179;outline-offset:7px}
-.artwork{position:relative;z-index:1;display:block;aspect-ratio:1.14/1;overflow:hidden;transform:translateZ(13px);border:1px solid rgba(246,214,137,.72);border-radius:3px 8px 2px 2px;background:radial-gradient(ellipse at 50% 35%,rgba(217,180,95,.15),transparent 65%),#11100d;box-shadow:0 15px 26px rgba(0,0,0,.45),0 2px 0 rgba(255,230,167,.42),inset 0 1px rgba(255,244,210,.55),inset 0 0 0 4px rgba(8,7,5,.25)}
+.artwork{position:relative;z-index:1;display:block;aspect-ratio:4/5;overflow:hidden;transform:translateZ(13px);border:1px solid rgba(246,214,137,.5);border-radius:3px 8px 2px 2px;background:radial-gradient(ellipse at 50% 35%,rgba(217,180,95,.15),transparent 65%),#11100d;box-shadow:0 12px 22px rgba(0,0,0,.45),0 2px 0 rgba(255,230,167,.32),inset 0 1px rgba(255,244,210,.45),inset 0 0 0 4px rgba(8,7,5,.25)}
 .artwork:after{position:absolute;inset:0;content:"";background:linear-gradient(118deg,rgba(255,247,212,.24),transparent 15% 64%,rgba(240,203,123,.07) 76%,transparent 88%),linear-gradient(180deg,rgba(255,232,175,.13),transparent 12%);box-shadow:inset 0 0 25px rgba(0,0,0,.27);pointer-events:none}
 .artwork:before{position:absolute;z-index:1;inset:30% 0 0;content:"";background:linear-gradient(180deg,transparent,rgba(5,5,4,.85));pointer-events:none}
 .artwork img{object-fit:cover;transition:transform .7s cubic-bezier(.2,.7,.2,1),filter .7s ease}
@@ -33,19 +33,20 @@
 .portrait img{object-position:center 28%}
 .identity img{object-fit:contain;padding:clamp(20px,4vw,56px)}
 .artistLabel{position:absolute;z-index:2;left:17px;top:17px;padding:7px 9px;border:1px solid rgba(217,180,95,.56);background:rgba(4,4,3,.62);color:#efd47e;font-size:8px;font-weight:700;letter-spacing:.17em;text-transform:uppercase;backdrop-filter:blur(8px)}
-.cardCopy{position:relative;z-index:2;display:flex;flex:1;flex-direction:column;align-items:flex-start;padding:20px 22px 22px;transform:translateZ(9px)}
+.cardCopy{position:relative;z-index:2;display:flex;flex:1;flex-direction:column;align-items:flex-start;padding:12px 5px 14px;transform:translateZ(9px)}
 .artistTitleRow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;color:#e7c76f}
-.artistTitleRow h3{margin:0;color:#f6eedc;font-family:Georgia,'Times New Roman',serif;font-size:clamp(24px,2.6vw,35px);font-weight:400;letter-spacing:-.025em}
+.artistTitleRow h3{margin:0;color:#f6eedc;font-family:Georgia,'Times New Roman',serif;font-size:clamp(15px,1.25vw,19px);font-weight:400;letter-spacing:-.025em}
 .artistTitleRow svg{flex:0 0 auto;transition:transform .2s ease}
 .artistCard:hover .artistTitleRow svg{transform:translate(3px,-3px)}
 .genres{margin:9px 0 0;color:#d9b45f;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
-.description{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;margin:12px 0 0;color:rgba(249,245,235,.63);font-size:13px;line-height:1.6}
-.cardLink{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:18px;color:#f1d47c;font-size:9px;font-weight:700;letter-spacing:.17em;text-transform:uppercase}
+.description{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:1;margin:7px 0 0;color:rgba(249,245,235,.63);font-size:10px;line-height:1.4}
+.cardLink{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:11px;color:#f1d47c;font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
 .empty{padding:44px 24px;border:1px solid rgba(217,180,95,.25);background:rgba(255,255,255,.025);text-align:center}
 .empty h3{margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:400}
 .empty p{margin:10px auto 0;color:rgba(249,245,235,.62)}
 .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-@media(max-width:1000px){.hero{min-height:560px}.artistGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.catalogue{width:min(100% - 40px,900px)}}
-@media(max-width:680px){.hero{min-height:510px;padding:130px 20px 70px}.hero h1{font-size:clamp(50px,13vw,82px)}.lede{max-width:520px;font-size:15px}.heroActions{width:min(100%,400px);flex-direction:column}.primaryAction,.secondaryAction{width:100%;box-sizing:border-box}.catalogue{width:calc(100% - 28px);padding:58px 0 78px}.sectionHeading{align-items:stretch;flex-direction:column;gap:20px}.sectionHeading h2{font-size:clamp(38px,10vw,54px)}.search{width:100%;box-sizing:border-box}.artistGrid{grid-template-columns:1fr;gap:19px}.artwork{aspect-ratio:1.25/1}.cardCopy{padding:18px 18px 20px}.artistTitleRow h3{font-size:29px}}
+@media(max-width:1180px){.artistGrid{grid-template-columns:repeat(4,minmax(0,1fr))}.catalogue{width:min(100% - 40px,1100px)}}
+@media(max-width:760px){.hero{min-height:340px;padding:100px 20px 38px}.hero h1{font-size:clamp(39px,9vw,58px)}.lede{max-width:520px;margin-top:18px;font-size:14px}.heroActions{width:min(100%,400px);flex-direction:row;margin-top:22px}.primaryAction,.secondaryAction{min-height:42px;padding:0 14px;font-size:9px}.catalogue{width:calc(100% - 28px);padding:28px 0 58px}.sectionHeading{align-items:stretch;flex-direction:column;gap:16px;margin-bottom:18px}.sectionHeading h2{font-size:32px}.search{width:100%;box-sizing:border-box}.artistGrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.artwork{aspect-ratio:4/5}.cardCopy{padding:10px 2px 11px}.artistTitleRow h3{font-size:clamp(13px,2.3vw,17px)}.artistTitleRow svg{width:14px}.genres{font-size:8px;letter-spacing:.12em}.description{font-size:9px}}
+@media(max-width:500px){.heroActions{flex-direction:column}.artistGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.artistTitleRow h3{font-size:16px}.description{font-size:10px}}
 @media(hover:hover) and (pointer:fine){.artistCard:hover:before{box-shadow:0 36px 52px rgba(0,0,0,.58),0 12px 25px rgba(0,0,0,.4),0 0 32px rgba(215,176,82,.16),inset 0 1px rgba(255,235,176,.72),inset 2px 0 0 rgba(243,208,130,.24)}}
 @media(prefers-reduced-motion:reduce){.artistCard,.artwork img,.primaryAction,.secondaryAction,.artistTitleRow svg{transition:none}.artistCard:hover{transform:none;filter:none}}
