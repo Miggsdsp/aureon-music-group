@@ -18,3 +18,23 @@
   object-fit: cover !important;
   object-position: center center !important;
 }
+
+/* Aureon approved six-panel visual system — public site, shared across routes. */
+:root{--black:#05090c;--gold:#efc878;--gold2:#aa7937;--cream:#f6f0e5;--muted:#b8b5b1;--line:rgba(237,194,112,.18)}
+body{background:#05090c;color:#f6f0e5}
+.site-header{background:rgba(5,8,11,.91)!important;border-bottom:1px solid rgba(237,194,112,.13)!important;backdrop-filter:blur(18px);box-shadow:0 4px 22px rgba(0,0,0,.28)}
+.desktop-nav{gap:clamp(12px,1.65vw,27px);font-size:clamp(10px,.77vw,12px);letter-spacing:.08em}
+.desktop-nav a{transition:color .2s ease}
+.desktop-nav a:hover,.desktop-nav a.active{color:#f0c779}
+.page-shell{background:radial-gradient(ellipse at 85% 0%,rgba(49,65,77,.17),transparent 50%),#05090c!important}
+.inner-hero{padding-top:clamp(118px,10vw,155px)!important;padding-bottom:clamp(26px,4vw,54px)!important;background:linear-gradient(135deg,rgba(14,22,28,.96),rgba(4,8,12,.92))!important}
+.inner-hero h1{font-family:Georgia,'Times New Roman',serif;font-weight:400!important;font-size:clamp(36px,4vw,64px)!important;line-height:1.07!important;letter-spacing:-.025em!important}
+.content-panel{padding-top:clamp(22px,3vw,45px)!important}
+.page-grid,.video-grid{gap:clamp(12px,1.6vw,22px)}
+.page-grid article,.video-grid article,.release-card,.contact-card,.journey-cards article{border-radius:12px;border-color:rgba(237,194,112,.2);box-shadow:0 12px 34px rgba(0,0,0,.22)}
+.primary-button,.ghost-button,.join-button{border-radius:24px;min-height:39px;padding:10px 19px;letter-spacing:.08em;font-size:11px}
+.ghost-button{background:linear-gradient(135deg,#fbe0a0,#e9b85e);color:#0c0c0d}
+.section{padding-top:clamp(35px,5vw,75px);padding-bottom:clamp(35px,5vw,75px)}
+.section h2{font-size:clamp(30px,3.8vw,55px)}
+@media(max-width:760px){.inner-hero{padding-top:112px!important}.inner-hero h1{font-size:clamp(32px,8vw,49px)!important}.content-panel{padding:24px 14px 52px!important}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

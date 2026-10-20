@@ -29,19 +29,20 @@ export function CinematicHero() {
     heroLightEffects: true, heroDustEffects: true, heroLedEffects: true, heroLogoScale: 100
   });
   const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
 
   const videoUrl = String(platform?.heroVideoUrl || '').trim();
   const overlayOpacity = Math.min(100, Math.max(0, Number(platform?.heroOverlayOpacity ?? 58))) / 100;
-  const logoScale = Math.min(150, Math.max(60, Number(platform?.heroLogoScale ?? 100)));
+  
 
-  useEffect(() => setVideoReady(false), [videoUrl]);
+  useEffect(() => { setVideoReady(false); setVideoFailed(false); }, [videoUrl]);
 
   return (
     <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'}>
-      <h1 className="sr-only">Aureon Music Group music discovery platform</h1>
-      <div className={styles.videoLoadingBackground} aria-hidden="true" />
+      <h1 className={styles.heroHeadline}>Music for<br />a brighter tomorrow</h1>
+      <div className={styles.videoLoadingBackground} style={platform?.heroPosterUrl ? { backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.48)),url("${String(platform.heroPosterUrl).replace(/["\\]/g, "")}")` } : undefined} aria-hidden="true" />
 
-      {!platformLoading && videoUrl ? (
+      {!platformLoading && videoUrl && !videoFailed ? (
         <video
           key={videoUrl}
           src={videoUrl}
@@ -53,6 +54,8 @@ export function CinematicHero() {
           preload="metadata"
           onCanPlay={() => setVideoReady(true)}
           onPlaying={() => setVideoReady(true)}
+          onError={() => { setVideoFailed(true); setVideoReady(false); }}
+          poster={platform?.heroPosterUrl || undefined}
           aria-hidden="true"
         />
       ) : null}
@@ -63,11 +66,11 @@ export function CinematicHero() {
       {platform?.heroLedEffects !== false && <div className="cinematic-fx led-fx" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /></div>}
 
       <div className={styles.heroOverlay}>
-        <img src="/images/branding/Aureon_Header_Logo.png" alt="Aureon Music Group" width="760" height="260" className={styles.heroLogo} style={{ width: `${logoScale}%`, maxWidth: 760, height: 'auto' }} decoding="async" fetchPriority="high" />
-        <p className={styles.slogan}>DISCOVER ORIGINAL MUSIC</p>
-        <p className={styles.platformIntro}>Discover original releases from independent artists. Preview songs, explore albums, and join Listener to hear the full catalogue.</p>
+        
+        <p className={styles.slogan}>ORIGINAL ARTISTS. TIMELESS MUSIC.</p>
+        
         <div className={styles.heroActions}>
-          <Link className={styles.discoverButton} href="/discover">START LISTENING <span aria-hidden="true">→</span></Link>
+          <Link className={styles.discoverButton} href="/discover">▶ EXPLORE MUSIC <span aria-hidden="true">→</span></Link>
           <Link className={styles.accountButton} href="/membership">EXPLORE MEMBERSHIP</Link>
         </div>
       </div>

@@ -6,10 +6,10 @@ const read = path => fs.readFileSync(path, 'utf8');
 
 test('homepage explains discovery and exposes listening plus membership CTAs', () => {
   const hero = read('components/CinematicHero.tsx');
-  assert.match(hero, /DISCOVER ORIGINAL MUSIC/);
-  assert.match(hero, /href="\/discover">START LISTENING/);
+  assert.match(hero, /Music for/);
+  assert.match(hero, /href="\/discover">▶ EXPLORE MUSIC/);
   assert.match(hero, /href="\/membership">EXPLORE MEMBERSHIP/);
-  assert.match(hero, /Preview songs, explore albums/);
+  assert.match(hero, /ORIGINAL ARTISTS\. TIMELESS MUSIC\./);
 });
 
 test('public catalogue detail pages expose clear discovery and account paths', () => {
