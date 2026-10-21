@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ListMusic, Pause, Play, Repeat1, Repeat2, Shuffle, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
+import { ListMusic, Maximize2, Minimize2, Pause, Play, Repeat1, Repeat2, Shuffle, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
 import { ArtworkImage } from '@/components/ArtworkImage';
 import { firebaseAuth } from '@/lib/firebase-client';
 import { claimMediaSession, releaseMediaSession } from '@/lib/media-session-owner';
@@ -84,6 +84,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
   const [shuffle, setShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
   const [queueOpen, setQueueOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState('');
   const [authReady, setAuthReady] = useState(false);
   const currentSong = index >= 0 ? queue[index] || null : null;
@@ -115,6 +116,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     setCurrentTime(0);
     setDuration(0);
     setQueueOpen(false);
+    setExpanded(false);
     setError('');
     releaseMediaSession(audio);
     if (removeSavedState && typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
@@ -492,13 +494,16 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
       }}
       onEnded={handleEnded}
     />
-    {currentSong && <aside className="aureon-global-player" aria-label="Music player">
+    {currentSong && <aside className={`aureon-global-player ${expanded ? "aureon-player-expanded" : ""}`} aria-label="Music player">
+      <button className="aureon-player-expand" type="button" onClick={() => { setExpanded(value => !value); setQueueOpen(false); }} aria-label={expanded ? "Minimize player" : "Expand player"}>{expanded ? <Minimize2 /> : <Maximize2 />}</button>
       <button className="aureon-player-close" type="button" onClick={() => resetPlayer(true)} aria-label="Close music player"><X /></button>
       {error && <div className="aureon-player-error">{error}</div>}
+      {expanded && <div className="aureon-player-intro"><span>AUREON MUSIC GROUP</span><strong>NOW PLAYING</strong></div>}
       <div className="aureon-player-track">
         <ArtworkImage src={currentSong.coverImageUrl || currentSong.imageUrl} alt={`${currentSong.title || 'Song'} artwork`} width={64} height={64} sizes="64px" />
         <div><strong>{currentSong.title || 'Untitled track'}</strong><span>{currentSong.artistName || currentSong.artist || 'Aureon Music Group'}</span></div>
       </div>
+      {expanded && <div className="aureon-player-expanded-meta"><span>PLAYING FROM YOUR AUREON LIBRARY</span><h2>{currentSong.title || "Untitled track"}</h2><p>{currentSong.artistName || currentSong.artist || "Aureon Music Group"}</p><div className="aureon-player-wave" aria-hidden="true">{Array.from({length:58},(_,i)=><i key={i} style={{height:`${16+((i*17+i*i*7)%75)}%`}} />)}</div></div>}
       <div className="aureon-player-main">
         <div className="aureon-player-controls">
           <button className={shuffle ? 'active' : ''} onClick={() => setShuffle(value => !value)} aria-label="Shuffle"><Shuffle /></button>
@@ -514,6 +519,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
         <button onClick={() => { const nextMuted = !muted; setMuted(nextMuted); if (audioRef.current) audioRef.current.muted = nextMuted; }} aria-label="Mute">{muted ? <VolumeX /> : <Volume2 />}</button>
         <input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={muted ? 0 : volume} onChange={event => { const nextVolume = Number(event.target.value); setVolume(nextVolume); setMuted(nextVolume === 0); if (audioRef.current) { audioRef.current.volume = nextVolume; audioRef.current.muted = nextVolume === 0; } }} />
       </div>
+      {expanded && <div className="aureon-expanded-queue"><div className="aureon-expanded-queue-heading">UP NEXT <span>{queue.length} tracks</span></div>{queue.slice(Math.max(0,index),Math.max(0,index)+6).map((song,offset)=><button key={`${song.id}-${offset}`} className={offset===0 ? "current" : ""} onClick={()=>void loadAt(Math.max(0,index)+offset)}><ArtworkImage src={song.coverImageUrl || song.imageUrl} alt="" width={50} height={50} sizes="50px"/><span><strong>{song.title || "Untitled track"}</strong><small>{song.artistName || song.artist || "Aureon Music Group"}</small></span></button>)}</div>}
       {queueOpen && <div className="aureon-queue-panel"><div className="aureon-queue-head"><strong>Up next</strong><button onClick={() => setQueueOpen(false)} aria-label="Close queue"><X /></button></div>{queue.map((song, itemIndex) => <button className={itemIndex === index ? 'current' : ''} key={`${song.id}-${itemIndex}`} onClick={() => loadAt(itemIndex)}><span>{itemIndex + 1}</span><div><strong>{song.title || 'Untitled track'}</strong><small>{song.artistName || song.artist || 'Aureon Music Group'}</small></div><span onClick={event => { event.stopPropagation(); removeFromQueue(itemIndex); }}>×</span></button>)}<button className="aureon-clear-queue" onClick={clearQueue}>Clear queue</button></div>}
     </aside>}
   </PlayerContext.Provider>;
