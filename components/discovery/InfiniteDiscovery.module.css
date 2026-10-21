@@ -37,3 +37,22 @@
 @media(max-width:1100px){.miniCard{grid-template-columns:76px minmax(0,1fr)}}
 @media(max-width:720px){.shell{padding:42px 18px;background-attachment:scroll}.header{gap:15px}.rail{grid-template-columns:1fr}.miniCard{grid-template-columns:72px minmax(0,1fr)}.artwork{width:72px}.twoCol,.threeCol{grid-template-columns:1fr}.releaseRail{grid-template-columns:none}.release{flex-basis:72vw;aspect-ratio:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.release,.release:hover{transform:none;transition:none}}
+
+
+/* Artists: match the approved eclipse gallery with bright metallic framing. */
+.artistsView{background:linear-gradient(180deg,rgba(1,3,8,.56),rgba(1,3,8,.83) 45%,rgba(2,3,6,.96)),url('/images/aureon-eclipse-ocean-poster.webp') center top/100% auto no-repeat,#020306;border-top:1px solid #c28a35}
+.artistsView .header{padding:20px 0 28px;border-bottom:1px solid rgba(255,198,99,.4)}
+.artistsView .header h2{font-size:clamp(42px,5.3vw,76px);font-weight:400}
+.artistsView .header>a{color:#ffd680;font-size:14px}
+.artistsView .lane{padding:34px 0}
+.artistsView .laneTitle h3{font-size:clamp(23px,2.2vw,33px)}
+.artistsView .miniCard{min-height:154px;padding:16px;border-color:#d7a050;box-shadow:inset 0 1px 0 rgba(255,246,200,.8),inset 0 0 0 3px #120d08,0 4px 0 #8a581e,0 15px 27px rgba(0,0,0,.72),0 0 21px rgba(238,169,59,.2)}
+.artistsView .artwork{width:80px;border-color:#ffd57c;box-shadow:0 0 0 3px #35240e,0 0 14px rgba(255,187,67,.4)}
+.artistsView .miniCard{grid-template-columns:80px minmax(0,1fr)}
+.artistsView .copy strong a{font-size:15px}
+.artistsView .personalCard,.artistsView .collection{border-color:#ba853d;box-shadow:inset 0 1px rgba(255,227,157,.45),0 4px 0 #654015,0 12px 27px rgba(0,0,0,.6)}
+.artistsView .release{border:2px solid #f0ba60;box-shadow:inset 0 1px rgba(255,247,203,.8),0 4px 0 #89551d,0 15px 27px rgba(0,0,0,.65),0 0 22px rgba(255,178,52,.22)}
+.artistsView .release:before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;box-shadow:inset 0 0 0 3px rgba(9,7,4,.5),inset 0 0 18px rgba(250,189,83,.14)}
+.artistsView .release span{font-size:clamp(18px,1.8vw,27px);color:#fffaf1}
+@media(max-width:1100px){.artistsView .miniCard{grid-template-columns:80px minmax(0,1fr)}}
+@media(max-width:720px){.artistsView{background-size:auto 640px}.artistsView .miniCard{grid-template-columns:72px minmax(0,1fr)}.artistsView .artwork{width:72px}.artistsView .header h2{font-size:42px}.artistsView .lane{padding:26px 0}}
