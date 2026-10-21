@@ -28,3 +28,25 @@
 @media(max-width:900px){.heading{align-items:flex-start;flex-direction:column}.rail{grid-auto-columns:minmax(220px,38vw)}}
 @media(max-width:620px){.section{padding:40px 16px 56px}.rail{grid-auto-columns:minmax(210px,72vw);gap:18px;padding:18px 12px 36px}.heading h2{font-size:clamp(32px,8vw,45px)}.card,.card:nth-child(even){transform:none}.body :global(.latest-release-button){font-size:10px!important}}
 @media(prefers-reduced-motion:reduce){.card,.artwork img{transition:none}}
+
+
+/* Align personalised discovery with the approved polished black-and-gold
+   gallery. Keep card content legible and buttons visibly integrated. */
+.section{overflow:hidden;background:#030609}
+.section::before{filter:none;background:linear-gradient(180deg,rgba(2,5,9,.64),rgba(2,5,9,.28) 53%,rgba(2,4,7,.68)),url('/images/aureon-eclipse-ocean-poster.webp') center 54%/cover no-repeat}
+.heading{margin-bottom:24px}
+.heading h2{color:#fff!important;text-shadow:0 2px 5px #000!important}
+.heading>div>p:last-child{color:#f4e9d9!important;opacity:1}
+.rail{padding-top:27px;padding-bottom:60px;overflow-y:visible;perspective:1500px}
+.card{isolation:isolate;overflow:visible;border:2px solid #ffdd97;border-radius:12px;background:#080b10;box-shadow:inset 1px 1px 0 #fff3c9,inset -1px -1px 0 #e69c3e,-5px 4px 0 #9c5a1d,-8px 7px 0 #ffca69,0 23px 30px #000,0 0 18px rgba(255,181,56,.53);transform:perspective(1400px) rotateY(5deg) rotateZ(.7deg);transform-origin:center center}
+.card:nth-child(even){transform:perspective(1400px) rotateY(-5deg) rotateZ(-.7deg)}
+.card:hover,.card:focus-within{z-index:3;transform:perspective(1400px) rotateY(0) rotateZ(0) translateY(-6px);box-shadow:inset 1px 1px 0 #fff3c9,-5px 4px 0 #9c5a1d,-8px 7px 0 #ffca69,0 27px 36px #000,0 0 27px rgba(255,194,83,.75)}
+.artwork{border-radius:10px 10px 0 0;aspect-ratio:4/4.5}
+.body{background:linear-gradient(180deg,#15120e,#06080b);border-radius:0 0 10px 10px}
+.body h3{color:#fff!important;opacity:1;font-weight:500}
+.reason{color:#ffd47d!important;opacity:1}
+.artist{color:#f1d6a8!important;opacity:1}
+.body :global(.latest-release-button),
+.body :global(button){background:linear-gradient(160deg,#4e310f,#18120c 65%,#50300d)!important;color:#ffe5a5!important;-webkit-text-fill-color:#ffe5a5!important;border:1px solid #f9c46b!important;border-radius:5px!important;box-shadow:inset 0 1px 0 rgba(255,242,205,.65),inset 0 -1px 0 #b36d23,0 0 11px rgba(255,168,48,.35)!important;text-shadow:none!important;opacity:1!important}
+.body :global(button:hover){background:linear-gradient(160deg,#6e4818,#24170b)!important;box-shadow:0 0 18px rgba(255,195,77,.6)!important}
+@media(max-width:620px){.card,.card:nth-child(even){transform:none}.rail{overflow-y:visible}}
