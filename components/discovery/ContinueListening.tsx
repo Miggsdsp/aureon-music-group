@@ -76,11 +76,12 @@ export function ContinueListening({ compact = false }: { compact?: boolean }) {
   };
 
   return <section className={`${styles.section} ${compact ? styles.compact : ''}`} aria-labelledby="continue-listening-heading">
-    <div className={styles.heading}>
+    <div className={styles.ambientEclipse} aria-hidden="true" /><div className={styles.stageGlow} aria-hidden="true" /><div className={styles.heading}>
       <div><p>Resume your journey</p><h2 id="continue-listening-heading">Continue Listening</h2></div>
       <Link href="/library">Open library →</Link>
     </div>
     <article className={styles.card}>
+      <div className={styles.playerAura} aria-hidden="true" />
       <div className={styles.artwork}>
         <ArtworkImage src={item.coverImageUrl} alt={`${item.title || 'Song'} artwork`} fill sizes={compact ? '96px' : '(max-width: 700px) 110px, 150px'} />
       </div>
@@ -88,6 +89,7 @@ export function ContinueListening({ compact = false }: { compact?: boolean }) {
         <p className={styles.artist}>{item.artist || 'Aureon Music Group'}</p>
         <h3>{item.title || 'Untitled track'}</h3>
         <div className={styles.progress} aria-label={`${Math.round(percentage)} percent listened`}><span style={{ width: `${percentage}%` }} /></div>
+        <div className={styles.equalizer} aria-hidden="true">{Array.from({ length: 24 }, (_, index) => <i key={index} style={{ height: `${16 + ((index * 17 + 13) % 72)}%` }} />)}</div>
         <div className={styles.meta}><span><Clock3 size={14} /> {formatTime(position)} of {formatTime(duration)}</span><span>{Math.round(percentage)}% complete</span></div>
       </div>
       <button type="button" className={styles.resume} onClick={() => resumeSong(song, position)}><Play size={17} /> Resume</button>
