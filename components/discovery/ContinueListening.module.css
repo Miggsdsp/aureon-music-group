@@ -27,3 +27,18 @@
 @media(max-width:900px){.card{grid-template-columns:clamp(115px,23vw,160px) minmax(0,1fr);transform:none}.resume{grid-column:2;justify-self:start}.heading{align-items:flex-start}}
 @media(max-width:620px){.section{padding:42px 18px 65px}.heading{flex-direction:column;gap:12px}.heading h2{font-size:clamp(36px,9vw,50px)}.card,.compact .card{grid-template-columns:100px minmax(0,1fr);gap:18px;padding:17px;border-radius:14px}.artwork{align-self:start}.copy h3{font-size:clamp(23px,6vw,34px);margin-bottom:15px}.meta{flex-direction:column;gap:5px}.resume,.compact .resume{grid-column:1/-1;width:100%;min-width:0}.artist{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.resume{transition:none}}
+
+
+/* Cinematic composition: an actual layered stage, not a flat CSS recolour */
+.section:not(.compact){min-height:570px;display:flex;flex-direction:column;justify-content:center}
+.ambientEclipse{position:absolute;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(2,3,7,.55),rgba(2,3,7,.16) 45%,rgba(2,3,7,.55)),url('/images/aureon-eclipse-ocean-poster.webp') center 38%/cover no-repeat;opacity:.8}
+.stageGlow{position:absolute;z-index:-1;pointer-events:none;left:6%;right:6%;bottom:2%;height:38%;background:radial-gradient(ellipse at 50% 95%,rgba(240,148,44,.4),transparent 62%);filter:blur(22px)}
+.playerAura{position:absolute;pointer-events:none;inset:-13px -10px;border-radius:26px;z-index:-1;border:1px solid rgba(255,195,92,.2);box-shadow:0 0 35px rgba(252,171,53,.26)}
+.equalizer{display:flex;align-items:center;justify-content:center;gap:4px;height:44px;margin:-5px 0 18px;overflow:hidden;opacity:.76}
+.equalizer i{display:block;flex:1;max-width:12px;min-width:3px;border-radius:5px;background:linear-gradient(180deg,#ffe5a1,#a96522);box-shadow:0 0 6px rgba(240,169,59,.38)}
+.section:not(.compact) .heading h2{font-family:Georgia,'Times New Roman',serif!important;font-weight:400!important;letter-spacing:-.035em!important;font-size:clamp(40px,5vw,76px)!important}
+.section:not(.compact) .copy h3{font-family:Georgia,'Times New Roman',serif!important;font-weight:400!important;font-size:clamp(29px,3vw,49px)!important}
+.section:not(.compact) .card{border-radius:20px!important;border:1px solid #f2c177!important;background:linear-gradient(110deg,rgba(28,26,23,.92),rgba(3,5,9,.96))!important;box-shadow:0 0 30px rgba(247,171,53,.25),0 35px 65px rgba(0,0,0,.75),-8px 9px 0 rgba(103,61,21,.75)!important}
+.section:not(.compact) .artwork{border-radius:12px!important;box-shadow:0 0 25px rgba(255,189,80,.55),0 15px 30px #000!important}
+.section:not(.compact) .resume{border-radius:8px!important;box-shadow:0 0 20px rgba(242,166,52,.36)!important}
+@media(max-width:620px){.section:not(.compact){min-height:0}.equalizer{height:25px;gap:2px;margin:4px 0 12px}.section:not(.compact) .heading h2{font-size:36px!important}.section:not(.compact) .copy h3{font-size:25px!important}}
