@@ -232,3 +232,54 @@
   box-shadow:0 0 7px #ffe2a0,0 0 20px rgba(255,177,48,.8);
  }
 }
+
+
+/* Clarity correction: reflections belong on the metal rim, never over the
+   artwork or lettering. Solid dark face and opaque, high-contrast type. */
+.section:not(.compact) .card {
+ background:#080a0d !important;
+ isolation:isolate;
+}
+.section:not(.compact) .card::before {
+ inset:0;
+ z-index:-1;
+ background:linear-gradient(145deg,rgba(255,226,161,.11),transparent 17%,transparent 82%,rgba(233,127,25,.1)) !important;
+}
+.section:not(.compact) .playerAura{z-index:-1}
+.section:not(.compact) .copy,
+.section:not(.compact) .artwork,
+.section:not(.compact) .resume{z-index:1;opacity:1;filter:none}
+.section:not(.compact) .copy h3 {
+ color:#ffffff !important;
+ opacity:1 !important;
+ text-shadow:0 1px 2px #000 !important;
+ -webkit-text-fill-color:#fff !important;
+}
+.section:not(.compact) .artist,
+.section:not(.compact) .heading p {
+ color:#ffcc69 !important;
+ opacity:1 !important;
+ text-shadow:0 1px 2px #000;
+}
+.section:not(.compact) .meta,
+.section:not(.compact) .meta span {
+ color:#f0e9dd !important;
+ opacity:1 !important;
+ text-shadow:0 1px 2px #000;
+}
+.section:not(.compact) .resume {
+ color:#fff0c5 !important;
+ opacity:1 !important;
+ text-shadow:0 1px 2px #000;
+}
+.section:not(.compact) .heading h2{color:#fff !important;opacity:1 !important;text-shadow:0 2px 5px #000 !important}
+.section:not(.compact) .heading a{color:#ffcf74 !important;opacity:1 !important}
+@media (min-width:901px) {
+ .section:not(.compact) .card {
+  /* A subtle 3D slant preserves crisp type at normal browser zoom. */
+  transform:perspective(2200px) rotateY(3deg) rotateZ(.55deg) !important;
+ }
+ .section:not(.compact) .card:hover {
+  transform:perspective(2200px) rotateY(3deg) rotateZ(.55deg) translateY(-2px) !important;
+ }
+}
