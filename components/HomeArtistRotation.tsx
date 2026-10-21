@@ -59,6 +59,7 @@ export function HomeArtistRotation({ albums = [] }: { albums?: Album[] }) {
               <span className={`${styles.tileArtwork} ${artworkStyle}`}>
                 <ArtworkImage src={image} alt={artist.name ? `${artist.name} artwork` : 'Aureon artist artwork'} fill sizes="(max-width: 430px) 46vw, (max-width: 680px) 30vw, (max-width: 1100px) 22vw, 15vw" />
                 <span className={styles.tileShine} aria-hidden="true" />
+                <span className={styles.playBadge} aria-hidden="true">▶</span>
               </span>
               <span className={styles.tileInfo}>
                 <strong>{artist.name || 'Aureon artist'}</strong>
