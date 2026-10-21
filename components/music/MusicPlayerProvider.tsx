@@ -500,7 +500,9 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
       {error && <div className="aureon-player-error">{error}</div>}
       {expanded && <div className="aureon-player-intro"><span>AUREON MUSIC GROUP</span><strong>NOW PLAYING</strong></div>}
       <div className="aureon-player-track">
-        <ArtworkImage src={currentSong.coverImageUrl || currentSong.imageUrl} alt={`${currentSong.title || 'Song'} artwork`} width={64} height={64} sizes="64px" />
+        <button type="button" className="aureon-player-artwork-trigger" onClick={() => { setExpanded(value => !value); setQueueOpen(false); }} aria-label={expanded ? "Minimize now playing" : "Open full-screen now playing"}>
+        <ArtworkImage src={currentSong.coverImageUrl || currentSong.imageUrl} alt={`${currentSong.title || 'Song'} artwork`} width={64} height={64} sizes="(max-width: 700px) 340px, 560px" />
+        </button>
         <div><strong>{currentSong.title || 'Untitled track'}</strong><span>{currentSong.artistName || currentSong.artist || 'Aureon Music Group'}</span></div>
       </div>
       {expanded && <div className="aureon-player-expanded-meta"><span>PLAYING FROM YOUR AUREON LIBRARY</span><h2>{currentSong.title || "Untitled track"}</h2><p>{currentSong.artistName || currentSong.artist || "Aureon Music Group"}</p><div className="aureon-player-wave" aria-hidden="true">{Array.from({length:58},(_,i)=><i key={i} style={{height:`${16+((i*17+i*i*7)%75)}%`}} />)}</div></div>}
