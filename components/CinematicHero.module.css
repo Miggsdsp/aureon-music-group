@@ -5,7 +5,7 @@
   place-items: center;
   isolation: isolate;
   width: 100%;
-  height: calc(100svh - var(--aureon-header-height, 90px));
+  height: 100svh;
   min-height: 0;
   overflow: hidden;
   color: #f8f2e7;
@@ -26,15 +26,15 @@
   z-index: -2;
   background-color: #071018;
   background-image: linear-gradient(180deg, rgba(5, 8, 12, .04) 0%, rgba(5, 8, 12, .04) 55%, rgba(5, 8, 12, .68) 100%), url('/images/aureon-eclipse-ocean-poster.webp');
-  background-position: center 54%;
-  background-size: cover;
-  transform: scale(1.015);
+  background-position: center center;
+  background-size: contain;
+  transform: none;
 }
 
 .heroVideo {
   z-index: -1;
-  object-fit: cover;
-  object-position: center 53%;
+  object-fit: contain;
+  object-position: center center;
   pointer-events: none;
   opacity: 0;
   transition: opacity .65s ease;
@@ -116,15 +116,15 @@
 .heroFix :global(.cinematic-fx) { z-index: 1; pointer-events: none; }
 
 @media (max-width: 900px) {
-  .heroFix { height: calc(100svh - var(--aureon-header-height, 90px)); min-height: 0; }
+  .heroFix { height: 100svh; min-height: 0; }
   .heroHeadline { top: 37%; width: min(94%, 820px); font-size: clamp(32px, 5.2vw, 46px); letter-spacing: .07em; }
   .heroOverlay { top: 67%; }
 }
 
 @media (max-width: 620px) {
-  .heroFix { height: calc(100svh - var(--aureon-header-height, 78px)); min-height: 0; }
-  .videoLoadingBackground { background-position: 53% center; }
-  .heroVideo { object-position: 53% center; }
+  .heroFix { height: 100svh; min-height: 0; }
+  .videoLoadingBackground { background-position: center center; }
+  .heroVideo { object-position: center center; }
   .heroHeadline { top: 38%; width: calc(100% - 34px); font-size: clamp(27px, 7.8vw, 36px); letter-spacing: .055em; line-height: 1.14; }
   .heroOverlay { top: 68%; width: calc(100% - 36px); }
   .slogan { margin-bottom: 17px; font-size: 10px; letter-spacing: .2em; }
