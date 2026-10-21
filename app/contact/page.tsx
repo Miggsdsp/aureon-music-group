@@ -13,7 +13,7 @@ const contactOptions = [
 
 export default function ContactPage() {
   return (
-    <PageShell title="Contact Aureon" kicker="Let’s create tomorrow’s classics together">
+    <div className="aureon-contact-page"><PageShell title="Contact Aureon" kicker="Let’s create tomorrow’s classics together">
       <section className="contact-page-wrap">
         <div className="contact-lead">
           <EditablePageText slug="contact" field="description" fallback="Whether you are an artist, producer, songwriter, filmmaker, brand or business partner, we would love to hear from you." as="p" />
@@ -46,6 +46,6 @@ export default function ContactPage() {
           <div><span className="contact-domain-mark">A</span><EditablePageText slug="contact" field="domain" fallback="aureonmusicgroup.com" as="span" /></div>
         </section>
       </section>
-    </PageShell>
+    </PageShell></div>
   );
 }
