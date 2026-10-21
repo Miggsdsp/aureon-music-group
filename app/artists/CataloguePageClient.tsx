@@ -41,9 +41,9 @@ export default function ArtistsPage() {
       <Header />
       <section className={styles.hero} aria-labelledby="artists-title">
         <div className={styles.heroGlow} aria-hidden="true" />
-        <p className={styles.kicker}><Sparkles size={14} /> Artists of Aureon</p>
-        <h1 id="artists-title">Meet the artists<br /><span>behind the sound.</span></h1>
-        <p className={styles.lede}>Distinct voices, original music and worlds worth discovering. Find an artist, explore their releases and start listening.</p>
+        <p className={styles.kicker}><Sparkles size={14} /> The Aureon Collection</p>
+        <h1 id="artists-title">Discover <span>Our Artists</span></h1>
+        <p className={styles.lede}>Six artists. Six worlds. One universe of original music.</p>
         <div className={styles.heroActions}>
           <Link href="/music" className={styles.primaryAction}>Explore the music <ArrowUpRight size={16} /></Link>
           <Link href="/genres" className={styles.secondaryAction}>Browse by genre</Link>
@@ -54,7 +54,7 @@ export default function ArtistsPage() {
         <div className={styles.sectionHeading}>
           <div>
             <p className={styles.kicker}>The Aureon roster</p>
-            <h2 id="artist-catalogue-title">Find your next favourite</h2>
+            <h2 id="artist-catalogue-title">Explore the collection</h2>
           </div>
           <label className={styles.search}>
             <Search size={17} aria-hidden="true" />
@@ -78,13 +78,13 @@ export default function ArtistsPage() {
                 <Link href={`/artists/${artist.slug}`} className={styles.artistCard} key={artist.id} aria-label={`Explore ${artist.name}`}>
                   <div className={`${styles.artwork} ${hasPortraitArtwork ? styles.portrait : styles.identity}`}>
                     <ArtworkImage src={image} alt={portrait ? `Portrait of ${artist.name}` : `${artist.name} artwork`} fill sizes="(max-width: 680px) 100vw, (max-width: 1050px) 50vw, 20vw" />
-                    <span className={styles.artistLabel}>Aureon artist</span>
+                    
                   </div>
                   <div className={styles.cardCopy}>
-                    <div className={styles.artistTitleRow}><h3>{artist.name}</h3><ArrowUpRight size={18} aria-hidden="true" /></div>
-                    {genres.length > 0 && <p className={styles.genres}>{genres.join(' · ')}</p>}
-                    {description && <p className={styles.description}>{description}</p>}
-                    <span className={styles.cardLink}>Explore artist <span aria-hidden="true">→</span></span>
+                    <div className={styles.artistTitleRow}><h3>{artist.name}</h3></div>
+                    <p className={styles.genres}>Original Music</p>
+                    
+                    
                   </div>
                 </Link>
               );
