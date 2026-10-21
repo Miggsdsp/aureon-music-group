@@ -138,3 +138,30 @@
 .artistFooter :global(.aureon-footer-legal-button){background:linear-gradient(120deg,#3d280f,#15110a);border-color:#efb95e!important;color:#ffe1a3!important}
 .artistFooter :global(.aureon-footer-bottom){background:rgba(2,3,6,.93)}
 @media(max-width:650px){.artistFooter :global(.aureon-footer-grid){padding:24px 16px;gap:18px}.artistFooter :global(.aureon-footer-panel){padding:20px}}
+
+
+/* Mobile layout repair: isolate artist cards from legacy global catalogue rules. */
+@media(max-width:650px){
+.page{width:100%;max-width:100%;overflow-x:clip}
+.hero{box-sizing:border-box;width:100%;padding:52px 20px 32px;min-height:0}
+.hero .kicker{font-size:10px;letter-spacing:.16em}
+.hero h1{font-size:clamp(35px,9vw,48px);line-height:1.07;overflow-wrap:normal}
+.lede{font-size:14px;line-height:1.5;margin-top:15px}
+.heroActions{width:100%;margin-top:22px;gap:10px}
+.heroActions a{box-sizing:border-box;width:100%;min-height:48px}
+.catalogue{box-sizing:border-box;width:100%;max-width:100%;padding:32px 16px 52px;margin:0 auto}
+.sectionHeading{display:flex;flex-direction:column;align-items:stretch;gap:16px;margin-bottom:20px}
+.sectionHeading h2{font-size:clamp(30px,8vw,40px);line-height:1.12}
+.search{position:relative;display:flex;flex:none;width:100%;max-width:100%;min-width:0;box-sizing:border-box;min-height:48px;z-index:1}
+.search input{display:block;min-width:0;width:100%;font-size:14px}
+.artistGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important;box-sizing:border-box;width:100%;max-width:100%;padding:6px 4px 20px;margin:0;align-items:stretch}
+.artistGrid>.artistCard,.artistGrid>.artistCard:nth-child(n){position:relative!important;display:block!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;height:auto!important;min-height:0!important;aspect-ratio:0.69!important;overflow:hidden!important;transform:none!important;border:1px solid #e8b25c!important;border-radius:9px!important;background:#080a0e!important;box-shadow:inset 0 0 0 2px #1c1309,0 4px 0 #7b4b18,0 10px 22px #000!important}
+.artistCard .artwork{position:absolute!important;display:block!important;inset:0!important;width:100%!important;height:100%!important;min-height:0!important;margin:0!important;padding:0!important;aspect-ratio:auto!important;overflow:hidden!important;border:0!important;border-radius:8px!important}
+.artistCard .artwork img{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;max-width:none!important;padding:0!important}
+.artistCard .cardCopy{position:absolute!important;display:block!important;z-index:5!important;inset:auto 0 0!important;width:100%!important;min-height:0!important;box-sizing:border-box!important;padding:32px 10px 13px!important;background:linear-gradient(180deg,transparent,rgba(0,0,0,.82))!important;pointer-events:none}
+.artistCard .artistTitleRow{display:block!important;width:100%!important;min-width:0!important}
+.artistCard .artistTitleRow h3{display:block!important;margin:0!important;font:400 clamp(16px,4.4vw,22px)/1.16 Georgia,'Times New Roman',serif!important;color:#fffaf1!important;overflow-wrap:break-word!important;word-break:normal!important;text-shadow:0 2px 6px #000!important}
+.artistCard .genres{display:block!important;margin:5px 0 0!important;font-size:11px!important;line-height:1.25!important;color:#ffd28a!important}
+.artistFooter{max-width:100%;overflow-x:clip}
+}
+@media(max-width:360px){.artistGrid{gap:11px!important}.catalogue{padding-inline:12px}.artistCard .artistTitleRow h3{font-size:16px!important}}
