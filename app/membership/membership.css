@@ -34,3 +34,42 @@
 @media(max-width:900px) { .membership-trust { grid-template-columns:repeat(3,minmax(0,1fr)); } .membership-trust span:nth-child(3) { border-right:0; } }
 @media(max-width:700px) { .membership-page { padding:86px 16px 54px; background-attachment:scroll; } .membership-navigation { margin-bottom:20px; } .membership-grid { grid-template-columns:1fr; gap:12px; } .membership-card { padding:24px; } .membership-description { min-height:0; } .membership-trust { grid-template-columns:repeat(2,minmax(0,1fr)); } .membership-trust span:nth-child(3) { border-right:1px solid rgba(217,180,95,.13); } .membership-trust span:nth-child(2n) { border-right:0; } }
 @media(max-width:420px) { .membership-hero h1 { font-size:36px; } .membership-hero>p:last-child { font-size:13px; } .membership-trust { grid-template-columns:1fr; } .membership-trust span,.membership-trust span:nth-child(3) { border-right:0; border-bottom:1px solid rgba(217,180,95,.13); } .membership-trust span:last-child { border-bottom:0; } }
+
+
+/* Approved Aureon visual language: sharp editorial type, polished gold, cinematic depth. */
+.membership-page{position:relative;isolation:isolate;overflow-x:clip;padding-top:clamp(106px,11vw,154px);background:linear-gradient(180deg,rgba(2,5,10,.22) 0%,rgba(2,5,10,.7) 45%,#030508 100%),url('/images/aureon-eclipse-ocean-poster.webp') center top/100% auto no-repeat,#030508}
+.membership-page:before{content:'';position:absolute;inset:0 0 auto;height:min(65vw,700px);z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 75% 17%,rgba(245,169,64,.13),transparent 35%)}
+.membership-navigation{max-width:1180px;margin-bottom:clamp(32px,5vw,64px);padding-bottom:14px;border-bottom:1px solid rgba(240,186,90,.34)}
+.membership-navigation a{color:#ffce78;font-size:11px;letter-spacing:.1em}
+.membership-navigation a:hover,.membership-navigation a:focus-visible{color:#fff3d5;text-decoration:underline;text-underline-offset:5px}
+.membership-hero{max-width:940px;margin-bottom:42px}
+.membership-eyebrow{color:#ffd17f;font-size:12px;letter-spacing:.32em;text-shadow:0 0 14px rgba(255,183,72,.28)}
+.membership-hero h1{font:400 clamp(52px,6vw,88px)/1.02 Georgia,'Times New Roman',serif;letter-spacing:-.04em;color:#fff9ed;text-shadow:0 4px 26px rgba(0,0,0,.85)}
+.membership-hero>p:last-child{max-width:720px;color:#f3e7d4;font-size:clamp(14px,1.4vw,17px);line-height:1.65;text-shadow:0 2px 8px #000}
+.membership-trust{max-width:1160px;margin-bottom:36px;border-color:rgba(249,194,102,.46);background:linear-gradient(120deg,rgba(18,14,10,.93),rgba(4,7,12,.92));box-shadow:0 15px 40px rgba(0,0,0,.5),inset 0 1px rgba(255,235,190,.22)}
+.membership-trust span{padding:15px 12px}
+.membership-trust svg{color:#ffd080}
+.membership-trust b{color:#fff5e4;font-size:11px}
+.membership-trust small{color:#d4c6b3;font-size:10px}
+.membership-grid{max-width:1160px;gap:clamp(16px,2.6vw,34px)}
+.membership-card{padding:clamp(24px,3vw,40px);border:1px solid #d6a250;border-radius:11px;background:linear-gradient(148deg,rgba(27,20,12,.97),rgba(3,7,12,.97) 60%);box-shadow:inset 0 0 0 2px rgba(255,219,153,.1),0 2px 0 #885720,0 24px 55px rgba(0,0,0,.64),0 0 22px rgba(235,165,61,.12)}
+.membership-card.creator{border-color:#ffd68c;background:linear-gradient(142deg,rgba(47,30,11,.98),rgba(5,8,12,.97) 65%);box-shadow:inset 0 0 0 2px rgba(255,225,163,.18),0 2px 0 #a97127,0 25px 60px rgba(0,0,0,.7),0 0 35px rgba(245,180,76,.19)}
+.membership-card:before{z-index:0;opacity:.65}
+.membership-card>*{position:relative;z-index:1}
+.membership-plan{color:#ffce78;font-size:12px;letter-spacing:.2em}
+.membership-card h2{font:400 clamp(46px,5vw,66px)/1.08 Georgia,'Times New Roman',serif;color:#fff9ed;margin:18px 0 14px}
+.membership-card h2 small{font:400 15px/1.4 Inter,ui-sans-serif,system-ui,sans-serif;color:#f1c67d}
+.membership-description{color:#eaddc9;font-size:14px;line-height:1.65}
+.membership-card h3{color:#ffd184;font-size:11px;margin-top:22px}
+.membership-card ul{border-color:rgba(245,193,102,.3)}
+.membership-card li{color:#fff4e6;font-size:13px;line-height:1.55;border-color:rgba(245,193,102,.17)}
+.membership-exclusions li{color:#d3c2a8}
+.membership-button.primary-button{min-height:56px;margin-top:auto;padding:15px 16px;border:1px solid #f5d48a;border-radius:5px;background:linear-gradient(115deg,#fff0b8 0%,#e8b859 33%,#ac7128 66%,#f3d385 100%);box-shadow:inset 0 1px rgba(255,255,255,.75),0 3px 0 #6c431a,0 7px 22px rgba(236,167,65,.26);color:#100b05;font-size:12px;font-weight:800;letter-spacing:.12em;text-align:center;text-shadow:none;transition:filter .2s,transform .2s,box-shadow .2s}
+.membership-button.primary-button:hover:not(:disabled){filter:brightness(1.12);transform:translateY(-2px);box-shadow:inset 0 1px #fff,0 4px 0 #6c431a,0 12px 28px rgba(236,167,65,.4)}
+.membership-button.primary-button:focus-visible{outline:3px solid #fff4cf;outline-offset:4px}
+.membership-microtrust{color:#d7c7b1;font-size:10px}
+.membership-creator-trust{max-width:1160px;margin-top:38px}
+.membership-note{max-width:1000px;margin-top:32px;color:#d6c6b0;font-size:12px}
+@media(max-width:700px){.membership-page{padding:100px 16px 60px;background-size:auto,auto 570px;background-position:center top}.membership-navigation{flex-wrap:wrap;gap:12px 18px;margin-bottom:34px}.membership-hero{margin-bottom:28px}.membership-hero h1{font-size:clamp(43px,11vw,60px)}.membership-grid{grid-template-columns:minmax(0,1fr);gap:22px}.membership-card{padding:23px 20px}.membership-card h2{font-size:52px}.membership-trust{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:24px}.membership-trust span{padding:13px 10px}.membership-trust span:last-child{grid-column:1/-1}.membership-microtrust{text-align:center}}
+@media(max-width:420px){.membership-trust{grid-template-columns:repeat(2,minmax(0,1fr))}.membership-trust span,.membership-trust span:nth-child(3){border-bottom:1px solid rgba(217,180,95,.13)}.membership-trust span:last-child{border-bottom:0}.membership-hero h1{font-size:43px}.membership-button.primary-button{font-size:11px;letter-spacing:.06em}}
+@media(prefers-reduced-motion:reduce){.membership-button.primary-button{transition:none}}
