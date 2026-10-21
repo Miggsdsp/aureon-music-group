@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePublishedDocument } from '@/lib/usePublishedDocument';
 import styles from './CinematicHero.module.css';
 
@@ -20,6 +20,7 @@ export function CinematicHero() {
   const { data: platform, loading: platformLoading } = usePublishedDocument<HeroSettings>('siteSettings', 'platform', {
     heroVideoUrl: '', heroOverlayOpacity: 58
   });
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
 
@@ -30,6 +31,38 @@ export function CinematicHero() {
 
   useEffect(() => { setVideoReady(false); setVideoFailed(false); }, [videoUrl]);
 
+  // iOS Safari may pause a muted background video after interruptions.
+  useEffect(() => {
+    if (!videoUrl || platformLoading || videoFailed) return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.loop = true;
+    const resume = () => {
+      if (document.visibilityState !== 'visible') return;
+      const pending = video.play();
+      if (pending) void pending.catch(() => {
+        // Autoplay may be restricted; the poster remains visible.
+      });
+    };
+    const onEnded = () => {
+      video.currentTime = 0;
+      resume();
+    };
+    video.addEventListener('ended', onEnded);
+    video.addEventListener('loadeddata', resume);
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('pageshow', resume);
+    resume();
+    return () => {
+      video.removeEventListener('ended', onEnded);
+      video.removeEventListener('loadeddata', resume);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('pageshow', resume);
+    };
+  }, [videoUrl, platformLoading, videoFailed]);
+
   return (
     <section className={`hero approved-hero ${styles.heroFix}`} aria-label={data?.title || 'Aureon Music Group homepage'}>
       <div className={styles.videoLoadingBackground} aria-hidden="true" />
@@ -38,6 +71,7 @@ export function CinematicHero() {
 
       {!platformLoading && videoUrl && !videoFailed ? (
         <video
+          ref={videoRef}
           key={videoUrl}
           src={videoUrl}
           className={`${styles.heroVideo} ${videoReady ? styles.heroVideoReady : ''}`}
@@ -45,6 +79,7 @@ export function CinematicHero() {
           muted
           loop
           playsInline
+          disablePictureInPicture
           preload="metadata"
           onCanPlay={() => setVideoReady(true)}
           onPlaying={() => setVideoReady(true)}
