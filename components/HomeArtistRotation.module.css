@@ -1,7 +1,7 @@
 /* Approved Aureon eclipse / glass 3D artist showcase */
 .section{position:relative;isolation:isolate;width:100%;box-sizing:border-box;overflow:hidden;color:#fff8eb;background:#07090c;padding:clamp(44px,4.8vw,76px) clamp(24px,4.4vw,76px) clamp(46px,5vw,82px)}
-.section::before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(180deg,rgba(2,4,9,.36),rgba(2,4,9,.08) 40%,rgba(1,3,7,.75) 88%,#050507),url('/images/aureon-hero-cinematic.svg');background-position:center 48%;background-size:cover;background-repeat:no-repeat;filter:saturate(1.1)}
-.section::after{content:"";position:absolute;z-index:-1;inset:auto -10% 0;height:29%;pointer-events:none;background:radial-gradient(ellipse at 50% 0,rgba(239,154,50,.32),transparent 67%),linear-gradient(180deg,transparent,#040508)}
+.section::before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(180deg,rgba(2,4,9,.32),rgba(2,4,9,.08) 40%,rgba(1,3,7,.45) 88%,#050507),url('/images/aureon-eclipse-ocean-poster.webp');background-position:center 43%;background-size:cover;background-repeat:no-repeat;filter:saturate(1.1)}
+.section::after{content:"";position:absolute;z-index:-1;inset:auto -10% 0;height:29%;pointer-events:none;background:radial-gradient(ellipse at 50% 0,rgba(239,154,50,.42),transparent 67%),linear-gradient(180deg,transparent,#040508)}
 .heading{position:relative;display:flex;align-items:end;justify-content:space-between;gap:20px;max-width:1560px;margin:0 auto 24px}
 .heading h2{margin:7px 0 0;font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.035em;font-size:clamp(38px,4.5vw,72px);line-height:1.08;text-shadow:0 4px 28px #000}
 .viewAll{flex-shrink:0;color:#f6c36b;font-size:clamp(12px,1vw,16px);text-decoration:none;border-bottom:1px solid rgba(241,184,90,.5);padding:12px 0}
@@ -28,3 +28,11 @@
 @media(max-width:1050px){.artistTile{flex-basis:calc((100% - 2 * 18px)/3)}.artistGallery{gap:18px}.arrowLeft{left:-18px}.arrowRight{right:-18px}}
 @media(max-width:680px){.section{padding:36px 16px 42px}.heading{margin-bottom:16px}.heading h2{font-size:clamp(29px,7vw,40px)}.viewAll{font-size:11px;white-space:nowrap}.artistGallery{gap:14px;padding:12px 8px 16px;mask-image:none}.artistTile{flex-basis:72%;transform:none!important}.tileInfo strong{font-size:21px}.tileInfo small{font-size:12px}.carouselArrow{width:34px;height:34px;font-size:27px;top:45%}.arrowLeft{left:-11px}.arrowRight{right:-11px}}
 @media(prefers-reduced-motion:reduce){.artistTile,.tileArtwork img{transition:none!important}.artistTile:hover{transform:none!important}}
+
+/* Approved reference: stage-like illuminated floor and visible eclipse backdrop. */
+.section{min-height:clamp(560px,43vw,760px);padding-bottom:clamp(64px,7vw,118px)}
+.section::before{background-size:cover;opacity:1}
+.showcase{margin-top:clamp(10px,2vw,32px)}
+.artistGallery{padding-bottom:38px}
+.artistTile::after{content:"";position:absolute;left:7%;right:7%;top:100%;height:34%;pointer-events:none;background:linear-gradient(180deg,rgba(232,161,66,.20),transparent 80%);transform:scaleY(-1);transform-origin:top;filter:blur(10px);opacity:.75}
+@media(max-width:680px){.section{min-height:0;padding-bottom:48px}.section::before{background-position:center center}.artistTile::after{display:none}}
