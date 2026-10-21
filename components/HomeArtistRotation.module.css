@@ -24,7 +24,7 @@
 .carouselArrow{position:absolute;z-index:5;top:43%;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;border:1px solid #eeb75c;background:rgba(4,7,12,.75);color:#f8c36a;font-family:Georgia,serif;font-size:36px;line-height:1;cursor:pointer;transform:translateY(-50%)}
 .arrowLeft{left:-37px}.arrowRight{right:-37px}
 .carouselArrow:hover,.carouselArrow:focus-visible{background:#edbd6b;color:#090a0c}
-@media(hover:hover) and (pointer:fine){.artistTile:hover{z-index:4;transform:translateY(-15px) rotateY(0) rotateZ(0) scale(1.04)}.artistTile:hover img{transform:scale(1.045)}}
+@media(hover:hover) and (pointer:fine){.artistTile:hover{z-index:4;transform:rotateY(0) rotateZ(0) scale(1.025)}.artistTile:hover img{transform:scale(1.045)}}
 @media(max-width:1050px){.artistTile{flex-basis:calc((100% - 2 * 18px)/3)}.artistGallery{gap:18px}.arrowLeft{left:-18px}.arrowRight{right:-18px}}
 @media(max-width:680px){.section{padding:36px 16px 42px}.heading{margin-bottom:16px}.heading h2{font-size:clamp(29px,7vw,40px)}.viewAll{font-size:11px;white-space:nowrap}.artistGallery{gap:14px;padding:12px 8px 16px;mask-image:none}.artistTile{flex-basis:72%;transform:none!important}.tileInfo strong{font-size:21px}.tileInfo small{font-size:12px}.carouselArrow{width:34px;height:34px;font-size:27px;top:45%}.arrowLeft{left:-11px}.arrowRight{right:-11px}}
 @media(prefers-reduced-motion:reduce){.artistTile,.tileArtwork img{transition:none!important}.artistTile:hover{transform:none!important}}
@@ -36,3 +36,17 @@
 .artistGallery{padding-bottom:38px}
 .artistTile::after{content:"";position:absolute;left:7%;right:7%;top:100%;height:34%;pointer-events:none;background:linear-gradient(180deg,rgba(232,161,66,.20),transparent 80%);transform:scaleY(-1);transform-origin:top;filter:blur(10px);opacity:.75}
 @media(max-width:680px){.section{min-height:0;padding-bottom:48px}.section::before{background-position:center center}.artistTile::after{display:none}}
+
+/* Prevent hover cards being cropped by the fixed header or scroll viewport. */
+.section{overflow:clip;overflow-clip-margin:0}
+.showcase{padding-top:24px}
+.artistGallery{padding-top:36px;padding-bottom:54px;scroll-padding-inline:22px}
+.artistTile{transform:perspective(1100px) rotateY(-13deg) rotateZ(-2deg);transform-origin:50% 75%}
+.artistTile:nth-child(even){transform:perspective(1100px) rotateY(12deg) rotateZ(1.7deg) translateY(-3px)}
+.artistTile:nth-child(3n){transform:perspective(1100px) rotateY(-10deg) rotateZ(-1.4deg) translateY(-6px)}
+.tileArtwork{border-radius:8px;box-shadow:inset 0 0 0 2px rgba(255,231,178,.25),4px 3px 0 #c28b45,8px 6px 0 #4e3219,0 20px 34px rgba(0,0,0,.82),0 0 18px rgba(248,172,61,.27)}
+@media(hover:hover) and (pointer:fine){
+ .artistTile:hover{transform:perspective(1100px) rotateY(0deg) rotateZ(0deg) scale(1.025)}
+ .artistTile:hover .tileArtwork{box-shadow:inset 0 0 0 2px rgba(255,231,178,.35),4px 3px 0 #e4ac59,8px 6px 0 #59371c,0 25px 42px rgba(0,0,0,.86),0 0 24px rgba(248,172,61,.42)}
+}
+@media(max-width:680px){.showcase{padding-top:0}.artistGallery{padding-top:18px;padding-bottom:30px}.artistTile,.artistTile:nth-child(even),.artistTile:nth-child(3n){transform:none}}
