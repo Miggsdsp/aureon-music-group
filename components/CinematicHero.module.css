@@ -124,8 +124,16 @@
 
 @media (max-width: 620px) {
   .heroFix { height: 100svh; min-height: 0; }
-  .videoLoadingBackground { background-position: center center; }
-  .heroVideo { object-position: center center; }
+  /* Mobile portrait: one continuous full-bleed scene, not a letterboxed landscape. */
+  .videoLoadingBackground {
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+  }
+  .heroVideo {
+    object-fit: cover;
+    object-position: center top;
+  }
   .heroHeadline { top: 38%; width: calc(100% - 34px); font-size: clamp(27px, 7.8vw, 36px); letter-spacing: .055em; line-height: 1.14; }
   .heroOverlay { top: 68%; width: calc(100% - 36px); }
   .slogan { margin-bottom: 17px; font-size: 10px; letter-spacing: .2em; }
