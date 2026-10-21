@@ -98,7 +98,7 @@ export default function ArtistsPage() {
         )}
       </section>
 
-      <Footer />
+      <div className={styles.artistFooter}><Footer /></div>
     </main>
   );
 }
