@@ -125,7 +125,7 @@ export function InfiniteDiscovery() {
     </article>;
   };
 
-  return <section className={styles.shell} aria-labelledby="infinite-discovery-heading">
+  return <section className={`${styles.shell} ${pathname.startsWith('/artists') ? styles.artistsView : ''}`} aria-labelledby="infinite-discovery-heading">
     <div className={styles.header}><div><p><Sparkles size={15}/> Infinite discovery</p><h2 id="infinite-discovery-heading">Keep discovering</h2></div><Link href="/discover">Open Discover →</Link></div>
 
     <div className={styles.lane}><div className={styles.laneTitle}><Music2/><div><h3>You May Like</h3><p>Contextual songs selected from your activity and the current catalogue.</p></div></div><div className={styles.rail}>{likedSongs.map(item => songCard(item, 'like'))}</div></div>
