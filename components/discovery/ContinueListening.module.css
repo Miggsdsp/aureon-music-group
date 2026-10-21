@@ -159,3 +159,20 @@
 @media (prefers-reduced-motion:reduce) {
   .section:not(.compact) .card { transition:none !important; }
 }
+
+/* Correct reference geometry: left front face is nearest, right end recedes;
+   top and bottom edges descend to the right. */
+@media (min-width:901px) {
+ .section:not(.compact) .card {
+   transform:perspective(1450px) rotateY(8deg) rotateX(-1.3deg) rotateZ(1.25deg) !important;
+   transform-origin:46% 50%;
+   width:calc(100% - 52px);
+   margin-left:22px;
+   border-radius:14px 13px 13px 14px !important;
+   box-shadow:inset 2px 2px 0 rgba(255,243,198,.72),inset -2px -2px 0 rgba(255,157,47,.4),-7px 1px 0 #633610,-13px 6px 0 #a96625,-17px 9px 2px #f8bc66,-21px 16px 18px rgba(0,0,0,.86),0 30px 42px rgba(0,0,0,.72),0 0 25px rgba(255,170,48,.5) !important;
+ }
+ .section:not(.compact) .card:hover {
+   transform:perspective(1450px) rotateY(7deg) rotateX(-1.1deg) rotateZ(1.1deg) translateY(-3px) !important;
+ }
+ .section:not(.compact) .stageGlow{bottom:-8%;height:34%;background:radial-gradient(ellipse at 50% 95%,rgba(255,158,35,.48),transparent 63%)}
+}
