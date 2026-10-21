@@ -89,7 +89,6 @@ export function ContinueListening({ compact = false }: { compact?: boolean }) {
         <p className={styles.artist}>{item.artist || 'Aureon Music Group'}</p>
         <h3>{item.title || 'Untitled track'}</h3>
         <div className={styles.progress} aria-label={`${Math.round(percentage)} percent listened`}><span style={{ width: `${percentage}%` }} /></div>
-        <div className={styles.equalizer} aria-hidden="true">{Array.from({ length: 24 }, (_, index) => <i key={index} style={{ height: `${16 + ((index * 17 + 13) % 72)}%` }} />)}</div>
         <div className={styles.meta}><span><Clock3 size={14} /> {formatTime(position)} of {formatTime(duration)}</span><span>{Math.round(percentage)}% complete</span></div>
       </div>
       <button type="button" className={styles.resume} onClick={() => resumeSong(song, position)}><Play size={17} /> Resume</button>
