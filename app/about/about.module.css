@@ -44,3 +44,42 @@
 @media(max-width:900px){.storySection,.journeySection,.pillarsSection,.missionSection,.finalCta{width:calc(100% - 48px)}.storySection{grid-template-columns:1fr;gap:14px;padding:45px 0}.journeyGrid,.pillarsGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.finalCta{align-items:flex-start;flex-direction:column}.finalCta>div:last-child{justify-content:flex-start}}
 @media(max-width:600px){.hero{min-height:350px;padding:44px 20px 40px;background-position:center}.hero h1{font-size:clamp(37px,10vw,50px)}.heroCopy>p:not(.eyebrow){font-size:14px}.heroActions{width:min(100%,380px);margin:21px auto 0}.primaryButton,.secondaryButton{min-height:43px;flex:1 1 150px;padding:0 12px;font-size:8px}.storySection,.journeySection,.pillarsSection,.missionSection,.finalCta{width:calc(100% - 32px)}.storySection{padding:35px 0}.storyCopy h2,.sectionHeading h2{font-size:29px}.missionSection{grid-template-columns:1fr;gap:11px;padding:12px 0 40px}.missionCard{padding:21px}.journeySection,.pillarsSection{padding:40px 0}.journeyGrid,.pillarsGrid{grid-template-columns:1fr;gap:9px}.journeyGrid article,.pillarsGrid article{padding:16px}.journeyGrid h3{margin-top:14px}.pillarsGrid article{min-height:0}.finalCta{margin-bottom:42px;padding:21px}.finalCta>div:last-child{width:100%}.finalCta .primaryButton,.finalCta .secondaryButton{flex:1 1 100%}}
 @media(prefers-reduced-motion:reduce){.primaryButton,.secondaryButton{transition:none}.primaryButton:hover,.secondaryButton:hover{transform:none}}
+
+
+/* Cinematic premium Aureon design alignment */
+.page{overflow-x:clip;background:radial-gradient(ellipse at 52% 16%,rgba(205,127,36,.11),transparent 37%),linear-gradient(180deg,#04070b,#070808 55%,#03060b);color:#fff7e8}
+.hero{min-height:490px;justify-content:flex-start;text-align:left;padding:95px clamp(24px,6vw,105px) 75px;background:linear-gradient(90deg,rgba(2,5,10,.76),rgba(2,5,10,.17) 75%),url('/images/aureon-eclipse-ocean-poster.webp') center 48%/cover no-repeat;border-bottom:1px solid #e7b260}
+.hero:before{background:linear-gradient(90deg,rgba(2,5,10,.68),transparent 76%)}
+.hero:after{height:25%;background:linear-gradient(180deg,transparent,rgba(3,6,10,.58))}
+.heroCopy{width:min(880px,100%);margin:0}
+.eyebrow{color:#ffd07a;font-size:12px;letter-spacing:.25em;text-shadow:0 2px 10px #000}
+.hero h1{margin:19px 0 0;font-size:clamp(50px,6.6vw,92px);line-height:1.03;color:#fff9ee;text-shadow:0 4px 24px #000}
+.heroCopy>p:not(.eyebrow){margin:22px 0 0;color:#f1e6d6;font-size:clamp(16px,1.65vw,21px);line-height:1.6;text-shadow:0 2px 12px #000}
+.heroActions{justify-content:flex-start;gap:14px;margin-top:32px}
+.primaryButton,.secondaryButton{min-height:49px;padding:0 25px;border-radius:5px;font-size:11px;letter-spacing:.13em}
+.primaryButton{border-color:#ffe2a1;background:linear-gradient(125deg,#fff0b5 0%,#eebc58 30%,#ac661f 68%,#f4d17c 100%);color:#100a03;box-shadow:inset 0 2px rgba(255,255,255,.64),inset 0 -2px rgba(89,46,9,.38),0 6px 20px rgba(223,151,55,.25)}
+.secondaryButton{border-color:#dba95c;background:rgba(3,6,10,.76);color:#ffe0a0;box-shadow:inset 0 1px rgba(255,224,161,.2)}
+.storySection,.journeySection,.pillarsSection,.missionSection,.finalCta{width:min(1390px,calc(100% - clamp(36px,9vw,140px)))}
+.storySection{padding:80px 0;gap:clamp(30px,5vw,85px);border-bottom-color:rgba(243,187,88,.32)}
+.sectionLabel>span{color:#dcccb4;font-size:15px}
+.storyCopy h2,.sectionHeading h2,.finalCta h2{color:#fff7e9;font-size:clamp(34px,3.9vw,57px);line-height:1.12;text-shadow:0 3px 20px rgba(0,0,0,.55)}
+.storyCopy p:not(:first-child){color:#e4d8c7;font-size:clamp(15px,1.3vw,17px);line-height:1.75}
+.missionSection{gap:22px;padding:25px 0 75px}
+.missionCard,.journeyGrid article,.pillarsGrid article{border:1px solid #c7954d;border-radius:10px;background:linear-gradient(145deg,rgba(40,26,13,.92),rgba(3,7,12,.96) 68%);box-shadow:inset 0 0 0 2px rgba(255,219,145,.09),inset 0 1px rgba(255,241,205,.2),-2px 3px 0 #68431c,0 18px 34px rgba(0,0,0,.44)}
+.missionCard{padding:clamp(24px,3vw,42px)}
+.missionCard svg,.pillarsGrid svg{color:#ffcd70;filter:drop-shadow(0 0 7px rgba(255,177,60,.4))}
+.missionCard h2{color:#fff7e9;font-size:clamp(27px,2.6vw,39px)}
+.missionCard p:not(.eyebrow){color:#e6d8c6;font-size:15px;line-height:1.7}
+.journeySection,.pillarsSection{padding:80px 0;border-top-color:rgba(243,187,88,.3)}
+.sectionHeading{max-width:960px;margin-bottom:36px}
+.sectionHeading>p:last-child{color:#e1d2bc;font-size:16px}
+.journeyGrid,.pillarsGrid{gap:20px}
+.journeyGrid article,.pillarsGrid article{padding:clamp(20px,2.4vw,30px)}
+.journeyGrid article>span{color:#ffcd77;font-size:12px}
+.journeyGrid h3,.pillarsGrid h3{color:#fff4e0;font-size:clamp(21px,1.8vw,27px)}
+.journeyGrid article p,.pillarsGrid article p{color:#dfd1bd;font-size:14px;line-height:1.65}
+.pillarsGrid article{min-height:230px}
+.finalCta{margin-top:15px;margin-bottom:85px;padding:clamp(26px,3.6vw,50px);border:1px solid #e1ac60;border-radius:12px;background:linear-gradient(115deg,rgba(39,26,13,.95),rgba(3,7,12,.96)),url('/images/aureon-eclipse-ocean-poster.webp') center/cover no-repeat;box-shadow:inset 0 0 0 2px rgba(255,218,147,.15),-3px 4px 0 #704a1d,0 22px 45px #000}
+.finalCta h2{font-size:clamp(27px,3.1vw,44px)}
+@media(max-width:900px){.storySection,.journeySection,.pillarsSection,.missionSection,.finalCta{width:calc(100% - 44px)}.storySection{padding:55px 0}.journeyGrid,.pillarsGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.hero{min-height:0;padding:75px 22px 66px;background-position:57% center}.hero h1{font-size:clamp(43px,11vw,64px)}.heroCopy>p:not(.eyebrow){font-size:16px}.heroActions{flex-direction:column;align-items:stretch}.primaryButton,.secondaryButton{flex:none;min-height:48px;font-size:10px}.storySection,.journeySection,.pillarsSection,.missionSection,.finalCta{width:calc(100% - 36px)}.storySection{padding:45px 0}.storyCopy h2,.sectionHeading h2{font-size:clamp(29px,8vw,39px)}.missionSection{grid-template-columns:1fr;gap:16px;padding:16px 0 48px}.missionCard{padding:23px}.journeySection,.pillarsSection{padding:48px 0}.journeyGrid,.pillarsGrid{grid-template-columns:1fr;gap:15px}.pillarsGrid article{min-height:0}.finalCta{padding:25px;margin-bottom:52px}.finalCta>div:last-child{width:100%;flex-direction:column}.finalCta .primaryButton,.finalCta .secondaryButton{width:100%;box-sizing:border-box}}
