@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { usePublishedCollection, type PublicRecord } from '@/lib/use-published-collection';
 import { getArtwork } from '@/lib/get-artwork';
 import { matchesArtist } from '@/lib/public-catalogue';
@@ -28,6 +28,12 @@ type Album = { id?: string; artistId?: string; artistSlug?: string; artistName?:
 
 export function HomeArtistRotation({ albums = [] }: { albums?: Album[] }) {
   const { items } = usePublishedCollection<Artist>('artists', [], true);
+  const galleryRef = useRef<HTMLDivElement>(null);
+  const scrollGallery = (direction: number) => {
+    const gallery = galleryRef.current;
+    if (!gallery) return;
+    gallery.scrollBy({ left: direction * Math.max(220, gallery.clientWidth * 0.72), behavior: 'smooth' });
+  };
   const artists = useMemo(() => {
     const featured = items.filter(item => item.featured);
     const others = items.filter(item => !item.featured);
@@ -45,7 +51,9 @@ export function HomeArtistRotation({ albums = [] }: { albums?: Album[] }) {
         </div>
         <Link href="/artists" className={styles.viewAll}>View all artists <span aria-hidden="true">→</span></Link>
       </div>
-      <div className={styles.artistGallery}>
+      <div className={styles.showcase}>
+      <button type="button" className={`${styles.carouselArrow} ${styles.arrowLeft}`} aria-label="Previous artists" onClick={() => scrollGallery(-1)}>‹</button>
+      <div className={styles.artistGallery} ref={galleryRef}>
         {artists.map(artist => {
           const details = artist.details || {};
           const portraitCandidate = artist.profileImageUrl || artist.featuredImageUrl || artist.image || details.profileImageUrl || details.featuredImageUrl || artist.media?.profileImageUrl || artist.media?.featuredImageUrl;
@@ -59,15 +67,17 @@ export function HomeArtistRotation({ albums = [] }: { albums?: Album[] }) {
               <span className={`${styles.tileArtwork} ${artworkStyle}`}>
                 <ArtworkImage src={image} alt={artist.name ? `${artist.name} artwork` : 'Aureon artist artwork'} fill sizes="(max-width: 430px) 46vw, (max-width: 680px) 30vw, (max-width: 1100px) 22vw, 15vw" />
                 <span className={styles.tileShine} aria-hidden="true" />
-                <span className={styles.playBadge} aria-hidden="true">▶</span>
+                <span className={styles.tileInfo}>
+                  <strong>{artist.name || 'Aureon artist'}</strong>
+                  <small>{artist.genre || 'Original music'}</small>
+                </span>
               </span>
-              <span className={styles.tileInfo}>
-                <strong>{artist.name || 'Aureon artist'}</strong>
-                <small>{artist.genre || 'Original music'}</small>
-              </span>
+
             </Link>
           );
         })}
+      </div>
+      <button type="button" className={`${styles.carouselArrow} ${styles.arrowRight}`} aria-label="Next artists" onClick={() => scrollGallery(1)}>›</button>
       </div>
     </section>
   );
