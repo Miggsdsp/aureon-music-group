@@ -18,7 +18,7 @@ export default function MusicPage() {
   const singles = songs.filter(song => !(song.albumId || song.albumSlug || song.details?.albumId || song.details?.albumSlug));
   const loading = albumsLoading || songsLoading;
 
-  return <PageShell title="Music" kicker="Catalogue">
+  return <div className="aureon-music-page"><PageShell title="Music" kicker="Catalogue">
     <section className="music-intro"><div><p className="eyebrow">Aureon Catalogue</p><h2>Albums and releases</h2></div><p>Browse every album and single published through the Aureon Control Center.</p></section>
     <p><Link href="/artists">Explore the artists</Link> · <Link href="/genres">Browse by genre</Link> · <Link href="/discover">Discover songs and playlists</Link></p>
     {loading ? <div className="store-empty"><h3>Loading music…</h3></div> : <>
@@ -40,5 +40,5 @@ export default function MusicPage() {
       })}</div></section>}
       {!albums.length && !singles.length && <div className="store-empty"><h3>No published music yet</h3><p>Upload and publish songs or albums in the Aureon Control Center.</p></div>}
     </>}
-  </PageShell>;
+  </PageShell></div>;
 }
