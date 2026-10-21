@@ -123,3 +123,18 @@
 @media(max-width:650px){.hero{padding-top:95px}.catalogue{width:calc(100% - 28px)}.artistGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.artistCard:nth-child(n){transform:none;aspect-ratio:.72}.cardCopy{padding:25px 11px 16px}.artistTitleRow h3{font-size:clamp(17px,4.5vw,23px)}.genres{font-size:11px}}
 @media(max-width:370px){.artistGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.artistCard:nth-child(n):hover{transform:none}}
+
+
+/* Artists page footer: the same luminous premium finish as the approved gallery. */
+.artistFooter{position:relative;background:#030408}
+.artistFooter :global(.aureon-footer){position:relative;border-top:1px solid #d3a04e;background:linear-gradient(180deg,rgba(3,4,8,.78),rgba(3,4,8,.98)),url('/images/aureon-eclipse-ocean-poster.webp') center top/cover no-repeat,#030408}
+.artistFooter :global(.aureon-footer-grid){gap:clamp(12px,1.6vw,24px);padding:clamp(24px,3vw,48px) clamp(18px,4vw,65px)}
+.artistFooter :global(.aureon-footer-panel){border:1px solid #bd883c;border-radius:10px;background:linear-gradient(145deg,rgba(33,22,11,.96),rgba(3,6,12,.96) 65%);box-shadow:inset 0 1px rgba(255,232,165,.53),inset 0 0 0 3px rgba(10,8,5,.55),0 4px 0 #664018,0 15px 26px rgba(0,0,0,.6),0 0 20px rgba(233,160,54,.13)}
+.artistFooter :global(.aureon-footer-kicker){color:#ffd277!important}
+.artistFooter :global(.aureon-footer-panel p:not(.aureon-footer-kicker)){color:#f0e3cc}
+.artistFooter :global(.aureon-footer-panel a){color:#ffdc91}
+.artistFooter :global(.aureon-footer-trust){border-block-color:rgba(255,198,94,.4);background:rgba(3,4,7,.84)}
+.artistFooter :global(.aureon-footer-legal){border-block:1px solid rgba(246,189,87,.3);background:linear-gradient(110deg,#1e140b,#03060b)!important}
+.artistFooter :global(.aureon-footer-legal-button){background:linear-gradient(120deg,#3d280f,#15110a);border-color:#efb95e!important;color:#ffe1a3!important}
+.artistFooter :global(.aureon-footer-bottom){background:rgba(2,3,6,.93)}
+@media(max-width:650px){.artistFooter :global(.aureon-footer-grid){padding:24px 16px;gap:18px}.artistFooter :global(.aureon-footer-panel){padding:20px}}
