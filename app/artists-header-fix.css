@@ -77,3 +77,43 @@
 @media (prefers-reduced-motion: reduce) {
   .site-header .desktop-nav a, .site-header .header-icon { transition: none; }
 }
+
+
+/* Mobile header: reserve separate, non-overlapping columns for brand and tools. */
+@media (max-width: 700px) {
+  .site-header.premium-label-header {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding-inline: 12px;
+  }
+  .site-header.premium-label-header .aureon-image-logo {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 34%;
+    height: auto;
+    overflow: hidden;
+  }
+  .site-header.premium-label-header .aureon-logo-img {
+    display: block;
+    width: 100%;
+    max-width: 128px;
+    height: auto;
+    object-fit: contain;
+  }
+  .site-header.premium-label-header .header-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+    gap: clamp(7px, 2vw, 12px);
+    min-width: 0;
+  }
+  .site-header.premium-label-header .header-actions > * {
+    flex-shrink: 0;
+  }
+}
+@media (max-width: 390px) {
+  .site-header.premium-label-header { gap: 5px; padding-inline: 8px; }
+  .site-header.premium-label-header .aureon-image-logo { max-width: 30%; }
+  .site-header.premium-label-header .aureon-logo-img { max-width: 112px; }
+  .site-header.premium-label-header .header-actions { gap: 6px; }
+}
