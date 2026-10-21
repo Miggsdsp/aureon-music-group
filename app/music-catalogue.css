@@ -75,3 +75,53 @@
   .music-note-strip { padding:16px; }
 }
 @media(prefers-reduced-motion:reduce) { .album-card,.album-cover img,.catalogue-discovery-card { transition:none; } .album-card:hover,.catalogue-discovery-card:hover { transform:none; } }
+
+
+/* Music catalogue — approved Aureon cinematic gold collection */
+.aureon-music-page{min-width:0;overflow-x:clip;background:#03060b}
+.aureon-music-page .page-shell{background:linear-gradient(180deg,rgba(1,5,10,.3),#03060b 75%),url('/images/aureon-eclipse-ocean-poster.webp') center top/100% auto no-repeat,#03060b}
+.aureon-music-page .inner-hero{min-height:310px;display:flex;flex-direction:column;justify-content:flex-end;padding:116px clamp(22px,5vw,80px) 38px;background:linear-gradient(90deg,rgba(1,5,10,.82),rgba(1,5,10,.18));border-bottom:1px solid #c99445}
+.aureon-music-page .inner-hero h1{font:400 clamp(48px,6vw,78px)/1.06 Georgia,'Times New Roman',serif;letter-spacing:-.04em;color:#fff7e9;text-shadow:0 3px 18px #000;margin:12px 0 0}
+.aureon-music-page .content-panel{max-width:1600px;margin:0 auto;padding:42px clamp(18px,4vw,64px) 90px;min-width:0}
+.aureon-music-page .music-intro{grid-template-columns:minmax(0,1fr) minmax(0,.85fr);align-items:end;gap:22px;margin-bottom:22px}
+.aureon-music-page .music-intro h2{font:400 clamp(34px,3.8vw,54px)/1.1 Georgia,'Times New Roman',serif;color:#fff9ec;text-shadow:0 2px 14px #000}
+.aureon-music-page .eyebrow{color:#ffce73;letter-spacing:.22em;font-size:11px}
+.aureon-music-page .music-intro>p{color:#f0e4d1;font-size:14px}
+.aureon-music-page .album-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(12px,1.6vw,24px);margin:30px 0 38px}
+.aureon-music-page .album-card{min-width:0;border:1px solid #e4ae57;border-radius:9px;background:linear-gradient(150deg,#25180c,#080a0e 55%);box-shadow:inset 0 0 0 2px rgba(255,220,149,.17),-3px 4px 0 #724719,0 16px 32px rgba(0,0,0,.66),0 0 19px rgba(246,174,64,.13)}
+.aureon-music-page .album-card:hover{transform:translateY(-5px);border-color:#ffe0a0;box-shadow:inset 0 0 0 1px rgba(255,235,183,.6),-3px 4px 0 #a97029,0 20px 38px #000,0 0 27px rgba(255,181,64,.35)}
+.aureon-music-page .album-cover{margin:7px 7px 0;border:1px solid rgba(255,217,143,.7);border-radius:5px;aspect-ratio:1/1;background:#06090e}
+.aureon-music-page .album-cover img{display:block;object-fit:cover}
+.aureon-music-page .album-card-copy{min-height:144px;padding:14px 13px 17px;gap:7px}
+.aureon-music-page .album-card-copy h3{font:400 clamp(17px,1.6vw,23px)/1.2 Georgia,'Times New Roman',serif;color:#fff8ea;white-space:normal;overflow-wrap:break-word}
+.aureon-music-page .album-card-copy strong{color:#f5e7cc;font-size:11px;white-space:normal}
+.aureon-music-page .album-card-copy p,.aureon-music-page .album-meta,.aureon-music-page .album-card-copy em{color:#ffcf79}
+.aureon-music-page .album-track-section{margin:28px 0;padding:clamp(20px,3vw,40px);border:1px solid rgba(240,183,86,.48);border-radius:10px;background:linear-gradient(130deg,rgba(29,20,11,.94),rgba(3,6,11,.94) 50%),url('/images/aureon-eclipse-ocean-poster.webp') center/cover;box-shadow:inset 0 1px rgba(255,223,158,.25),0 16px 36px rgba(0,0,0,.42)}
+.aureon-music-page .album-track-heading h2{color:#fff6e7;font-size:clamp(26px,3vw,40px)}
+.aureon-music-page .catalogue-discovery-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.aureon-music-page .catalogue-discovery-card,.aureon-music-page .track-row{min-width:0;border:1px solid rgba(242,188,92,.65);background:linear-gradient(135deg,rgba(30,21,13,.97),rgba(3,7,12,.97));box-shadow:inset 0 1px rgba(255,226,163,.16),0 8px 18px rgba(0,0,0,.35)}
+.aureon-music-page .catalogue-discovery-card h3,.aureon-music-page .track-row h3{color:#fff8eb;overflow-wrap:break-word}
+.aureon-music-page .catalogue-discovery-card p,.aureon-music-page .catalogue-discovery-card em,.aureon-music-page .track-row>span{color:#ffd080}
+.aureon-music-page .track-row{grid-template-columns:36px minmax(0,1fr) auto;gap:14px;padding:15px}
+.aureon-music-page .track-row p{color:#e3d4bd;overflow-wrap:anywhere}
+.aureon-music-page .track-row .latest-release-button{min-width:120px}
+@media(max-width:1150px){.aureon-music-page .album-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:850px){.aureon-music-page .album-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.aureon-music-page .music-intro{grid-template-columns:1fr}.aureon-music-page .catalogue-discovery-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){
+.aureon-music-page .inner-hero{min-height:220px;padding:72px 18px 28px;background-position:center}
+.aureon-music-page .inner-hero h1{font-size:clamp(42px,11vw,58px)}
+.aureon-music-page .content-panel{box-sizing:border-box;width:100%;padding:28px 15px 70px}
+.aureon-music-page .music-intro{gap:10px}
+.aureon-music-page .music-intro h2{font-size:34px}
+.aureon-music-page .album-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:24px 2px 30px}
+.aureon-music-page .album-card{min-width:0;max-width:100%}
+.aureon-music-page .album-card-copy{min-height:140px;padding:11px 10px 14px}
+.aureon-music-page .album-card-copy h3{font-size:17px}
+.aureon-music-page .album-card-copy strong{font-size:10px}
+.aureon-music-page .album-track-section{margin:20px 0;padding:17px 12px}
+.aureon-music-page .catalogue-discovery-list{grid-template-columns:1fr}
+.aureon-music-page .track-row{grid-template-columns:26px minmax(0,1fr);gap:10px;padding:12px}
+.aureon-music-page .track-row .latest-release-button{grid-column:2;width:100%;max-width:100%;min-width:0}
+.aureon-music-page .album-track-heading{gap:10px}
+.aureon-music-page .album-track-heading h2{font-size:27px}
+}
