@@ -5,8 +5,8 @@
   place-items: center;
   isolation: isolate;
   width: 100%;
-  height: clamp(470px, 60svh, 690px);
-  min-height: 470px;
+  height: calc(100svh - var(--aureon-header-height, 90px));
+  min-height: 0;
   overflow: hidden;
   color: #f8f2e7;
   background: #070b10;
@@ -116,13 +116,13 @@
 .heroFix :global(.cinematic-fx) { z-index: 1; pointer-events: none; }
 
 @media (max-width: 900px) {
-  .heroFix { height: clamp(490px, 66svh, 680px); }
+  .heroFix { height: calc(100svh - var(--aureon-header-height, 90px)); min-height: 0; }
   .heroHeadline { top: 37%; width: min(94%, 820px); font-size: clamp(32px, 5.2vw, 46px); letter-spacing: .07em; }
   .heroOverlay { top: 67%; }
 }
 
 @media (max-width: 620px) {
-  .heroFix { height: min(690px, 74svh); min-height: 500px; }
+  .heroFix { height: calc(100svh - var(--aureon-header-height, 78px)); min-height: 0; }
   .videoLoadingBackground { background-position: 53% center; }
   .heroVideo { object-position: 53% center; }
   .heroHeadline { top: 38%; width: calc(100% - 34px); font-size: clamp(27px, 7.8vw, 36px); letter-spacing: .055em; line-height: 1.14; }
