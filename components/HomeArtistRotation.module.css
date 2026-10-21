@@ -1,50 +1,30 @@
-/* Aureon cinematic 3D artist showcase — design reference 2 */
-.section{
-  position:relative;isolation:isolate;box-sizing:border-box;
-  width:100%;max-width:none;margin:0;padding:clamp(42px,5vw,78px) max(24px,calc((100vw - 1480px)/2)) clamp(62px,7vw,112px);
-  color:#fff6e7;overflow:hidden;
-  background:radial-gradient(ellipse at 65% 5%,rgba(189,117,35,.22),transparent 48%),linear-gradient(180deg,#070b10 0%,#080b11 60%,#050609 100%);
-}
-.section::before{
-  content:"";position:absolute;z-index:-1;inset:0;
-  background-image:linear-gradient(180deg,rgba(4,7,11,.75),rgba(4,7,11,.55) 42%,rgba(4,7,11,.94)),url('/images/aureon-hero-cinematic.svg');
-  background-size:cover;background-position:center 35%;background-repeat:no-repeat;
-  opacity:.38;pointer-events:none;
-}
-.section::after{
-  content:"";position:absolute;z-index:-1;left:2%;right:2%;bottom:7%;height:18%;
-  border-radius:50%;background:radial-gradient(ellipse,rgba(224,148,50,.22),transparent 68%);
-  filter:blur(26px);pointer-events:none;
-}
-.heading{display:flex;align-items:flex-end;justify-content:space-between;gap:22px;margin:0 0 38px}
-.heading h2{margin:6px 0 0;font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.025em;line-height:1.06;font-size:clamp(34px,4.4vw,68px);color:#fffaf1}
-.viewAll{flex-shrink:0;padding:12px 0;color:#e8b75f;font-size:clamp(12px,1vw,15px);letter-spacing:.03em;text-decoration:none;border-bottom:1px solid rgba(225,169,72,.25)}
-.viewAll:hover,.viewAll:focus-visible{color:#ffda88;border-color:#ffda88}
-.artistGallery{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(10px,1.2vw,20px);align-items:end;padding:20px 7px 26px;perspective:1500px}
-.artistTile{position:relative;display:block;min-width:0;color:#fff;text-decoration:none;transform-style:preserve-3d;outline-offset:5px;transition:transform .45s cubic-bezier(.2,.7,.2,1);transform:rotateY(-5deg)}
-.artistTile:nth-child(2){transform:rotateY(5deg) translateY(-9px)}
-.artistTile:nth-child(3){transform:rotateY(-4deg) translateY(-17px)}
-.artistTile:nth-child(4){transform:rotateY(4deg) translateY(-4px)}
-.artistTile:nth-child(5){transform:rotateY(-5deg) translateY(-11px)}
-.artistTile:nth-child(6){transform:rotateY(5deg)}
-.tileArtwork{position:relative;display:block;aspect-ratio:3/4;overflow:hidden;border-radius:9px;
-  border:1px solid rgba(244,186,91,.8);background:#101014;
-  box-shadow:inset 0 0 0 1px rgba(255,228,158,.15),3px 4px 0 #60431f,5px 7px 0 #251b11,0 23px 30px rgba(0,0,0,.8),0 0 18px rgba(232,153,43,.1);
-  transition:box-shadow .35s ease,border-color .35s ease}
-.tileArtwork::after{content:"";position:absolute;inset:auto 0 0;height:37%;pointer-events:none;background:linear-gradient(transparent,rgba(0,0,0,.55))}
-.tileArtwork img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;transition:transform .5s ease}
-.tileLogo img{object-fit:contain;padding:15%;box-sizing:border-box;background:radial-gradient(ellipse,rgba(185,129,42,.2),transparent 75%)}
-.tileShine{position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(120deg,rgba(255,236,179,.16),transparent 30%,transparent 72%,rgba(0,0,0,.25))}
-.playBadge{position:absolute;z-index:2;right:12px;bottom:13px;display:grid;place-items:center;width:37px;height:37px;padding-left:2px;box-sizing:border-box;border:1px solid #e7b45e;border-radius:50%;background:rgba(2,4,8,.82);color:#f4c978;font-size:13px;box-shadow:0 3px 14px rgba(0,0,0,.6)}
-.tileInfo{position:relative;display:flex;flex-direction:column;gap:4px;padding:14px 2px 2px;text-shadow:0 2px 8px #000}
-.tileInfo strong{font-family:Georgia,'Times New Roman',serif;font-size:clamp(14px,1.25vw,19px);font-weight:400;line-height:1.25;white-space:normal}
-.tileInfo small{font-size:clamp(11px,.85vw,13px);color:#e2b66e;line-height:1.3}
-@media(hover:hover) and (pointer:fine){
- .artistTile:hover{z-index:4;transform:translateY(-18px) rotateY(0deg) scale(1.045)}
- .artistTile:hover .tileArtwork{border-color:#ffe1a1;box-shadow:3px 4px 0 #96692f,5px 7px 0 #362514,0 30px 42px rgba(0,0,0,.85),0 0 26px rgba(242,166,54,.4)}
- .artistTile:hover .tileArtwork img{transform:scale(1.06)}
-}
-@media(max-width:1100px){.artistGallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:26px 18px}.artistTile,.artistTile:nth-child(n){transform:none}.section{padding-inline:24px}}
-@media(max-width:680px){.section{padding:36px 16px 50px}.heading{gap:10px;align-items:flex-end;margin-bottom:18px}.heading h2{font-size:clamp(28px,7.3vw,40px)}.viewAll{font-size:11px;white-space:nowrap}.artistGallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px;padding:8px 4px 12px}.tileInfo{padding-top:10px}.tileInfo strong{font-size:16px}.tileInfo small{font-size:11px}.playBadge{width:32px;height:32px;right:9px;bottom:9px}}
-@media(max-width:360px){.heading{align-items:flex-start;flex-direction:column}.artistGallery{gap:14px 10px}.tileInfo strong{font-size:14px}}
-@media(prefers-reduced-motion:reduce){.artistTile,.tileArtwork,.tileArtwork img{transition:none!important}.artistTile:hover{transform:none!important}.artistTile:hover .tileArtwork img{transform:none!important}}
+/* Approved Aureon eclipse / glass 3D artist showcase */
+.section{position:relative;isolation:isolate;width:100%;box-sizing:border-box;overflow:hidden;color:#fff8eb;background:#07090c;padding:clamp(44px,4.8vw,76px) clamp(24px,4.4vw,76px) clamp(46px,5vw,82px)}
+.section::before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(180deg,rgba(2,4,9,.36),rgba(2,4,9,.08) 40%,rgba(1,3,7,.75) 88%,#050507),url('/images/aureon-hero-cinematic.svg');background-position:center 48%;background-size:cover;background-repeat:no-repeat;filter:saturate(1.1)}
+.section::after{content:"";position:absolute;z-index:-1;inset:auto -10% 0;height:29%;pointer-events:none;background:radial-gradient(ellipse at 50% 0,rgba(239,154,50,.32),transparent 67%),linear-gradient(180deg,transparent,#040508)}
+.heading{position:relative;display:flex;align-items:end;justify-content:space-between;gap:20px;max-width:1560px;margin:0 auto 24px}
+.heading h2{margin:7px 0 0;font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.035em;font-size:clamp(38px,4.5vw,72px);line-height:1.08;text-shadow:0 4px 28px #000}
+.viewAll{flex-shrink:0;color:#f6c36b;font-size:clamp(12px,1vw,16px);text-decoration:none;border-bottom:1px solid rgba(241,184,90,.5);padding:12px 0}
+.viewAll:hover,.viewAll:focus-visible{color:#ffe2a3}
+.showcase{position:relative;max-width:1600px;margin:auto}
+.showcase::after{content:"";display:block;height:37px;margin:0 3%;background:radial-gradient(ellipse at center,rgba(251,178,80,.35),transparent 66%);filter:blur(18px);pointer-events:none}
+.artistGallery{display:flex;align-items:flex-end;gap:clamp(13px,1.45vw,24px);overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:22px 16px 26px;perspective:1500px;mask-image:linear-gradient(90deg,transparent,#000 2%,#000 98%,transparent)}
+.artistGallery::-webkit-scrollbar{display:none}
+.artistTile{flex:0 0 calc((100% - 5 * clamp(13px,1.45vw,24px))/6);min-width:0;display:block;position:relative;scroll-snap-align:center;text-decoration:none;color:#fff;transform:perspective(1000px) rotateY(-8deg) rotateZ(-1deg);transform-origin:bottom center;transition:transform .35s ease;outline-offset:4px}
+.artistTile:nth-child(even){transform:perspective(1000px) rotateY(7deg) rotateZ(1deg) translateY(-5px)}
+.artistTile:nth-child(3n){transform:perspective(1000px) rotateY(-4deg) rotateZ(-.5deg) translateY(-12px)}
+.tileArtwork{position:relative;display:block;aspect-ratio:3/4.3;overflow:hidden;border:1px solid rgba(255,207,122,.9);border-radius:11px;background:#11171e;box-shadow:inset 0 0 0 2px rgba(255,231,178,.2),3px 4px 0 #8c602c,6px 7px 0 #342310,0 24px 30px rgba(0,0,0,.86),0 0 18px rgba(248,172,61,.27)}
+.tileArtwork::before{content:"";position:absolute;z-index:2;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 2px 2px 2px rgba(255,240,201,.65),inset -3px 0 5px rgba(0,0,0,.6)}
+.tileArtwork img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;transition:transform .4s ease}
+.tileLogo img{object-fit:contain;padding:12%;box-sizing:border-box;background:radial-gradient(ellipse,rgba(175,116,36,.25),transparent 70%)}
+.tileShine{position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(115deg,rgba(255,241,208,.23),transparent 28%,transparent 75%,rgba(0,0,0,.3)),linear-gradient(0deg,rgba(0,0,0,.94),rgba(0,0,0,.18) 32%,transparent 57%)}
+.tileInfo{position:absolute;z-index:3;bottom:0;left:0;right:0;display:flex;flex-direction:column;gap:5px;padding:24px 12px 17px;text-shadow:0 2px 9px #000}
+.tileInfo strong{font-family:Georgia,'Times New Roman',serif;font-size:clamp(14px,1.42vw,24px);font-weight:400;line-height:1.1}
+.tileInfo small{color:#f3c27d;font-size:clamp(10px,.92vw,14px)}
+.carouselArrow{position:absolute;z-index:5;top:43%;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;border:1px solid #eeb75c;background:rgba(4,7,12,.75);color:#f8c36a;font-family:Georgia,serif;font-size:36px;line-height:1;cursor:pointer;transform:translateY(-50%)}
+.arrowLeft{left:-37px}.arrowRight{right:-37px}
+.carouselArrow:hover,.carouselArrow:focus-visible{background:#edbd6b;color:#090a0c}
+@media(hover:hover) and (pointer:fine){.artistTile:hover{z-index:4;transform:translateY(-15px) rotateY(0) rotateZ(0) scale(1.04)}.artistTile:hover img{transform:scale(1.045)}}
+@media(max-width:1050px){.artistTile{flex-basis:calc((100% - 2 * 18px)/3)}.artistGallery{gap:18px}.arrowLeft{left:-18px}.arrowRight{right:-18px}}
+@media(max-width:680px){.section{padding:36px 16px 42px}.heading{margin-bottom:16px}.heading h2{font-size:clamp(29px,7vw,40px)}.viewAll{font-size:11px;white-space:nowrap}.artistGallery{gap:14px;padding:12px 8px 16px;mask-image:none}.artistTile{flex-basis:72%;transform:none!important}.tileInfo strong{font-size:21px}.tileInfo small{font-size:12px}.carouselArrow{width:34px;height:34px;font-size:27px;top:45%}.arrowLeft{left:-11px}.arrowRight{right:-11px}}
+@media(prefers-reduced-motion:reduce){.artistTile,.tileArtwork img{transition:none!important}.artistTile:hover{transform:none!important}}
