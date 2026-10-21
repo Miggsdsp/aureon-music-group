@@ -94,3 +94,32 @@
 @media(max-width:680px){.hero{min-height:0;padding:105px 22px 45px;background-position:58% center}.hero h1{font-size:clamp(40px,9vw,60px)}.heroActions{width:100%;flex-direction:column}.heroActions a{width:100%}.catalogue{width:calc(100% - 30px);padding:40px 0 65px}.sectionHeading{align-items:stretch;flex-direction:column;gap:22px}.artistGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:4px 3px 16px}.artistCard:nth-child(n){transform:none;box-shadow:-3px 4px 0 #704717,0 12px 22px rgba(0,0,0,.6)}.artwork{margin:7px 7px 0;aspect-ratio:4/5}.cardCopy{padding:12px 10px 15px;min-height:132px}.artistTitleRow h3{font-size:clamp(16px,4.1vw,22px)}.artistTitleRow svg{width:15px}.genres{font-size:8px}.description{font-size:10px}.cardLink{font-size:8px}.artistLabel{font-size:7px;left:7px;top:7px;padding:5px}}
 @media(max-width:370px){.artistGrid{grid-template-columns:1fr;gap:20px}.artwork{aspect-ratio:5/4}.artistTitleRow h3{font-size:25px}}
 @media(prefers-reduced-motion:reduce){.artistCard:nth-child(n),.artistCard:nth-child(n):hover{transform:none;transition:none}}
+
+
+/* Approved six-artist showcase: tall glass cards, uninterrupted artwork, names on image. */
+.hero{min-height:320px;padding-top:105px;padding-bottom:35px}
+.hero h1{font-size:clamp(44px,4.9vw,72px)}
+.hero h1 span{color:#fff8e9;text-shadow:0 3px 18px rgba(0,0,0,.8)}
+.lede{margin-top:12px}
+.heroActions{margin-top:19px}
+.catalogue{width:min(1560px,calc(100% - 64px));padding-top:34px}
+.sectionHeading{margin-bottom:22px}
+.artistGrid{grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(10px,1.2vw,20px);padding:12px 8px 30px;align-items:stretch}
+.artistCard,.artistCard:nth-child(3n+2),.artistCard:nth-child(3n){position:relative;display:block;aspect-ratio:0.69;min-height:0;overflow:visible;transform:perspective(1300px) rotateY(-3deg);border:1px solid #e9af50;border-radius:8px;background:#06090e;box-shadow:-5px 6px 0 #593512,-7px 8px 0 #ba792c,0 14px 30px rgba(0,0,0,.72),0 0 17px rgba(255,179,64,.2),inset 0 0 0 1px rgba(255,229,157,.45)}
+.artistCard:nth-child(2),.artistCard:nth-child(5){transform:perspective(1300px) rotateY(3deg)}
+.artistCard:nth-child(3),.artistCard:nth-child(6){transform:perspective(1300px) rotateY(-1deg)}
+.artistCard:before{inset:4px;z-index:4;border:1px solid rgba(255,226,165,.38);border-radius:5px;pointer-events:none}
+.artistCard:after{z-index:4;bottom:-2px;height:5px}
+.artwork{position:absolute;inset:0;margin:0;width:100%;height:100%;aspect-ratio:auto;overflow:hidden;border:0;border-radius:7px;background:#05070b;box-shadow:none}
+.artwork img,.identity img{width:100%;height:100%;object-fit:cover;padding:0}
+.artwork:before{z-index:2;inset:35% 0 0;background:linear-gradient(180deg,transparent 15%,rgba(0,0,0,.15) 40%,rgba(0,0,0,.92) 100%)}
+.artwork:after{z-index:3;background:linear-gradient(110deg,rgba(255,245,207,.18),transparent 15% 85%,rgba(255,199,92,.1));box-shadow:inset 0 0 0 1px rgba(255,226,157,.36)}
+.cardCopy{position:absolute;z-index:5;inset:auto 0 0;min-height:0;padding:30px 12px 20px;display:block;background:none;pointer-events:none}
+.artistTitleRow{display:block}
+.artistTitleRow h3{font:400 clamp(15px,1.5vw,24px)/1.15 Georgia,'Times New Roman',serif;color:#fffaf0;text-shadow:0 2px 9px #000,0 1px 2px #000}
+.genres{margin:6px 0 0;font-size:clamp(9px,.85vw,13px);font-weight:400;letter-spacing:0;text-transform:none;color:#ffcf86;text-shadow:0 2px 7px #000}
+.artistCard:hover,.artistCard:nth-child(n):hover{transform:perspective(1300px) translateY(-8px) rotateY(0);filter:none;box-shadow:-5px 6px 0 #8b571d,-7px 8px 0 #e4a549,0 20px 35px rgba(0,0,0,.72),0 0 27px rgba(255,184,72,.4)}
+@media(max-width:1100px){.artistGrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}.artistTitleRow h3{font-size:clamp(19px,2.6vw,27px)}.genres{font-size:12px}}
+@media(max-width:650px){.hero{padding-top:95px}.catalogue{width:calc(100% - 28px)}.artistGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.artistCard:nth-child(n){transform:none;aspect-ratio:.72}.cardCopy{padding:25px 11px 16px}.artistTitleRow h3{font-size:clamp(17px,4.5vw,23px)}.genres{font-size:11px}}
+@media(max-width:370px){.artistGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.artistCard:nth-child(n):hover{transform:none}}
