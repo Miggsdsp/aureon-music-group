@@ -497,7 +497,7 @@ export default function MusicPlayerProvider({ children }: { children: React.Reac
     {currentSong && <aside className={`aureon-global-player ${expanded ? "aureon-player-expanded" : ""}`} aria-label="Music player">
       <button className="aureon-player-expand" type="button" onClick={() => { setExpanded(value => !value); setQueueOpen(false); }} aria-label={expanded ? "Minimize player" : "Expand player"}>{expanded ? <Minimize2 /> : <Maximize2 />}</button>
       <button className="aureon-player-close" type="button" onClick={() => resetPlayer(true)} aria-label="Close music player"><X /></button>
-      {error && <div className="aureon-player-error">{error}</div>}
+      {error && <div className="aureon-player-error" role="alert"><span>{error}</span><button type="button" className="aureon-player-error-dismiss" onClick={() => setError('')} aria-label="Dismiss playback error"><X size={18} aria-hidden="true" /></button></div>}
       {expanded && <div className="aureon-player-intro"><span>AUREON MUSIC GROUP</span><strong>NOW PLAYING</strong></div>}
       <div className="aureon-player-track">
         <button type="button" className="aureon-player-artwork-trigger" onClick={() => { setExpanded(value => !value); setQueueOpen(false); }} aria-label={expanded ? "Minimize now playing" : "Open full-screen now playing"}>
