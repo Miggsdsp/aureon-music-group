@@ -1,4 +1,5 @@
 import { ServerPageShell } from '@/components/ServerPageShell';
+import './licensing.css';
 import Link from 'next/link';
 import { creatorLicensingPages } from '@/lib/creator-licensing-pages';
 import { buildMetadata } from '@/lib/seo';
@@ -11,7 +12,7 @@ export const metadata = buildMetadata({
 
 export default function LicensingPage() {
   return (
-    <ServerPageShell title="Licensing" kicker="Sync & business">
+    <ServerPageShell title="Licensing" kicker="Sync & business"><div className="aureon-licensing-content">
       <h2>Choose the right Aureon licensing route for your project.</h2>
       <p>Aureon offers two clear public routes: Creator Licensing for eligible creator-led online use, and Commercial Licensing for wider business, advertising, broadcast, venue, public performance or specialist project requirements.</p>
       <p>All use remains governed by the published Master Music Licensing Agreement, Creator Licence Agreement and Commercial Licensing Agreement. Creator use requires an active Aureon Creator subscription and must stay within the applicable licence limits.</p>
@@ -51,6 +52,6 @@ export default function LicensingPage() {
       </div>
       <p>For wider advertising, broadcast, public performance, TV, radio, venue, enterprise or other use outside the Creator Licence scope, contact Aureon and request written confirmation before publishing the project.</p>
       <p><Link className="ghost-button" href="/contact">Contact Aureon about licensing →</Link> <Link className="ghost-button" href="/legal/licensing-agreement">Read licensing terms →</Link></p>
-    </ServerPageShell>
+    </div></ServerPageShell>
   );
 }
