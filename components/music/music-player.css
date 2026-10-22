@@ -89,3 +89,11 @@
 .aureon-player-expanded .aureon-expanded-queue{flex:none}
 }
 @media(max-width:380px){.aureon-global-player:not(.aureon-player-expanded){padding-left:9px;padding-right:43px}.aureon-global-player:not(.aureon-player-expanded) .aureon-player-track img{width:42px;height:42px}.aureon-global-player:not(.aureon-player-expanded) .aureon-player-expand{right:44px}.aureon-global-player:not(.aureon-player-expanded) .aureon-player-close{right:6px}.aureon-global-player:not(.aureon-player-expanded) .aureon-player-controls{gap:4px}}
+
+/* Dismissible playback message: keep text readable and X reachable on iPhone. */
+.aureon-player-error{display:flex;align-items:center;justify-content:space-between;gap:12px;box-sizing:border-box;padding:9px 12px 9px 16px;min-width:0}
+.aureon-player-error>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.aureon-player-error-dismiss{display:grid!important;place-items:center;flex:0 0 38px;width:38px!important;height:38px!important;min-width:38px;border:1px solid rgba(255,255,255,.65)!important;border-radius:50%!important;background:rgba(0,0,0,.22)!important;color:#fff!important;cursor:pointer}
+.aureon-player-error-dismiss:hover{background:rgba(0,0,0,.5)!important}
+.aureon-player-error-dismiss:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media(max-width:700px){.aureon-player-error{gap:8px;padding:8px 10px 8px 14px;font-size:13px;line-height:1.35}.aureon-player-error-dismiss{flex-basis:40px;width:40px!important;height:40px!important}}
