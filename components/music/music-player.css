@@ -97,3 +97,11 @@
 .aureon-player-error-dismiss:hover{background:rgba(0,0,0,.5)!important}
 .aureon-player-error-dismiss:focus-visible{outline:2px solid #fff;outline-offset:2px}
 @media(max-width:700px){.aureon-player-error{gap:8px;padding:8px 10px 8px 14px;font-size:13px;line-height:1.35}.aureon-player-error-dismiss{flex-basis:40px;width:40px!important;height:40px!important}}
+
+
+/* Full playlist navigation: independent touch scrolling, including iOS Safari. */
+.aureon-player-expanded .aureon-expanded-queue{min-height:0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:#d7a353 rgba(0,0,0,.35)}
+.aureon-player-expanded .aureon-expanded-queue>button{touch-action:pan-y;cursor:pointer}
+.aureon-player-expanded .aureon-expanded-queue-heading{position:sticky;top:-18px;z-index:1;margin:-18px -14px 8px;padding:18px 22px 15px;background:linear-gradient(110deg,#24190e,#07090c);border-bottom:1px solid rgba(215,163,83,.3)}
+@media(max-width:1100px){.aureon-player-expanded .aureon-expanded-queue{max-height:min(56dvh,520px);overflow-y:auto;flex:none}}
+@media(max-width:700px){.aureon-player-expanded .aureon-expanded-queue{width:100%;height:auto;max-height:min(55dvh,480px);min-height:180px;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:contain;flex:0 0 auto}.aureon-player-expanded .aureon-expanded-queue>button{min-height:70px}.aureon-player-expanded .aureon-expanded-queue-heading{top:-18px}}
