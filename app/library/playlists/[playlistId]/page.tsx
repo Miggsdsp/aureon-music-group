@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { ArrowLeft, Clock3, ListMusic, ListPlus, Play, Plus, Search, Shuffle, Trash2, Upload, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { firebaseAuth, firestore } from '@/lib/firebase-client';
 import { type PlayerSong, useMusicPlayer } from '@/components/music/MusicPlayerProvider';
 import { getArtwork } from '@/lib/get-artwork';
@@ -42,6 +42,9 @@ export default function PlaylistDetailPage() {
   const params = useParams<{ playlistId: string }>();
   const playlistId = decodeURIComponent(String(params.playlistId || ''));
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const autoplayRequested = searchParams.get('autoplay') === '1';
+  const autoplayAttempted = useRef(false);
   const { currentSong, playQueue, playSong, enqueue, openQueue } = useMusicPlayer();
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -90,6 +93,13 @@ export default function PlaylistDetailPage() {
   const catalogueById = useMemo(() => new Map(catalogue.map(song => [song.id, song])), [catalogue]);
   const playlistSongs = useMemo(() => (playlist?.songIds || []).map(id => catalogueById.get(id)).filter(Boolean) as Song[], [catalogueById, playlist?.songIds]);
   const songs = playlistSongs;
+  // A dashboard playlist tap opens this page and starts the selected queue.
+  // Safari may require a second tap for sound after navigation; Play All remains available.
+  useEffect(() => {
+    if (!autoplayRequested || autoplayAttempted.current || !hasAccess || !playlist || !playlistSongs.length) return;
+    autoplayAttempted.current = true;
+    void playQueue(playlistSongs);
+  }, [autoplayRequested, hasAccess, playlist, playlistSongs, playQueue]);
   const availableSongs = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return catalogue.filter(song => !(playlist?.songIds || []).includes(song.id)
