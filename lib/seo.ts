@@ -46,8 +46,13 @@ export const getPublishedRecords = cache(async (collectionName: string): Promise
 export function buildMetadata({ title, description, path, image, type = 'website' }: { title: string; description: string; path: string; image?: string; type?: 'website' | 'article' }) : Metadata {
   const canonical = `${SITE_URL}${path}`;
   const socialImage = absoluteUrl(image);
+  // The root layout adds the brand suffix through its title template.
+  // Avoid repeating it for page titles already containing the full brand name.
+  const pageTitle = title.toLowerCase().includes(SITE_NAME.toLowerCase())
+    ? { absolute: title }
+    : title;
   return {
-    title,
+    title: pageTitle,
     description,
     alternates: { canonical },
     openGraph: {
