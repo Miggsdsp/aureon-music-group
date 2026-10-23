@@ -28,7 +28,7 @@ export default function NewsArticlePage(){
  const image=article.imageUrl||article.image||'/images/branding/Aureon_Header_Logo.png';
  const body=Array.isArray(article.body)?article.body:String(article.body||article.content||'').split('\n').filter(Boolean);
  return <main className="page-shell news-article-page"><Header/>
-  <section className="news-article-hero"><div className="news-article-image"><Image src={image} alt={article.title} width={1400} height={900} unoptimized/></div><div className="news-article-heading"><Link href={localePath('/news',locale)} className="back-link"><ArrowLeft size={16}/> Back to news</Link><p className="eyebrow">{article.category} · {article.date||article.publishDate||''} · {article.readTime||''}</p><h1>{article.title}</h1><p>{article.excerpt||article.summary}</p></div></section>
+  <section className="news-article-hero"><div className="news-article-image"><Image src={image} alt={article.title} width={1400} height={900} unoptimized/></div><div className="news-article-heading"><Link href={localePath('/news',locale)} className="back-link"><ArrowLeft size={16}/> Back to news</Link><p className="eyebrow">{article.category}</p><h1>{article.title}</h1><p>{article.excerpt||article.summary}</p></div></section>
   <article className="news-article-body">{body.map((paragraph:string,index:number)=><p key={`${index}-${paragraph.slice(0,20)}`}>{paragraph}</p>)}{article.artistSlug?<Link className="ghost-button" href={localePath(`/artists/${article.artistSlug}`,locale)}>View artist profile →</Link>:null}</article>
   <Footer/></main>;
 }
