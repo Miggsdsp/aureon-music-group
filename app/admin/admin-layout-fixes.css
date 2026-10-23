@@ -231,3 +231,70 @@
   .admin-toolbar > *, .admin-toolbar input, .admin-toolbar select, .admin-toolbar button { width: 100%; }
   .admin-table-wrap table { min-width: 860px; }
 }
+
+
+/* AUREON CONTROL CENTER — unified cinematic admin design system.
+   Scoped to the secure admin interface; does not change Firebase, Stripe or CMS behaviour. */
+.admin-app{
+  --admin-gold:#e0ae5d;--admin-gold-bright:#ffe1a0;--admin-ivory:#fff7e9;
+  --admin-muted:#cbbda8;--admin-border:rgba(218,164,81,.48);
+  --admin-surface:linear-gradient(135deg,rgba(45,29,14,.94),rgba(6,10,16,.97) 72%);
+  background:linear-gradient(180deg,rgba(1,4,9,.58),#03070d 740px),url('/images/aureon-eclipse-ocean-poster.webp') center top/100% auto no-repeat,#03070d!important;
+  color:var(--admin-ivory);overflow-x:clip;
+}
+.admin-app .admin-main{background:transparent!important;min-width:0}
+.admin-app .admin-sidebar{background:linear-gradient(180deg,rgba(21,14,10,.98),rgba(3,7,12,.99))!important;border-right:1px solid var(--admin-border);box-shadow:10px 0 40px rgba(0,0,0,.4)}
+.admin-app .admin-brand{border-bottom-color:var(--admin-border)!important}
+.admin-app .admin-brand small{color:#e8c78f!important}
+.admin-app .admin-sidebar nav a{border-radius:7px;font-size:14px;line-height:1.35;min-height:45px;transition:background .18s,border-color .18s,color .18s}
+.admin-app .admin-sidebar nav a:hover,.admin-app .admin-sidebar nav a:focus-visible{background:rgba(172,111,36,.2);color:#fff2d7;border-color:rgba(255,211,133,.35);outline:none}
+.admin-app .admin-sidebar nav a.active{background:linear-gradient(95deg,rgba(194,128,47,.38),rgba(25,19,15,.66));border-color:var(--admin-gold);color:var(--admin-gold-bright);box-shadow:inset 0 1px rgba(255,233,178,.24)}
+.admin-app .admin-topbar{background:linear-gradient(90deg,rgba(18,13,11,.93),rgba(5,9,15,.94))!important;border-bottom-color:var(--admin-border);min-width:0}
+.admin-app .admin-topbar strong{color:var(--admin-ivory);overflow-wrap:anywhere}
+.admin-app .admin-topbar>span{border-radius:999px;background:rgba(164,108,39,.14);color:var(--admin-gold-bright)}
+.admin-app .admin-content{max-width:1540px;min-width:0}
+.admin-app .admin-page-heading h1,.admin-app .admin-content h1{font-family:Georgia,'Times New Roman',serif!important;font-size:clamp(40px,4.7vw,76px)!important;font-weight:400!important;line-height:1.07!important;letter-spacing:-.045em!important;color:var(--admin-ivory)!important;text-shadow:0 5px 26px rgba(0,0,0,.65);overflow-wrap:anywhere}
+.admin-app .admin-page-heading>p:last-child,.admin-app .admin-content>p,.admin-app .admin-content header p{color:#e1d0b8;font-size:clamp(14px,1.3vw,17px)!important;line-height:1.6}
+.admin-app .admin-kicker,.admin-app .eyebrow{color:#ffcd7e!important;letter-spacing:.2em!important}
+.admin-app .admin-panel,.admin-app .admin-stat-card,.admin-app .admin-stat-grid article,.admin-app .admin-dashboard-grid article,.admin-app .admin-empty-state,.admin-app .admin-cms-form,.admin-app .admin-cms-list,.admin-app .admin-table-wrap{
+  min-width:0;border:1px solid var(--admin-border)!important;border-radius:9px!important;background:var(--admin-surface)!important;
+  box-shadow:inset 0 1px rgba(255,231,175,.2),0 14px 35px rgba(0,0,0,.35)!important;
+}
+.admin-app .admin-stat-grid article strong,.admin-app .admin-stat-card strong{color:var(--admin-gold-bright)!important}
+.admin-app .admin-panel h2,.admin-app .admin-dashboard-grid h2,.admin-app .admin-cms-form h2,.admin-app .admin-empty-state h2{font-family:Georgia,'Times New Roman',serif;color:var(--admin-ivory);font-weight:400}
+.admin-app .admin-cms-grid{min-width:0;gap:clamp(16px,2vw,26px)}
+.admin-app .admin-cms-form{position:static;min-width:0}
+.admin-app :is(input:not([type='checkbox']):not([type='radio']):not([type='range']),select,textarea){
+  max-width:100%;min-width:0;border:1px solid rgba(218,164,81,.54);border-radius:6px;background:rgba(3,7,12,.9);color:var(--admin-ivory);font:inherit;accent-color:#d8a24d
+}
+.admin-app :is(input,select,textarea):focus-visible{outline:2px solid var(--admin-gold-bright);outline-offset:2px;border-color:var(--admin-gold-bright)}
+.admin-app :is(input,textarea)::placeholder{color:#b4a38b;opacity:1}
+.admin-app :is(button,.admin-primary-action,.admin-cms-actions button){border-radius:6px;min-height:38px}
+.admin-app :is(button,a):focus-visible{outline:2px solid var(--admin-gold-bright);outline-offset:3px}
+.admin-app .admin-primary-action,.admin-app .admin-cms-toolbar button{background:linear-gradient(125deg,#ffebba,#e0ae5d 56%,#b47b32);color:#1a1006;border:1px solid #ffe5a9;border-radius:6px}
+.admin-app .admin-table-wrap{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+.admin-app .admin-table-wrap th{background:rgba(62,39,15,.7);color:#ffdb9a}
+.admin-app .admin-table-wrap td{color:#f1e5d1}
+.admin-app .admin-cms-message{border-radius:6px;background:rgba(72,48,19,.7);color:#ffe0a2}
+.admin-login-page{background:linear-gradient(180deg,rgba(1,4,9,.52),rgba(2,5,10,.94)),url('/images/aureon-eclipse-ocean-poster.webp') center center/cover no-repeat,#03070d!important}
+.admin-login-card{border:1px solid #d4a052;border-radius:12px;background:linear-gradient(145deg,rgba(45,28,13,.94),rgba(3,8,14,.98));box-shadow:inset 0 1px rgba(255,235,190,.25),0 25px 80px #000}
+.admin-login-card h1{font-family:Georgia,'Times New Roman',serif;font-weight:400;color:#fff7e9}
+.admin-login-card input{border-radius:6px}
+.admin-login-card button{border-radius:6px}
+@media(max-width:1180px){.admin-app .admin-content{padding:34px 25px 54px!important}.admin-app .admin-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){
+  .admin-app{background-size:auto,auto 700px}
+  .admin-app .admin-sidebar{height:100dvh;max-height:100dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+  .admin-app .admin-topbar{height:76px!important;padding:0 12px 0 76px!important;gap:10px}
+  .admin-app .admin-topbar strong{display:block;max-width:46vw;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .admin-app .admin-topbar>span{max-width:98px;font-size:9px;padding:7px}
+  .admin-app .admin-content{padding:26px 14px 60px!important}
+  .admin-app .admin-page-heading h1,.admin-app .admin-content h1{font-size:clamp(37px,9vw,56px)!important}
+  .admin-app .admin-stat-grid,.admin-app .admin-dashboard-grid{grid-template-columns:1fr!important;gap:14px}
+  .admin-app .admin-stat-grid article,.admin-app .admin-dashboard-grid article,.admin-app .admin-cms-form,.admin-app .admin-cms-list{padding:20px!important}
+  .admin-app .admin-cms-grid{grid-template-columns:minmax(0,1fr)!important}
+  .admin-app .admin-mobile-menu{top:max(12px,env(safe-area-inset-top,0px));left:12px;border-radius:8px;background:#1b140e;color:#ffdc97}
+  .admin-app .admin-table-wrap table{min-width:760px}
+}
+@media(max-width:400px){.admin-app .admin-content{padding-inline:10px!important}.admin-app .admin-topbar strong{max-width:36vw}.admin-login-card{padding:28px 18px}}
+@media(prefers-reduced-motion:reduce){.admin-app *{scroll-behavior:auto!important;transition-duration:.01ms!important}}
