@@ -93,10 +93,12 @@ export function CinematicHero() {
       <div className={styles.heroOverlay}>
         
         <p className={styles.slogan}>ORIGINAL ARTISTS. TIMELESS MUSIC.</p>
+        <p className={styles.premiumValue}>Go beyond the music with exclusive members-only releases, early album access, extended mixes and a fresh exclusive collection every month.</p>
+        <p className={styles.premiumPrice}>AUREON LISTENER PREMIUM · €8.99 / MONTH</p>
         
         <div className={styles.heroActions}>
           <Link className={styles.discoverButton} href="/discover"><span aria-hidden="true">▶</span> START LISTENING <span aria-hidden="true">→</span></Link>
-          <Link className={styles.accountButton} href="/membership">EXPLORE MEMBERSHIP</Link>
+          <Link className={styles.accountButton} href="/membership">DISCOVER PREMIUM</Link>
         </div>
       </div>
 
