@@ -33,7 +33,10 @@ export function usePublishedDocument<T=any>(collectionName:string,slug:string|un
     const record = entry ? normalizePublicRecord(entry.data(), entry.id) : null;
     // Public catalogue references resolved on the server remain useful for legacy records.
     if (record && seed) for (const key of ['artistSlug','albumSlug']) if (!record[key]) record[key] = seed[key];
-    // A published server-rendered record is authoritative for this public route.\n    // Do not erase crawlable page content when a browser-side Firestore lookup\n    // temporarily fails or is blocked by client security rules.\n    setData((record as T | null) ?? (seed as T | undefined) ?? fallback);
+    // Preserve the server-provided published record if the browser lookup fails.
+    // A successful client refresh may lack server-enriched catalogue relationships,
+    // so retain the seed's public fields while applying the latest public values.
+    setData((record && seed ? { ...seed, ...record } : record ?? seed ?? fallback) as T | null);
    }
   }catch(error){console.error(`Unable to load ${collectionName}/${slug}`,error)}finally{if(active)setLoading(false)}})();
   return()=>{active=false};
