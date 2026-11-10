@@ -90,6 +90,24 @@
   text-shadow: 0 2px 15px #000;
 }
 
+.premiumValue {
+  max-width: 680px;
+  margin: 0 0 10px;
+  color: #fff8ea;
+  font-size: clamp(13px, 1.25vw, 16px);
+  line-height: 1.55;
+  text-shadow: 0 2px 16px rgba(0,0,0,.95);
+}
+
+.premiumPrice {
+  margin: 0 0 20px;
+  color: var(--hero-gold);
+  font-size: clamp(10px, .9vw, 12px);
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-shadow: 0 2px 12px #000;
+}
+
 .heroActions { display: flex; align-items: center; justify-content: center; gap: 12px; }
 
 .discoverButton,
@@ -136,6 +154,9 @@
   }
   .heroHeadline { top: 38%; width: calc(100% - 34px); font-size: clamp(27px, 7.8vw, 36px); letter-spacing: .055em; line-height: 1.14; }
   .heroOverlay { top: 68%; width: calc(100% - 36px); }
+  .premiumValue { font-size: 12px; line-height: 1.45; margin-bottom: 8px; }
+  .premiumPrice { font-size: 10px; line-height: 1.4; margin-bottom: 13px; letter-spacing: .08em; }
+  .slogan { margin-bottom: 10px; }
   .slogan { margin-bottom: 17px; font-size: 10px; letter-spacing: .2em; }
   .heroActions { width: 100%; flex-direction: column; gap: 9px; }
   .discoverButton, .accountButton { width: min(100%, 340px); min-height: 44px; }
